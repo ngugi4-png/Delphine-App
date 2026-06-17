@@ -1055,7 +1055,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <div class="filter-actions">
           <button class="btn btn-gold btn-sm" onclick="loadBranchSummary()">Generate</button>
-          <button class="btn btn-blue btn-sm" onclick="exportBranchSummaryCSV()">&#11123; Export CSV</button>
+          <button class="btn btn-blue btn-sm" onclick="exportBranchSummaryCSV()">&#11123; Full CSV</button>
+          <button class="btn btn-green btn-sm" onclick="exportPetrolSummaryCSV()">&#11123; Petrol Summary</button>
         </div>
       </div>
       <div id="bsSummaryContent"><p class="empty">Select a month and click Generate.</p></div>
@@ -1088,15 +1089,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
     <div id="tabExport" class="adm-panel">
       <div class="card">
-        <div class="card-title">Export Sales Report to Excel</div>
-        <div class="g2" style="margin-bottom:12px">
+        <div class="card-title">Export Sales Report — CSV / Excel Format</div>
+        <div class="info-note" style="margin-bottom:12px">
+          Exports one row per day per branch matching your spreadsheet format:
+          Date, Price Reading, Closing Price Reading, Petrol Sales, 2T QTY, 2T Kupima, 2T Sales,
+          Used Oil QTY, Used Oil Sales, Shell Advance QTY, Amount, Total Sales Amount,
+          Liters Reading, Closing Liter Reading, Liters Sold, Sales Rate.
+        </div>
+        <div class="g3" style="margin-bottom:14px">
           <div class="field"><label>Branch</label><select id="expBranch"><option value="">All Branches</option></select></div>
           <div class="field"><label>From Date</label><input type="date" id="expFrom"></div>
           <div class="field"><label>To Date</label><input type="date" id="expTo"></div>
-          <div class="field"><label>Status</label><select id="expStatus"><option value="">All</option><option value="approved">Approved only</option><option value="pending">Pending only</option></select></div>
         </div>
-        <button class="btn btn-gold" onclick="exportToExcel()">&#11123; Download Excel</button>
-        <p style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--text3);margin-top:10px;line-height:1.8">Exports: Date, Price Reading, Petrol Sales, 2T Motor Oil (qty/price/total), 2T-Kupima, Used Oil, Shell Advance, Total Sales, Metre Opening/Closing/Litres/Price, and more.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-gold" onclick="exportToExcel()">&#11123; Export Daily Sales CSV</button>
+          <button class="btn btn-blue btn-sm" onclick="exportPetrolSummaryCSV()">&#11123; Petrol Branch Summary CSV</button>
+        </div>
       </div>
     </div>
 
@@ -4957,6 +4965,7 @@ function admSubTab(btn, panelId, mainId) {
   else if(panelId==="tabVend"){loadVendors();loadPOs();loadBills();if(!el("billRow_1")){_billRowCount=0;addBillProductRow();}}
   else if(panelId==="tabEmailSettings"){loadEmailSettings();}
   else if(panelId==="tabBranches")loadBranchesTab();
+  else if(panelId==="tabPetrolSales"){initPetrolSalesDropdowns();}
   else if(panelId==="tabBankAccts")loadBankAccts();
   else if(panelId==="tabAudit")loadAuditStaffFilter();
   else if(panelId==="tabCreateReport"){var d=el("ar_date");if(d)d.valueAsDate=new Date();loadAdminReportBranches();loadAdminReportStaff(null);}
@@ -4964,6 +4973,7 @@ function admSubTab(btn, panelId, mainId) {
 function admTab(btn, panelId) {
   var fp=["tabExpenses","tabDebts"];
   var ap=["tabTrends","tabDailyCompare","tabPredictions"];
+  var bsp=["tabBranchSummary","tabPetrolSales"];
   var rp=["tabAppr","tabSales","tabRecon","tabDeps","tabPL","tabStock","tabAudit","tabInvReport","tabExport","tabStaffPerf"];
   var op=["tabInv","tabVend","tabCreateReport"];
   var sp=["tabStaff","tabBranches","tabBankAccts"];
@@ -4973,7 +4983,7 @@ function admTab(btn, panelId) {
   if(sp.indexOf(panelId)>=0)mk="mSettings";
   if(fp.indexOf(panelId)>=0)mk="mFinance";
   if(ap.indexOf(panelId)>=0)mk="mAnalytics";
-  if(panelId==="tabBranchSummary")mk="mSummary";
+  if(bsp.indexOf(panelId)>=0)mk="mSummary";
   var mm={mDash:"dash",mReports:"reports",mOps:"ops",mSettings:"settings",mSummary:"summary",mFinance:"finance",mAnalytics:"analytics"};
   document.querySelectorAll(".adm-tab").forEach(function(t){t.classList.remove("active");});
   var mb=el("mainTab_"+(mm[mk]||"dash"))||el("mainTab_finance")||el("mainTab_summary");if(mb)mb.classList.add("active");
@@ -5143,34 +5153,169 @@ function showBranchLitresDetail(branch){
 
 // ─── EXCEL EXPORT ─────────────────────────────────────
 function exportToExcel(){
-  var branch=gv("rFBranch"),from=gv("rFFrom"),to=gv("rFTo"),staff=gv("rFStaff").toLowerCase();
-  var product=gv("rFProduct"),status=gv("rFStatus");
-  db.collection("reports").orderBy("date","desc").get().then(function(snap){
-    var rows=[];
+  // Filters — from Reports tab filter bar OR Export tab selectors
+  var branch = gv("expBranch") || gv("rFBranch");
+  var from   = gv("expFrom")   || gv("rFFrom");
+  var to     = gv("expTo")     || gv("rFTo");
+  var status = gv("expStatus") || gv("rFStatus");
+  var staff  = (gv("rFStaff")||"").toLowerCase();
+
+  db.collection("reports").orderBy("date","asc").get().then(function(snap){
+    // Group by branch then by date (sum multiple shifts per day)
+    var byBranchDate = {};
     snap.forEach(function(d){
       var r=d.data();
-      if(branch&&r.branch!==branch)return;if(from&&r.date<from)return;if(to&&r.date>to)return;
-      if(staff&&!(r.staffName||"").toLowerCase().includes(staff))return;if(status&&r.approvalStatus!==status)return;
+      if(r.approvalStatus!=="approved") return;
+      if(branch && r.branch!==branch) return;
+      if(from   && r.date<from) return;
+      if(to     && r.date>to)   return;
+      if(staff  && !(r.staffName||"").toLowerCase().includes(staff)) return;
+      var b=r.branch||"Unknown";
+      if(!byBranchDate[b]) byBranchDate[b]={};
+      var dt=r.date||"";
+      if(!byBranchDate[b][dt]) byBranchDate[b][dt]={
+        date:dt, branch:b,
+        diOpen:0, diClose:0,        // Display (KSh) opening/closing
+        mOpen:0, mClose:0,          // Metre Litres opening/closing
+        petrolSales:0,              // KSh from petrol
+        litresSold:0, pricePerL:0,
+        p2tQty:0, p2tSales:0,
+        p2tkQty:0, p2tkSales:0,
+        puoilQty:0, puoilSales:0,
+        pshellQty:0, pshellSales:0,
+        grandTotal:0, count:0
+      };
+      var row=byBranchDate[b][dt];
       var pu=r.pump||{},m=pu.metre||{},di=pu.display||{},p=r.products||{};
-      rows.push([r.date||"",r.branch||"",r.staffName||"",r.shift||"",r.approvalStatus||"",
-        di.opening||0,di.closing||0,
-        m.opening||0,m.closing||0,(m.sold||0).toFixed(2),m.pricePerLitre||0,(m.value||0).toFixed(2),
-        (p.p2t&&p.p2t.qty)||0,(p.p2t&&p.p2t.price)||0,(p.p2t&&p.p2t.total||0).toFixed(2),
-        (p.p2tk&&p.p2tk.qty||0).toFixed(2),(p.p2tk&&p.p2tk.price)||0,(p.p2tk&&p.p2tk.total||0).toFixed(2),
-        (p.puoil&&p.puoil.qty||0).toFixed(2),(p.puoil&&p.puoil.price)||0,(p.puoil&&p.puoil.total||0).toFixed(2),
-        (p.pshell&&p.pshell.qty)||0,(p.pshell&&p.pshell.price)||0,(p.pshell&&p.pshell.total||0).toFixed(2),
-        (r.payments&&r.payments.cash||0).toFixed(2),(r.payments&&r.payments.till||0).toFixed(2),(r.grandTotal||0).toFixed(2)
+      // For opening/closing take first/last shift values
+      if(row.count===0){
+        row.diOpen  = di.opening||0;
+        row.mOpen   = m.opening||0;
+      }
+      row.diClose   = di.closing||0;
+      row.mClose    = m.closing||0;
+      row.pricePerL = m.pricePerLitre||row.pricePerL;
+      row.petrolSales  += m.value||0;
+      row.litresSold   += m.sold||0;
+      row.p2tQty       += (p.p2t&&p.p2t.qty)||0;
+      row.p2tSales     += (p.p2t&&p.p2t.total)||0;
+      row.p2tkQty      += (p.p2tk&&p.p2tk.qty)||0;
+      row.p2tkSales    += (p.p2tk&&p.p2tk.total)||0;
+      row.puoilQty     += (p.puoil&&p.puoil.qty)||0;
+      row.puoilSales   += (p.puoil&&p.puoil.total)||0;
+      row.pshellQty    += (p.pshell&&p.pshell.qty)||0;
+      row.pshellSales  += (p.pshell&&p.pshell.total)||0;
+      row.grandTotal   += r.grandTotal||0;
+      row.count++;
+    });
+
+    // Flatten: one branch per CSV file section, date rows sorted ascending
+    var allBranches = branch ? [branch] : Object.keys(byBranchDate).sort();
+    if(!allBranches.length){toast("No approved data to export.","err");return;}
+
+    var csvRows = [];
+
+    allBranches.forEach(function(b, bi){
+      if(bi>0) csvRows.push([]); // blank row between branches
+      csvRows.push(["DELPHINE ENTERPRISE LIMITED"]);
+      csvRows.push(["Branch: "+b]);
+      csvRows.push([]);
+
+      // Header row — matches Image 1 exactly
+      csvRows.push([
+        "Date",
+        "Price Reading",          // Display opening KSh
+        "Closing Price Reading",   // Display closing KSh
+        "Petrol Sales",            // KSh from petrol (display diff)
+        "2T QTY",
+        "2T Kupima",
+        "2T Sales",
+        "Used Oil QTY",
+        "Used Oil Sales",
+        "Shell Advance QTY",
+        "Amount",                  // Shell sales amount
+        "Total Sales Amount",      // Grand total all products
+        "Liters Reading",          // Metre opening litres
+        "Closing Liter Reading",   // Metre closing litres
+        "Total Liters Sold",       // Cumulative litres (closing - opening from first day)
+        "Liters Sold",             // Litres sold this day
+        "Sales Rate"               // Price per litre
+      ]);
+
+      var dateRows = byBranchDate[b] ? Object.keys(byBranchDate[b]).sort() : [];
+      var totPetrolSales=0, tot2tQty=0, tot2tkQty=0, tot2tSales=0;
+      var totUoilQty=0, totUoilSales=0, totShellQty=0, totShellSales=0, totGrand=0, totLitres=0;
+
+      dateRows.forEach(function(dt){
+        var row=byBranchDate[b][dt];
+        totPetrolSales+=row.petrolSales;
+        tot2tQty     +=row.p2tQty;   tot2tSales +=row.p2tSales+row.p2tkSales;
+        tot2tkQty    +=row.p2tkQty;
+        totUoilQty   +=row.puoilQty; totUoilSales+=row.puoilSales;
+        totShellQty  +=row.pshellQty;totShellSales+=row.pshellSales;
+        totGrand     +=row.grandTotal;
+        totLitres    +=row.litresSold;
+
+        csvRows.push([
+          dt,
+          _csvFmt(row.diOpen,   2, "KSh"),
+          _csvFmt(row.diClose,  2, "KSh"),
+          Math.round(row.petrolSales),
+          row.p2tQty||"",
+          row.p2tkQty>0 ? row.p2tkQty.toFixed(2) : "",
+          Math.round(row.p2tSales+row.p2tkSales)||"",
+          row.puoilQty>0 ? row.puoilQty.toFixed(2) : "",
+          _csvFmt(row.puoilSales, 2, "Ksh"),
+          row.pshellQty||"",
+          _csvFmt(row.pshellSales, 2, "Ksh"),
+          _csvFmt(row.grandTotal, 2, "Ksh"),
+          row.mOpen.toFixed(2),
+          row.mClose.toFixed(2),
+          "",                          // Total Liters Sold (cumulative — blank per-day)
+          row.litresSold.toFixed(2),
+          row.pricePerL.toFixed(2)
+        ]);
+      });
+
+      // Totals row
+      csvRows.push([
+        "TOTAL","","",
+        Math.round(totPetrolSales),
+        tot2tQty||"","",Math.round(tot2tSales)||"",
+        totUoilQty>0?totUoilQty.toFixed(2):"",_csvFmt(totUoilSales,2,"Ksh"),
+        totShellQty||"",_csvFmt(totShellSales,2,"Ksh"),
+        _csvFmt(totGrand,2,"Ksh"),
+        "","","",totLitres.toFixed(2),""
       ]);
     });
-    if(!rows.length){toast("No data to export.","err");return;}
-    var hdrs=["Date","Branch","Staff","Shift","Status","Display Opening (KSh)","Display Closing (KSh)","Metre Opening (L)","Metre Closing (L)","Litres Sold","Price/L (KSh)","Petrol Value (KSh)","2T Motor Oil (pcs)","2T Price/pc","2T Total","2T-Kupima (L)","2T-Kupima Price/L","2T-Kupima Total","Used Oil (L)","Used Oil Price/L","Used Oil Total","Shell Advance (pcs)","Shell Price/pc","Shell Total","Cash Sales","Till Sales","Total Sales"];
-    var csv=hdrs.join(",")+"\n";
-    rows.forEach(function(row){csv+=row.map(function(v){var s=String(v);if(s.indexOf(",")>=0||s.indexOf('"')>=0)s='"'+s.replace(/"/g,'""')+'"';return s;}).join(",")+"\n";});
-    var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+
+    // Build CSV string
+    var csv=csvRows.map(function(row){
+      return row.map(function(v){
+        var s=String(v===null||v===undefined?"":v);
+        if(s.indexOf(",")>=0||s.indexOf('"')>=0||s.indexOf("\n")>=0)
+          s='"'+s.replace(/"/g,'""')+'"';
+        return s;
+      }).join(",");
+    }).join("\r\n");
+
+    var filename="Delphine_Sales_"+(branch||"All")+"_"+todayStr()+".csv";
+    var blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
     var url=URL.createObjectURL(blob);
-    var a=document.createElement("a");a.href=url;a.download="Delphine_"+todayStr()+".csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-    toast("Exported! Open in Excel.","ok");
+    var a=document.createElement("a");
+    a.href=url;a.download=filename;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+    toast("Exported "+filename,"ok");
   });
+}
+
+// Format value with prefix for CSV (e.g. "KSh13,000.00")
+function _csvFmt(v, decimals, prefix) {
+  if(!v&&v!==0) return "";
+  var n = parseFloat(v)||0;
+  if(n===0) return prefix?"Ksh0.00":"0";
+  return (prefix||"")+n.toLocaleString("en-KE",{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
 }
 
 // ─── ADMIN FULL EDIT ──────────────────────────────────
@@ -5420,97 +5565,101 @@ function exportToExcel() {
   toast("Preparing export...", "ok");
   db.collection("reports").orderBy("date","asc").get().then(function(snap) {
     var rows = [];
+    // Accumulate running totals per branch for Price Reading (cumulative display)
+    var runDisplay = {};  // branch → last display closing
     snap.forEach(function(d) {
       var r = d.data();
       if (branch && r.branch !== branch) return;
       if (from   && r.date < from)       return;
       if (to     && r.date > to)         return;
       if (status && r.approvalStatus !== status) return;
-      var pu = r.pump||{}, m=pu.metre||{}, di=pu.display||{}, mn=pu.manual||{};
-      var p  = r.products||{};
+      var pu=r.pump||{}, m=pu.metre||{}, di=pu.display||{}, mn=pu.manual||{};
+      var p=r.products||{};
       var p2t=p.p2t||{}, p2tk=p.p2tk||{}, puoil=p.puoil||{}, pshell=p.pshell||{};
-      var pa = r.payments||{};
+      var pa=r.payments||{};
+      var b=r.branch||"";
+
+      // Price Reading = cumulative display opening (KSh)
+      var priceReading = di.opening||0;
+      // Closing Price Reading = display closing (KSh)
+      var closingPriceReading = di.closing||0;
+      // Petrol Sales = display sales KSh
+      var petrolSales = di.sold||m.value||0;
+      // 2T: separate QTY and Kupima columns
+      var p2tQty   = p2t.qty||0;
+      var p2tkQty  = (p2tk.qty||0).toFixed(2);
+      var p2tSales = (p2t.total||0)+(p2tk.total||0);  // combined 2T sales
+      // Used Oil
+      var uoilQty  = (puoil.qty||0).toFixed(2);
+      var uoilSales= puoil.total||0;
+      // Shell Advance
+      var shellQty = pshell.qty||0;
+      var shellSales=pshell.total||0;
+      // Amount = other products total (non-petrol)
+      var amount = (p2t.total||0)+(p2tk.total||0)+(puoil.total||0)+(pshell.total||0);
+      // Total Sales Amount = grand total
+      var totalSales = r.grandTotal||0;
+      // Litres Reading = metre opening
+      var litresReading = (m.opening||0).toFixed(2);
+      // Closing Liter Reading = metre closing
+      var closingLitresReading = (m.closing||0).toFixed(2);
+      // Total Liters Sold = manual closing - manual opening
+      var totalLitresSold = ((mn.closing||0)-(mn.opening||0)).toFixed(2);
+      // Liters Sold = metre sold
+      var litresSold = (m.sold||0).toFixed(2);
+      // Sales Rate = price per litre
+      var salesRate = m.pricePerLitre||0;
+
       rows.push([
         r.date||"",
-        r.branch||"",
-        r.staffName||"",
-        r.shift||"",
-        r.approvalStatus||"",
-        // Price display
-        (di.opening||0).toFixed(2),
-        (di.closing||0).toFixed(2),
-        (di.sold||0).toFixed(2),
-        // Petrol metre
-        (m.opening||0).toFixed(2),
-        (m.closing||0).toFixed(2),
-        (m.sold||0).toFixed(2),
-        (m.pricePerLitre||0).toFixed(2),
-        (m.value||0).toFixed(2),
-        // Manual
-        (mn.opening||0).toFixed(2),
-        (mn.closing||0).toFixed(2),
-        (mn.sold||0).toFixed(2),
-        (mn.variance||0).toFixed(2),
-        // 2T Motor Oil
-        (p2t.qty||0),
-        (p2t.price||0).toFixed(2),
-        (p2t.total||0).toFixed(2),
-        // 2T-Kupima
-        (p2tk.qty||0).toFixed(2),
-        (p2tk.price||0).toFixed(2),
-        (p2tk.total||0).toFixed(2),
-        // Used Oil
-        (puoil.qty||0).toFixed(2),
-        (puoil.price||0).toFixed(2),
-        (puoil.total||0).toFixed(2),
-        // Shell Advance
-        (pshell.qty||0),
-        (pshell.price||0).toFixed(2),
-        (pshell.total||0).toFixed(2),
-        // Payments
-        (pa.total||0).toFixed(2),
-        (pa.till||0).toFixed(2),
-        (pa.cash||0).toFixed(2),
-        (pa.tillRef||""),
-        // Recon
-        (r.totalDeposit||0).toFixed(2),
-        (r.grandTotal||0).toFixed(2)
+        "Ksh"+(priceReading.toFixed(2)),
+        "Ksh"+(closingPriceReading.toFixed(2)),
+        petrolSales||"",
+        p2tQty||"",
+        p2tkQty||"",
+        p2tSales||"",
+        uoilQty||"",
+        uoilSales?"Ksh"+uoilSales.toFixed(2):"Ksh0.00",
+        shellQty||0,
+        amount||"",
+        "Ksh"+(totalSales.toFixed(2)),
+        litresReading||"",
+        closingLitresReading||"",
+        totalLitresSold||"",
+        litresSold||"",
+        salesRate||""
       ]);
     });
     if (!rows.length) { toast("No reports found for selected filters.", "err"); return; }
+
+    // Group by date for accumulating across shifts
+    var byDate = {};
+    rows.forEach(function(row){ var dt=row[0]; if(!byDate[dt])byDate[dt]=[]; byDate[dt].push(row); });
+
     var headers = [
-      "Date","Branch","Staff","Shift","Status",
-      "Price Disp Open (KSh)","Price Disp Close (KSh)","Price Display Sales (KSh)",
-      "Metre Opening (L)","Metre Closing (L)","Litres Sold","Price/L (KSh)","Petrol Value (KSh)",
-      "Manual Opening (L)","Manual Closing (L)","Manual Sold (L)","Variance (L)",
-      "2T Motor Oil (pcs)","2T Price/pc (KSh)","2T Total (KSh)",
-      "2T-Kupima (L)","2TK Price/L (KSh)","2TK Total (KSh)",
-      "Used Oil (L)","UOil Price/L (KSh)","UOil Total (KSh)",
-      "Shell Advance (pcs)","Shell Price/pc (KSh)","Shell Total (KSh)",
-      "Total Sales (KSh)","Till Sales (KSh)","Cash Sales (KSh)","Till Reference",
-      "Total Deposits (KSh)","Grand Total (KSh)"
+      "Date","Price Reading","Closing Price Reading",
+      "Petrol Sales","2T QTY","2T Kupima","2T Sales",
+      "Used Oil QTY","Used Oil Sales","Shell Advance QTY",
+      "Amount","Total Sales Amount",
+      "Liters Reading","Closing Liter Reading",
+      "Total Liters Sold","Liters Sold","Sales Rate"
     ];
-    // Build CSV (compatible with Excel)
     var csv = [headers].concat(rows).map(function(row) {
       return row.map(function(cell) {
         var s = String(cell);
-        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        if (s.includes(",") || s.includes('"') || s.includes("\n"))
           s = '"' + s.replace(/"/g, '""') + '"';
-        }
         return s;
       }).join(",");
     }).join("\r\n");
-    // Add BOM for Excel UTF-8
     var blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = "Delphine_Report_" + (branch||"All") + "_" + (from||"start") + "_" + (to||"end") + ".csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast("Exported " + rows.length + " rows.", "ok");
+    a.download = "Delphine_Sales_" + (branch||"All") + "_" + (from||"start") + "_" + (to||"end") + ".csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast("Exported " + rows.length + " rows in Image 1 format.", "ok");
   }).catch(function(e){ toast("Export failed: "+e.message,"err"); });
 }
 
@@ -10075,6 +10224,864 @@ function loadPredictions() {
   });
 }
 
+
+// ─── PETROL SALES AUTO-REFRESH SUMMARY ───────────────────────
+var _psData       = null;
+var _psAutoRefresh= null;
+var _psRefCount   = 0;
+
+function initPetrolSales() {
+  var now = new Date();
+  var ye = el("psSalesYear");  if (ye) ye.value = now.getFullYear();
+  var me = el("psSalesMonth"); if (me) me.value = String(now.getMonth()+1).padStart(2,"0");
+  loadPetrolSales();
+  startPetrolAutoRefresh();
+}
+
+function startPetrolAutoRefresh() {
+  stopPetrolAutoRefresh();
+  _psAutoRefresh = setInterval(function(){ loadPetrolSales(true); }, 60000);
+  var st = el("psAutoRefreshStatus"); if (st) st.textContent = "⟳ Auto-refreshing every 60s";
+}
+function stopPetrolAutoRefresh() {
+  if (_psAutoRefresh) { clearInterval(_psAutoRefresh); _psAutoRefresh = null; }
+  var st = el("psAutoRefreshStatus"); if (st) st.textContent = "";
+}
+function togglePetrolAutoRefresh() {
+  if (_psAutoRefresh) { stopPetrolAutoRefresh(); toast("Auto refresh stopped.","ok"); }
+  else               { startPetrolAutoRefresh(); toast("Auto refresh started (60s).","ok"); }
+}
+
+function loadPetrolSales(silent) {
+  var year  = gv("psSalesYear")  || new Date().getFullYear();
+  var month = gv("psSalesMonth") || String(new Date().getMonth()+1).padStart(2,"0");
+  var c = el("psSummaryContent");
+  if (!silent && c) c.innerHTML = '<p class="empty">Loading...</p>';
+
+  var daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+  var mStart = year + "-" + month + "-01";
+  var mEnd   = year + "-" + month + "-" + String(daysInMonth).padStart(2,"0");
+
+  // Opening day = last day of previous month
+  var pd = new Date(parseInt(year), parseInt(month)-1, 0);
+  var prevEnd = pd.getFullYear() + "-"
+    + String(pd.getMonth()+1).padStart(2,"0") + "-"
+    + String(pd.getDate()).padStart(2,"0");
+
+  Promise.all([
+    db.collection("reports").get(),
+    db.collection("bills").get(),
+    db.collection("invAdjustments").get(),
+    db.collection("settings").doc("branches").get()
+  ]).then(function(res) {
+    var repSnap=res[0], billSnap=res[1], adjSnap=res[2], branchSnap=res[3];
+
+    // Build dynamic branch list
+    var branchSet={};
+    BRANCHES.forEach(function(b){branchSet[b]=true;});
+    if(branchSnap.exists){
+      var bd=branchSnap.data();
+      (bd.list||bd.branches||[]).forEach(function(b){if(b)branchSet[b]=true;});
+    }
+    repSnap.forEach(function(d){var b=d.data().branch;if(b)branchSet[b]=true;});
+    var dynB=Object.keys(branchSet).sort();
+    if(!dynB.length)dynB=BRANCHES.slice();
+
+    // Per-branch per-day data
+    var byDay={};
+    dynB.forEach(function(b){byDay[b]={};});
+
+    function ensureDay(br,dt){
+      if(!byDay[br])byDay[br]={};
+      if(!byDay[br][dt])byDay[br][dt]={sales:0,del:0,sold:0,adjSet:null};
+    }
+
+    // Approved reports in period
+    repSnap.forEach(function(d){
+      var r=d.data();
+      if(r.approvalStatus!=="approved"||!r.date||r.date<mStart||r.date>mEnd)return;
+      var b=r.branch;if(!b)return;
+      ensureDay(b,r.date);
+      byDay[b][r.date].sales+=(r.grandTotal||0);
+      byDay[b][r.date].sold +=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      byDay[b][r.date].del  +=(r.delivery&&r.delivery.litres)||0;
+    });
+
+    // Bills (petrol deliveries)
+    billSnap.forEach(function(d){
+      var bi=d.data();
+      if(!bi.date||bi.date<mStart||bi.date>mEnd)return;
+      var items=(bi.lineItems&&bi.lineItems.length)?bi.lineItems
+        :(bi.product?[{product:bi.product,quantities:bi.quantities||{}}]:[]);
+      items.forEach(function(item){
+        if(item.product!=="petrol")return;
+        Object.keys(item.quantities||{}).forEach(function(br){
+          var q=(item.quantities)[br]||0;if(!q)return;
+          ensureDay(br,bi.date);byDay[br][bi.date].del+=q;
+        });
+      });
+    });
+
+    // In-period adjustments
+    adjSnap.forEach(function(d){
+      var a=d.data();
+      var adate=a.date||(a.createdAt?a.createdAt.toDate().toISOString().split("T")[0]:"");
+      if(!adate||adate<mStart||adate>mEnd||a.product!=="petrol")return;
+      if(a.type==="transfer"){
+        if(a.fromBranch){ensureDay(a.fromBranch,adate);byDay[a.fromBranch][adate].sold+=(a.qty||0);}
+        if(a.toBranch)  {ensureDay(a.toBranch,  adate);byDay[a.toBranch  ][adate].del +=(a.qty||0);}
+      } else {
+        var ab=a.branch;if(!ab)return;
+        ensureDay(ab,adate);
+        if(a.adjType==="set")     byDay[ab][adate].adjSet=a.after!==undefined?a.after:(a.qty||0);
+        else if(a.adjType==="add")byDay[ab][adate].del+=(a.qty||0);
+        else                      byDay[ab][adate].sold+=(a.qty||0);
+      }
+    });
+
+    // Opening inventory replay
+    var openInv={};dynB.forEach(function(b){openInv[b]=0;});
+    var openTL=[];
+    adjSnap.forEach(function(d){
+      var a=d.data();
+      var adate=a.date||(a.createdAt?a.createdAt.toDate().toISOString().split("T")[0]:"");
+      if(!adate||adate>prevEnd||a.product!=="petrol")return;
+      var ts=a.createdAt?a.createdAt.toMillis():new Date(adate).getTime();
+      if(a.type==="transfer"){
+        if(a.fromBranch)openTL.push({ts:ts,type:"sub",branch:a.fromBranch,qty:a.qty||0});
+        if(a.toBranch)  openTL.push({ts:ts,type:"add",branch:a.toBranch,  qty:a.qty||0});
+      } else {
+        openTL.push({ts:ts,type:a.adjType||"add",branch:a.branch||"",qty:a.qty||0,setVal:a.after!==undefined?a.after:(a.qty||0)});
+      }
+    });
+    billSnap.forEach(function(d){
+      var bi=d.data();if(!bi.date||bi.date>prevEnd)return;
+      var ts=bi.createdAt?bi.createdAt.toMillis():new Date(bi.date).getTime();
+      var items=(bi.lineItems&&bi.lineItems.length)?bi.lineItems:(bi.product?[{product:bi.product,quantities:bi.quantities||{}}]:[]);
+      items.forEach(function(item){
+        if(item.product!=="petrol")return;
+        Object.keys(item.quantities||{}).forEach(function(br){
+          var qty=(item.quantities)[br]||0;if(qty)openTL.push({ts:ts,type:"add",branch:br,qty:qty});
+        });
+      });
+    });
+    repSnap.forEach(function(d){
+      var r=d.data();
+      if(r.approvalStatus!=="approved"||!r.date||r.date>prevEnd)return;
+      var ts=r.createdAt?r.createdAt.toMillis():new Date(r.date).getTime();
+      var b=r.branch;if(!b)return;
+      var sold=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      var del=(r.delivery&&r.delivery.litres)||0;
+      if(sold)openTL.push({ts:ts,type:"sub",branch:b,qty:sold});
+      if(del) openTL.push({ts:ts,type:"add",branch:b,qty:del});
+    });
+    openTL.sort(function(a,b){return a.ts-b.ts;});
+    openTL.forEach(function(ev){
+      var b=ev.branch;if(!b)return;
+      if(!openInv.hasOwnProperty(b))openInv[b]=0;
+      if(ev.type==="set")     openInv[b]=ev.setVal;
+      else if(ev.type==="add")openInv[b]+=ev.qty;
+      else                    openInv[b]-=ev.qty;
+    });
+
+    // Build rows
+    var runInv={};dynB.forEach(function(b){runInv[b]=openInv[b]||0;});
+    var openRow={date:prevEnd,open:true,bd:{}};
+    dynB.forEach(function(b){openRow.bd[b]={sales:0,del:0,sold:0,inv:openInv[b]||0};});
+    var rows=[openRow];
+    for(var d2=1;d2<=daysInMonth;d2++){
+      var dt=year+"-"+month+"-"+String(d2).padStart(2,"0");
+      var row={date:dt,bd:{}};
+      dynB.forEach(function(b){
+        var dd=(byDay[b]&&byDay[b][dt])||{sales:0,del:0,sold:0,adjSet:null};
+        if(dd.adjSet!==null&&dd.adjSet!==undefined)runInv[b]=dd.adjSet;
+        else runInv[b]=runInv[b]+(dd.del||0)-(dd.sold||0);
+        row.bd[b]={sales:dd.sales||0,del:dd.del||0,sold:dd.sold||0,inv:runInv[b]};
+      });
+      rows.push(row);
+    }
+
+    var monthLabel = new Date(parseInt(year),parseInt(month)-1,1)
+      .toLocaleString("en",{month:"short"})+"-"+String(year).slice(-2);
+    _psData={rows:rows,year:year,month:month,monthLabel:monthLabel,
+      company:"DELPHINE ENTERPRISE LIMITED",branches:dynB};
+    renderPetrolSales(_psData);
+
+    // Update refresh timestamp
+    var st=el("psAutoRefreshStatus");
+    if(st&&_psAutoRefresh) st.textContent="⟳ Updated "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+
+  }).catch(function(e){
+    var c2=el("psSummaryContent");
+    if(c2)c2.innerHTML='<p class="empty">Error: '+e.message+'</p>';
+  });
+}
+
+function renderPetrolSales(sd) {
+  var c=el("psSummaryContent");if(!c)return;
+  var rows=sd.rows, dynB=sd.branches||BRANCHES;
+
+  var TH="padding:6px 10px;font-family:'DM Mono',monospace;font-size:0.58rem;font-weight:700;"
+       +"letter-spacing:0.8px;text-transform:uppercase;border:1px solid #c8c4bc;white-space:nowrap;";
+  var TD="padding:5px 10px;font-family:'DM Mono',monospace;font-size:0.68rem;"
+       +"border:1px solid #ddd;white-space:nowrap;color:var(--text);";
+  var GD="background:#C8922A;color:#fff;";
+  var SU="background:#4a7a2e;color:#fff;";
+  var GS="background:#e8b45a;color:#1a0e00;";
+  var SS="background:#5a8f3a;color:#fff;";
+  var TO="background:#C8922A;color:#fff;font-weight:700;";
+  var PC="background:#faf6ee;color:#7a5208;font-weight:700;";
+  var AV="background:#f5f5f0;font-weight:700;";
+  var NC="background:#d32f2f;color:#fff;font-weight:700;";
+
+  // Totals
+  var tot={};
+  dynB.forEach(function(b){tot[b]={sales:0,del:0,sold:0,days:0};});
+  rows.forEach(function(row){
+    if(row.open)return;
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{};
+      tot[b].sales+=(bd.sales||0);tot[b].del+=(bd.del||0);tot[b].sold+=(bd.sold||0);
+      if((bd.sales||0)>0||(bd.sold||0)>0)tot[b].days++;
+    });
+  });
+  var gS=0,gD=0,gSl=0;
+  dynB.forEach(function(b){gS+=tot[b].sales;gD+=tot[b].del;gSl+=tot[b].sold;});
+  var lastRow=rows[rows.length-1]||{bd:{}};
+  var sumLI=dynB.reduce(function(s,b){return s+((lastRow.bd[b]||{}).inv||0);},0);
+
+  var h='<div style="overflow-x:auto">';
+  h+='<div style="font-family:DM Mono,monospace;font-size:0.82rem;font-weight:700;letter-spacing:2px;color:var(--text);padding:10px 0 2px">'+sd.company+'</div>';
+  h+='<div style="font-family:DM Mono,monospace;font-size:0.62rem;color:var(--text3);margin-bottom:10px">'+sd.monthLabel+' — PETROL SALES</div>';
+  h+='<table style="border-collapse:collapse"><thead>';
+
+  // Branch headers
+  h+='<tr><th style="'+TH+GD+'min-width:88px">Date</th>';
+  dynB.forEach(function(b){
+    h+='<th colspan="4" style="'+TH+GD+'text-align:center;border-left:3px solid rgba(255,255,255,0.4)">'+b+'</th>';
+  });
+  h+='<th colspan="4" style="'+TH+SU+'text-align:center;border-left:3px solid rgba(255,255,255,0.4)">SUMMARY</th></tr>';
+
+  // Column headers
+  h+='<tr><th style="'+TH+GD+'"></th>';
+  for(var ci=0;ci<=dynB.length;ci++){
+    var isSu=ci===dynB.length;
+    var bg=isSu?SS:GS;
+    ["Sales","Ltrs Del","Ltrs Sold","Inventory"].forEach(function(cn,cni){
+      h+='<th style="'+TH+bg+'text-align:right;'+(cni===0?"border-left:3px solid rgba(255,255,255,0.35);":"")+'">'+cn+'</th>';
+    });
+  }
+  h+='</tr></thead><tbody>';
+
+  // Data rows
+  rows.forEach(function(row,ri){
+    var dp=row.date.split("-");
+    var disp=dp[2]+"/"+dp[1]+"/"+dp[0];
+    var rowBg=row.open?"background:#f8f6f0;":ri%2===0?"background:#fff;":"background:#fafaf8;";
+    h+='<tr style="'+rowBg+'"><td style="'+TD+rowBg+'font-weight:600">'+disp+'</td>';
+    var sb={sales:0,del:0,sold:0,inv:0};
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{sales:0,del:0,sold:0,inv:0};
+      sb.sales+=bd.sales;sb.del+=bd.del;sb.sold+=bd.sold;sb.inv+=bd.inv;
+      var inv=bd.inv||0;
+      var invSt=(!row.open&&inv<0)?NC:"";
+      h+='<td style="'+TD+'border-left:3px solid #e0dcd4;text-align:right">'+_fmtBs(bd.sales)+'</td>';
+      h+='<td style="'+TD+'text-align:right">'+_fmtBs(bd.del)+'</td>';
+      h+='<td style="'+TD+'text-align:right">'+_fmtBs(bd.sold)+'</td>';
+      h+='<td style="'+TD+'text-align:right;'+invSt+'">'+_fmtBs(inv)+'</td>';
+    });
+    var sInvSt=(!row.open&&sb.inv<0)?NC:"";
+    h+='<td style="'+TD+'border-left:3px solid #bbb;text-align:right;font-weight:600">'+_fmtBs(sb.sales)+'</td>';
+    h+='<td style="'+TD+'text-align:right">'+_fmtBs(sb.del)+'</td>';
+    h+='<td style="'+TD+'text-align:right">'+_fmtBs(sb.sold)+'</td>';
+    h+='<td style="'+TD+'text-align:right;'+sInvSt+'">'+_fmtBs(sb.inv)+'</td></tr>';
+  });
+
+  // Totals row
+  h+='<tr style="'+TO+'"><td style="'+TH+TO+'">TOTAL</td>';
+  dynB.forEach(function(b){
+    var li=(lastRow.bd[b]||{}).inv||0;
+    h+='<td style="'+TH+TO+'text-align:right;border-left:3px solid rgba(255,255,255,0.3)">'+_fmtBs(tot[b].sales)+'</td>';
+    h+='<td style="'+TH+TO+'text-align:right">'+_fmtBs(tot[b].del)+'</td>';
+    h+='<td style="'+TH+TO+'text-align:right">'+_fmtBs(tot[b].sold)+'</td>';
+    h+='<td style="'+TH+TO+'text-align:right">'+_fmtBs(li)+'</td>';
+  });
+  h+='<td style="'+TH+TO+'text-align:right;border-left:3px solid rgba(255,255,255,0.4)">'+_fmtBs(gS)+'</td>';
+  h+='<td style="'+TH+TO+'text-align:right">'+_fmtBs(gD)+'</td>';
+  h+='<td style="'+TH+TO+'text-align:right">'+_fmtBs(gSl)+'</td>';
+  h+='<td style="'+TH+TO+'text-align:right">'+_fmtBs(sumLI)+'</td></tr>';
+
+  // % of Total Sales
+  h+='<tr style="'+PC+'"><td style="'+TH+PC+'font-size:0.58rem">% of Sales</td>';
+  dynB.forEach(function(b){
+    var pct=gS>0?((tot[b].sales/gS)*100).toFixed(1)+"%":"—";
+    h+='<td style="'+TH+PC+'text-align:right;border-left:3px solid rgba(200,146,42,0.3);font-size:0.7rem">'+pct+'</td>';
+    h+='<td style="'+TH+PC+'"></td><td style="'+TH+PC+'"></td><td style="'+TH+PC+'"></td>';
+  });
+  h+='<td style="'+TH+PC+'text-align:right;border-left:3px solid rgba(200,146,42,0.3);font-size:0.7rem">100%</td>';
+  h+='<td style="'+TH+PC+'"></td><td style="'+TH+PC+'"></td><td style="'+TH+PC+'"></td></tr>';
+
+  // Average/Day
+  h+='<tr style="'+AV+'"><td style="'+TH+AV+'font-size:0.58rem;color:#555">Average / Day</td>';
+  var tD=0,gAS=0,gAL=0;
+  dynB.forEach(function(b){
+    var nd=Math.max(tot[b].days,1);
+    var avS=tot[b].sales/nd,avL=tot[b].sold/nd;
+    gAS+=avS;gAL+=avL;tD=Math.max(tD,tot[b].days);
+    h+='<td style="'+TH+AV+'text-align:right;border-left:3px solid #e0dcd4;color:#7a5208">'+_fmtBs(avS)+'</td>';
+    h+='<td style="'+TH+AV+'"></td><td style="'+TH+AV+'text-align:right">'+Math.round(avL)+'</td><td style="'+TH+AV+'"></td>';
+  });
+  var nd2=Math.max(tD,1);
+  h+='<td style="'+TH+AV+'text-align:right;border-left:3px solid #bbb;color:#7a5208">'+_fmtBs(gAS)+'</td>';
+  h+='<td style="'+TH+AV+'"></td><td style="'+TH+AV+'text-align:right">'+Math.round(gAL)+'</td><td style="'+TH+AV+'"></td></tr>';
+
+  h+='</tbody></table></div>';
+
+  // Last updated
+  h+='<div style="font-family:DM Mono,monospace;font-size:0.58rem;color:var(--text3);margin-top:8px">Last updated: '+new Date().toLocaleString("en-GB")+'</div>';
+  c.innerHTML=h;
+}
+
+function exportPetrolSalesCSV() {
+  if(!_psData){toast("Generate the report first.","err");return;}
+  var sd=_psData,rows=sd.rows,dynB=sd.branches||BRANCHES;
+  var csvRows=[];
+  csvRows.push([sd.company]);
+  csvRows.push([sd.monthLabel+" — PETROL SALES"]);
+  csvRows.push([]);
+  var hdr1=["Date"];
+  dynB.forEach(function(b){hdr1.push(b,"","","");});
+  hdr1.push("SUMMARY","","","");
+  csvRows.push(hdr1);
+  var hdr2=[""];
+  for(var ci=0;ci<=dynB.length;ci++){hdr2.push("Sales","Ltrs Delivered","Ltrs Sold","Inventory");}
+  csvRows.push(hdr2);
+  rows.forEach(function(row){
+    var dp=row.date.split("-");
+    var disp=dp[2]+"/"+dp[1]+"/"+dp[0];
+    var r2=[disp],ss=0,sdl=0,sl=0,si=0;
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{};
+      r2.push(bd.sales||"",bd.del||"",bd.sold||"",bd.inv||0);
+      ss+=bd.sales||0;sdl+=bd.del||0;sl+=bd.sold||0;si+=bd.inv||0;
+    });
+    r2.push(ss||"",sdl||"",sl||"",si);
+    csvRows.push(r2);
+  });
+  // Totals row
+  var totR=["TOTAL"];
+  var gs=0,gd=0,gsl=0;
+  dynB.forEach(function(b){
+    var t={sales:0,del:0,sold:0};
+    rows.forEach(function(row){if(row.open)return;var bd=row.bd[b]||{};t.sales+=bd.sales||0;t.del+=bd.del||0;t.sold+=bd.sold||0;});
+    var li=(rows[rows.length-1]&&rows[rows.length-1].bd[b]||{}).inv||0;
+    totR.push(t.sales,t.del,t.sold,li);
+    gs+=t.sales;gd+=t.del;gsl+=t.sold;
+  });
+  var sli=dynB.reduce(function(s,b){return s+((rows[rows.length-1]&&rows[rows.length-1].bd[b]||{}).inv||0);},0);
+  totR.push(gs,gd,gsl,sli);
+  csvRows.push(totR);
+  // % of Sales
+  var pctR=["% of Sales"];
+  dynB.forEach(function(b){
+    var t={sales:0};rows.forEach(function(row){if(row.open)return;t.sales+=(row.bd[b]||{}).sales||0;});
+    var pct=gs>0?((t.sales/gs)*100).toFixed(1)+"%":"—";
+    pctR.push(pct,"","","");
+  });
+  pctR.push("100%","","","");
+  csvRows.push(pctR);
+  var csv=csvRows.map(function(r3){
+    return r3.map(function(cell){
+      var s=String(cell);return s.indexOf(",")>=0?'"'+s.replace(/"/g,'""')+'"':s;
+    }).join(",");
+  }).join("\r\n");
+  var blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.download="Delphine_Petrol_Sales_"+sd.year+"_"+sd.month+".csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast("Petrol Sales CSV exported.","ok");
+}
+
+
+// ─── PETROL SALES SUMMARY REPORT ──────────────────────────────
+// Shows per-day petrol sales for each branch in Image 2 format:
+// Date | Branch1 Sales | Del | Sold | Inv | Branch2 Sales | Del | Sold | Inv | Summary
+// Updates automatically when branches are added
+
+var _petrolSalesData = null;
+
+function loadPetrolSalesReport() {
+  var year  = gv("psYear")  || new Date().getFullYear();
+  var month = gv("psMonth") || String(new Date().getMonth()+1).padStart(2,"0");
+  var c = el("petrolSalesContent");
+  if (c) c.innerHTML = '<p class="empty">Loading...</p>';
+
+  // Reuse the full loadBranchSummary data logic but only render petrol sales
+  var daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+  var mStart = year + "-" + month + "-01";
+  var mEnd   = year + "-" + month + "-" + String(daysInMonth).padStart(2,"0");
+
+  // Opening inv date
+  var pd = new Date(parseInt(year), parseInt(month)-1, 0);
+  var prevEnd = pd.getFullYear() + "-" + String(pd.getMonth()+1).padStart(2,"0") + "-" + String(pd.getDate()).padStart(2,"0");
+  var monthLabel = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString("en",{month:"short"}) + "-" + String(year).slice(-2);
+
+  Promise.all([
+    db.collection("reports").get(),
+    db.collection("bills").get(),
+    db.collection("invAdjustments").get(),
+    db.collection("settings").doc("branches").get()
+  ]).then(function(res) {
+    var repSnap=res[0], billSnap=res[1], adjSnap=res[2], branchSnap=res[3];
+
+    // Build dynamic branch list
+    var bSet = {};
+    BRANCHES.forEach(function(b){ bSet[b]=true; });
+    if (branchSnap.exists) { (branchSnap.data().list||[]).forEach(function(b){ if(b) bSet[b]=true; }); }
+    repSnap.forEach(function(d){ var b=d.data().branch; if(b) bSet[b]=true; });
+    var dynB = Object.keys(bSet).sort();
+
+    // Per-branch per-day: petrol sales, delivered, sold
+    var byDay = {};
+    dynB.forEach(function(b){ byDay[b]={}; });
+
+    function ensureDay(br,dt) {
+      if(!byDay[br]) byDay[br]={};
+      if(!byDay[br][dt]) byDay[br][dt]={sales:0,del:0,sold:0,adjSet:null};
+    }
+
+    repSnap.forEach(function(d){
+      var r=d.data();
+      if(r.approvalStatus!=="approved"||!r.date||r.date<mStart||r.date>mEnd) return;
+      var b=r.branch; if(!b) return;
+      ensureDay(b,r.date);
+      byDay[b][r.date].sales += r.grandTotal||0;  // total sales (not just petrol)
+      byDay[b][r.date].sold  += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      byDay[b][r.date].del   += (r.delivery&&r.delivery.litres)||0;
+    });
+
+    billSnap.forEach(function(d){
+      var bi=d.data();
+      if(!bi.date||bi.date<mStart||bi.date>mEnd) return;
+      var items=(bi.lineItems&&bi.lineItems.length)?bi.lineItems:(bi.product?[{product:bi.product,quantities:bi.quantities||{}}]:[]);
+      items.forEach(function(item){
+        if(item.product!=="petrol") return;
+        Object.keys(item.quantities||{}).forEach(function(br){
+          var q=(item.quantities)[br]||0; if(!q) return;
+          ensureDay(br,bi.date); byDay[br][bi.date].del+=q;
+        });
+      });
+    });
+
+    adjSnap.forEach(function(d){
+      var a=d.data();
+      var adate=a.date||(a.createdAt?a.createdAt.toDate().toISOString().split("T")[0]:"");
+      if(!adate||adate<mStart||adate>mEnd||a.product!=="petrol") return;
+      if(a.type==="transfer"){
+        if(a.fromBranch){ ensureDay(a.fromBranch,adate); byDay[a.fromBranch][adate].sold+=(a.qty||0); }
+        if(a.toBranch)  { ensureDay(a.toBranch,  adate); byDay[a.toBranch  ][adate].del +=(a.qty||0); }
+      } else {
+        var ab=a.branch; if(!ab) return;
+        ensureDay(ab,adate);
+        if(a.adjType==="set")      byDay[ab][adate].adjSet=a.after!==undefined?a.after:(a.qty||0);
+        else if(a.adjType==="add") byDay[ab][adate].del  +=(a.qty||0);
+        else                       byDay[ab][adate].sold +=(a.qty||0);
+      }
+    });
+
+    // Opening inventory (petrol only) via timeline
+    var openInv={};
+    dynB.forEach(function(b){ openInv[b]=0; });
+    var openTL=[];
+    adjSnap.forEach(function(d){
+      var a=d.data();
+      var adate=a.date||(a.createdAt?a.createdAt.toDate().toISOString().split("T")[0]:"");
+      if(!adate||adate>prevEnd||a.product!=="petrol") return;
+      var ts=a.createdAt?a.createdAt.toMillis():new Date(adate).getTime();
+      if(a.type==="transfer"){
+        if(a.fromBranch) openTL.push({ts:ts,type:"sub",branch:a.fromBranch,qty:a.qty||0});
+        if(a.toBranch)   openTL.push({ts:ts,type:"add",branch:a.toBranch,  qty:a.qty||0});
+      } else openTL.push({ts:ts,type:a.adjType||"add",branch:a.branch||"",qty:a.qty||0,setVal:a.after!==undefined?a.after:(a.qty||0)});
+    });
+    billSnap.forEach(function(d){
+      var bi=d.data(); if(!bi.date||bi.date>prevEnd) return;
+      var ts=bi.createdAt?bi.createdAt.toMillis():new Date(bi.date).getTime();
+      var items=(bi.lineItems&&bi.lineItems.length)?bi.lineItems:(bi.product?[{product:bi.product,quantities:bi.quantities||{}}]:[]);
+      items.forEach(function(item){
+        if(item.product!=="petrol") return;
+        Object.keys(item.quantities||{}).forEach(function(br){ var qty=(item.quantities)[br]||0; if(qty) openTL.push({ts:ts,type:"add",branch:br,qty:qty}); });
+      });
+    });
+    repSnap.forEach(function(d){
+      var r=d.data(); if(r.approvalStatus!=="approved"||!r.date||r.date>prevEnd) return;
+      var ts=r.createdAt?r.createdAt.toMillis():new Date(r.date).getTime();
+      var b=r.branch; if(!b) return;
+      var sold=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      var del=(r.delivery&&r.delivery.litres)||0;
+      if(sold) openTL.push({ts:ts,type:"sub",branch:b,qty:sold});
+      if(del)  openTL.push({ts:ts,type:"add",branch:b,qty:del});
+    });
+    openTL.sort(function(a,b){return a.ts-b.ts;});
+    openTL.forEach(function(ev){
+      var b=ev.branch; if(!b) return;
+      if(!openInv.hasOwnProperty(b)) openInv[b]=0;
+      if(ev.type==="set") openInv[b]=ev.setVal;
+      else if(ev.type==="add") openInv[b]+=ev.qty;
+      else openInv[b]-=ev.qty;
+    });
+
+    // Build rows
+    var runInv={};
+    dynB.forEach(function(b){ runInv[b]=openInv[b]||0; });
+    var openRow={date:prevEnd,open:true,bd:{}};
+    dynB.forEach(function(b){ openRow.bd[b]={sales:0,del:0,sold:0,inv:openInv[b]||0}; });
+    var rows=[openRow];
+    for(var d2=1;d2<=daysInMonth;d2++){
+      var dt=year+"-"+month+"-"+String(d2).padStart(2,"0");
+      var row={date:dt,bd:{}};
+      dynB.forEach(function(b){
+        var dd=(byDay[b]&&byDay[b][dt])||{sales:0,del:0,sold:0,adjSet:null};
+        if(dd.adjSet!==null&&dd.adjSet!==undefined) runInv[b]=dd.adjSet;
+        else runInv[b]=runInv[b]+(dd.del||0)-(dd.sold||0);
+        row.bd[b]={sales:dd.sales||0,del:dd.del||0,sold:dd.sold||0,inv:runInv[b]};
+      });
+      rows.push(row);
+    }
+
+    _petrolSalesData = {rows:rows, branches:dynB, year:year, month:month, monthLabel:monthLabel};
+    renderPetrolSalesTable(_petrolSalesData);
+
+  }).catch(function(e){
+    if(c) c.innerHTML='<p class="empty">Error: '+e.message+'</p>';
+  });
+}
+
+function renderPetrolSalesTable(sd) {
+  var c = el("petrolSalesContent"); if(!c) return;
+  var rows = sd.rows, dynB = sd.branches;
+
+  var TH = "padding:7px 10px;font-family:'DM Mono',monospace;font-size:0.58rem;font-weight:700;"
+         + "letter-spacing:0.8px;text-transform:uppercase;border:1px solid #c8c4bc;white-space:nowrap;";
+  var TD = "padding:5px 10px;font-family:'DM Mono',monospace;font-size:0.68rem;"
+         + "border:1px solid #ddd;white-space:nowrap;color:var(--text);";
+  var GOLD = "background:#C8922A;color:#fff;";
+  var SUM  = "background:#4a7a2e;color:#fff;";
+  var GSUB = "background:#e8b45a;color:#1a0e00;";
+  var SSUB = "background:#5a8f3a;color:#fff;";
+  var TOT  = "background:#C8922A;color:#fff;font-weight:700;";
+  var PCT  = "background:#faf6ee;color:#7a5208;font-weight:700;";
+  var AVG  = "background:#f5f5f0;font-weight:700;";
+
+  // Totals
+  var tot = {};
+  dynB.forEach(function(b){ tot[b]={sales:0,del:0,sold:0,days:0}; });
+  rows.forEach(function(row){
+    if(row.open) return;
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{};
+      tot[b].sales+=(bd.sales||0); tot[b].del+=(bd.del||0); tot[b].sold+=(bd.sold||0);
+      if((bd.sales||0)>0||(bd.sold||0)>0) tot[b].days++;
+    });
+  });
+  var gS=0,gD=0,gSl=0;
+  dynB.forEach(function(b){gS+=tot[b].sales;gD+=tot[b].del;gSl+=tot[b].sold;});
+  var lastRow=rows[rows.length-1]||{bd:{}};
+  var sumInvLast=dynB.reduce(function(s,b){return s+((lastRow.bd[b]||{}).inv||0);},0);
+
+  var h='<div style="overflow-x:auto">';
+  h+='<div style="font-family:DM Mono,monospace;font-size:0.82rem;font-weight:700;letter-spacing:2px;color:var(--text);padding:10px 0 2px">DELPHINE ENTERPRISE LIMITED</div>';
+  h+='<div style="font-family:DM Mono,monospace;font-size:0.62rem;color:var(--text3);margin-bottom:10px">'+sd.monthLabel+' — Petrol Sales by Branch</div>';
+  h+='<table style="border-collapse:collapse"><thead>';
+
+  // Row 1: branch names
+  h+='<tr><th style="'+TH+GOLD+'min-width:88px">Date</th>';
+  dynB.forEach(function(b){ h+='<th colspan="4" style="'+TH+GOLD+'text-align:center;border-left:3px solid rgba(255,255,255,0.4)">'+b+'</th>'; });
+  h+='<th colspan="4" style="'+TH+SUM+'text-align:center;border-left:3px solid rgba(255,255,255,0.4)">SUMMARY</th></tr>';
+
+  // Row 2: column labels
+  h+='<tr><th style="'+TH+GOLD+'"></th>';
+  for(var ci=0;ci<=dynB.length;ci++){
+    var sb=ci===dynB.length?SSUB:GSUB;
+    ["Sales","Ltrs Del","Ltrs Sold","Inventory"].forEach(function(cn,cni){
+      h+='<th style="'+TH+sb+'text-align:right;'+(cni===0?"border-left:3px solid rgba(255,255,255,0.35);":"")+'">'+ cn+'</th>';
+    });
+  }
+  h+='</tr></thead><tbody>';
+
+  // Data rows
+  rows.forEach(function(row,ri){
+    var dp=row.date.split("-"), disp=dp[2]+"/"+dp[1]+"/"+dp[0];
+    var rowBg=row.open?"background:#f8f6f0;":ri%2===0?"background:#fff;":"background:#fafaf8;";
+    h+='<tr style="'+rowBg+'"><td style="'+TD+rowBg+'font-weight:600">'+disp+'</td>';
+    var sumBd={sales:0,del:0,sold:0,inv:0};
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{sales:0,del:0,sold:0,inv:0};
+      sumBd.sales+=bd.sales; sumBd.del+=bd.del; sumBd.sold+=bd.sold; sumBd.inv+=bd.inv;
+      var inv=bd.inv||0;
+      var invSt=(!row.open&&inv<0)?"background:#d32f2f;color:#fff;font-weight:700;":"";
+      h+='<td style="'+TD+'border-left:3px solid #e0dcd4;text-align:right">'+_fmtBs(bd.sales)+'</td>';
+      h+='<td style="'+TD+'text-align:right">'+_fmtBs(bd.del)+'</td>';
+      h+='<td style="'+TD+'text-align:right">'+_fmtBs(bd.sold)+'</td>';
+      h+='<td style="'+TD+'text-align:right;'+invSt+'">'+_fmtBs(inv)+'</td>';
+    });
+    var sInvSt=(!row.open&&sumBd.inv<0)?"background:#d32f2f;color:#fff;font-weight:700;":"";
+    h+='<td style="'+TD+'border-left:3px solid #bbb;text-align:right;font-weight:600">'+_fmtBs(sumBd.sales)+'</td>';
+    h+='<td style="'+TD+'text-align:right">'+_fmtBs(sumBd.del)+'</td>';
+    h+='<td style="'+TD+'text-align:right">'+_fmtBs(sumBd.sold)+'</td>';
+    h+='<td style="'+TD+'text-align:right;'+sInvSt+'">'+_fmtBs(sumBd.inv)+'</td></tr>';
+  });
+
+  // Totals
+  h+='<tr style="'+TOT+'"><td style="'+TH+TOT+'">TOTAL</td>';
+  dynB.forEach(function(b){
+    var li=(lastRow.bd[b]||{}).inv||0, bl="border-left:3px solid rgba(255,255,255,0.3);";
+    h+='<td style="'+TH+TOT+'text-align:right;'+bl+'">'+_fmtBs(tot[b].sales)+'</td>';
+    h+='<td style="'+TH+TOT+'text-align:right">'+_fmtBs(tot[b].del)+'</td>';
+    h+='<td style="'+TH+TOT+'text-align:right">'+_fmtBs(tot[b].sold)+'</td>';
+    h+='<td style="'+TH+TOT+'text-align:right">'+_fmtBs(li)+'</td>';
+  });
+  h+='<td style="'+TH+TOT+'text-align:right;border-left:3px solid rgba(255,255,255,0.4)">'+_fmtBs(gS)+'</td>';
+  h+='<td style="'+TH+TOT+'text-align:right">'+_fmtBs(gD)+'</td>';
+  h+='<td style="'+TH+TOT+'text-align:right">'+_fmtBs(gSl)+'</td>';
+  h+='<td style="'+TH+TOT+'text-align:right">'+_fmtBs(sumInvLast)+'</td></tr>';
+
+  // % of total sales
+  h+='<tr style="'+PCT+'"><td style="'+TH+PCT+'font-size:0.58rem">% of Sales</td>';
+  dynB.forEach(function(b){
+    var pct=gS>0?((tot[b].sales/gS)*100).toFixed(1)+"%":"—", bl="border-left:3px solid rgba(200,146,42,0.3);";
+    h+='<td style="'+TH+PCT+'text-align:right;'+bl+'font-size:0.7rem">'+pct+'</td>';
+    h+='<td style="'+TH+PCT+'"></td><td style="'+TH+PCT+'"></td><td style="'+TH+PCT+'"></td>';
+  });
+  h+='<td style="'+TH+PCT+'text-align:right;border-left:3px solid rgba(200,146,42,0.3);font-size:0.7rem">100%</td>';
+  h+='<td style="'+TH+PCT+'"></td><td style="'+TH+PCT+'"></td><td style="'+TH+PCT+'"></td></tr>';
+
+  // Loss %
+  h+='<tr style="background:#fafafa;"><td style="'+TH+'background:#fafafa;font-size:0.58rem;color:#666">Litre Loss %</td>';
+  dynB.forEach(function(b){
+    var lp=tot[b].del>0?((tot[b].del-tot[b].sold)/tot[b].del*100).toFixed(2)+"%":"—";
+    var lc=tot[b].del>0&&(tot[b].del-tot[b].sold)/tot[b].del>0.03?"color:#c62828;font-weight:700;":"color:#1b5e20;font-weight:600;";
+    h+='<td style="'+TH+'background:#fafafa;border-left:3px solid #ddd"></td>';
+    h+='<td style="'+TH+'background:#fafafa"></td>';
+    h+='<td style="'+TH+'background:#fafafa;text-align:center;'+lc+'">'+lp+'</td>';
+    h+='<td style="'+TH+'background:#fafafa"></td>';
+  });
+  var gLp=gD>0?((gD-gSl)/gD*100).toFixed(2)+"%":"—";
+  var gLc=gD>0&&(gD-gSl)/gD>0.03?"color:#c62828;font-weight:700;":"color:#1b5e20;font-weight:600;";
+  h+='<td style="'+TH+'background:#fafafa;border-left:3px solid #bbb"></td>';
+  h+='<td style="'+TH+'background:#fafafa"></td>';
+  h+='<td style="'+TH+'background:#fafafa;text-align:center;'+gLc+'">'+gLp+'</td>';
+  h+='<td style="'+TH+'background:#fafafa"></td></tr>';
+
+  // Average / day
+  h+='<tr style="'+AVG+'"><td style="'+TH+AVG+'font-size:0.58rem;color:#555">Average / Day</td>';
+  var maxDays=dynB.reduce(function(m,b){return Math.max(m,tot[b].days);},1);
+  dynB.forEach(function(b){
+    var nd=Math.max(tot[b].days,1);
+    h+='<td style="'+TH+AVG+'text-align:right;border-left:3px solid #e0dcd4;color:#7a5208">'+_fmtBs(tot[b].sales/nd)+'</td>';
+    h+='<td style="'+TH+AVG+'"></td>';
+    h+='<td style="'+TH+AVG+'text-align:right">'+Math.round(tot[b].sold/nd)+'</td>';
+    h+='<td style="'+TH+AVG+'"></td>';
+  });
+  var nd2=Math.max(maxDays,1);
+  h+='<td style="'+TH+AVG+'text-align:right;border-left:3px solid #bbb;color:#7a5208">'+_fmtBs(gS/nd2)+'</td>';
+  h+='<td style="'+TH+AVG+'"></td>';
+  h+='<td style="'+TH+AVG+'text-align:right">'+Math.round(gSl/nd2)+'</td>';
+  h+='<td style="'+TH+AVG+'"></td></tr>';
+
+  h+='</tbody></table></div>';
+  c.innerHTML = h;
+}
+
+function exportPetrolSalesCSV() {
+  if (!_petrolSalesData) { toast("Generate the report first.", "err"); return; }
+  var sd=_petrolSalesData, rows=sd.rows, dynB=sd.branches;
+  var csvRows=[];
+  csvRows.push(["DELPHINE ENTERPRISE LIMITED"]);
+  csvRows.push([sd.monthLabel + " — Petrol Sales by Branch"]);
+  csvRows.push([]);
+
+  // Header 1
+  var h1=["Date"];
+  dynB.forEach(function(b){ h1.push(b,"","",""); });
+  h1.push("SUMMARY","","","");
+  csvRows.push(h1);
+
+  // Header 2
+  var h2=[""];
+  for(var ci=0;ci<=dynB.length;ci++){ h2.push("Sales","Liters Delivered","Liters Sold","Inventory"); }
+  csvRows.push(h2);
+
+  // Data
+  rows.forEach(function(row){
+    var dp=row.date.split("-"), disp=dp[2]+"/"+dp[1]+"/"+dp[0];
+    var r2=[disp]; var ss=0,sd2=0,sl=0,si=0;
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{};
+      r2.push(bd.sales||"",bd.del||"",bd.sold||"",bd.inv||0);
+      ss+=bd.sales||0; sd2+=bd.del||0; sl+=bd.sold||0; si+=bd.inv||0;
+    });
+    r2.push(ss||"",sd2||"",sl||"",si);
+    csvRows.push(r2);
+  });
+
+  // Totals row
+  var tot={}, tR=["TOTAL"];
+  dynB.forEach(function(b){
+    tot[b]={sales:0,del:0,sold:0};
+    rows.forEach(function(row){ if(row.open)return; var bd=row.bd[b]||{}; tot[b].sales+=bd.sales||0; tot[b].del+=bd.del||0; tot[b].sold+=bd.sold||0; });
+    var li=(rows[rows.length-1]&&rows[rows.length-1].bd[b]||{}).inv||0;
+    tR.push(tot[b].sales,tot[b].del,tot[b].sold,li);
+  });
+  var gs=dynB.reduce(function(s,b){return s+tot[b].sales;},0);
+  var gd=dynB.reduce(function(s,b){return s+tot[b].del;},0);
+  var gsl=dynB.reduce(function(s,b){return s+tot[b].sold;},0);
+  var sli=dynB.reduce(function(s,b){return s+((rows[rows.length-1]&&rows[rows.length-1].bd[b]||{}).inv||0);},0);
+  tR.push(gs,gd,gsl,sli);
+  csvRows.push(tR);
+
+  // % row
+  var pR=["% of Sales"];
+  dynB.forEach(function(b){ pR.push(gs>0?((tot[b].sales/gs)*100).toFixed(1)+"%":"—","","",""); });
+  pR.push("100%","","","");
+  csvRows.push(pR);
+
+  var csv=csvRows.map(function(r){ return r.map(function(cell){ var s=String(cell); return s.includes(",")?"\""+s.replace(/"/g,"\"\"")+"\"":s; }).join(","); }).join("\r\n");
+  var blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a"); a.href=url;
+  a.download="Delphine_Petrol_Sales_"+sd.year+"_"+sd.month+".csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("Petrol Sales CSV exported.", "ok");
+}
+
+function initPetrolSalesDropdowns() {
+  var now = new Date();
+  var ye = el("psYear"); if (ye && !ye.value) ye.value = now.getFullYear();
+  var me = el("psMonth"); if (me) me.value = String(now.getMonth()+1).padStart(2,"0");
+}
+
+
+// Export petrol-only branch summary matching Image 2 format
+function exportPetrolSummaryCSV() {
+  // If summary data loaded, use it; else fetch fresh
+  if (_bsSummaryData) {
+    _buildPetrolSummaryCSV(_bsSummaryData);
+    return;
+  }
+  // Need to load data first — prompt user
+  toast("Go to Branch Summary tab, generate the report, then export.", "err");
+}
+
+function _buildPetrolSummaryCSV(sd) {
+  var rows   = sd.rows;
+  var dynB   = sd.branches || BRANCHES;
+  var csvRows = [];
+
+  // ── Header ──────────────────────────────────────────────────
+  csvRows.push(["DELPHINE ENTERPRISE LIMITED"]);
+  var monthHdr = [sd.monthLabel];
+  // Branch labels across columns
+  dynB.forEach(function(b) { monthHdr.push(b,"","",""); });
+  monthHdr.push("SUMMARY","","","");
+  csvRows.push(monthHdr);
+  csvRows.push([]);
+
+  // Column sub-headers (matches Image 2)
+  var subHdr = ["Date"];
+  for (var ci=0; ci<=dynB.length; ci++) {
+    subHdr.push("Sales","Liters Delivered","Liters Sold","Inventory");
+  }
+  csvRows.push(subHdr);
+
+  // ── Data rows ────────────────────────────────────────────────
+  var tot = {};
+  dynB.forEach(function(b){ tot[b]={sales:0,del:0,sold:0,days:0}; });
+
+  rows.forEach(function(row){
+    var dp=row.date.split("-");
+    var disp=dp[2]+"/"+dp[1]+"/"+dp[0];
+    var dataRow=[disp];
+    var sumSales=0,sumDel=0,sumSold=0,sumInv=0;
+
+    dynB.forEach(function(b){
+      var bd=row.bd[b]||{sales:0,del:0,sold:0,inv:0};
+      dataRow.push(
+        bd.sales>0?Math.round(bd.sales):"",
+        bd.del >0?Math.round(bd.del) :"",
+        bd.sold>0?Math.round(bd.sold):"",
+        Math.round(bd.inv)||0
+      );
+      sumSales+=bd.sales; sumDel+=bd.del; sumSold+=bd.sold; sumInv+=bd.inv;
+      if(!row.open){
+        tot[b].sales+=bd.sales; tot[b].del+=bd.del; tot[b].sold+=bd.sold;
+        if(bd.sales>0||bd.sold>0) tot[b].days++;
+      }
+    });
+    dataRow.push(
+      sumSales>0?Math.round(sumSales):"",
+      sumDel >0?Math.round(sumDel) :"",
+      sumSold>0?Math.round(sumSold):"",
+      Math.round(sumInv)||0
+    );
+    csvRows.push(dataRow);
+  });
+
+  // ── Totals row ───────────────────────────────────────────────
+  var totRow=[""];
+  var gSales=0,gDel=0,gSold=0;
+  dynB.forEach(function(b){
+    var lastInv=(rows[rows.length-1]&&rows[rows.length-1].bd[b]||{}).inv||0;
+    totRow.push(Math.round(tot[b].sales),Math.round(tot[b].del),Math.round(tot[b].sold),Math.round(lastInv));
+    gSales+=tot[b].sales; gDel+=tot[b].del; gSold+=tot[b].sold;
+  });
+  var sumLastInv=dynB.reduce(function(s,b){return s+((rows[rows.length-1]&&rows[rows.length-1].bd[b]||{}).inv||0);},0);
+  totRow.push(Math.round(gSales),Math.round(gDel),Math.round(gSold),Math.round(sumLastInv));
+  csvRows.push(totRow);
+
+  // ── % of Sales row ───────────────────────────────────────────
+  var pctRow=[""];
+  dynB.forEach(function(b){
+    var pct=gSales>0?((tot[b].sales/gSales)*100).toFixed(2)+"%":"";
+    pctRow.push("","",pct,"");
+  });
+  pctRow.push("","","100%","");
+  csvRows.push(pctRow);
+  csvRows.push([]);
+
+  // ── Average row ──────────────────────────────────────────────
+  var avgRow=["Average"];
+  var gAvgS=0,gAvgL=0;
+  dynB.forEach(function(b){
+    var nd=Math.max(tot[b].days,1);
+    var avS=(tot[b].sales/nd),avL=(tot[b].sold/nd);
+    gAvgS+=avS; gAvgL+=avL;
+    avgRow.push(Math.round(avS),"",Math.round(avL),"");
+  });
+  var nd2=Math.max(dynB.reduce(function(mx,b){return Math.max(mx,tot[b].days);},1),1);
+  avgRow.push(Math.round(gSales/nd2),"",Math.round(gSold/nd2),"");
+  csvRows.push(avgRow);
+
+  // ── Build CSV ────────────────────────────────────────────────
+  var csv=csvRows.map(function(row){
+    return row.map(function(v){
+      var s=String(v===null||v===undefined?"":v);
+      if(s.indexOf(",")>=0||s.indexOf('"')>=0) s='"'+s.replace(/"/g,'""')+'"';
+      return s;
+    }).join(",");
+  }).join("\r\n");
+
+  var filename="Delphine_PetrolSummary_"+sd.year+"-"+sd.month+".csv";
+  var blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast("Petrol summary exported: "+filename,"ok");
+}
+
 // INIT PO & BILL FORM
 addPOItem();
 var poDateEl = el("poDate");
@@ -10083,6 +11090,64 @@ var billDateEl = el("billDate");
 if (billDateEl) billDateEl.valueAsDate = new Date();
 // Bill product rows are initialised when tab opens
 </script>
+    <!-- ══ PETROL SALES PANEL ═══════════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="field mb0"><label>Year</label>
+            <select id="psSalesYear" style="width:80px">
+              <option>2025</option><option selected>2026</option><option>2027</option>
+            </select>
+          </div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psSalesMonth" style="width:80px">
+              <option value="01">Jan</option><option value="02">Feb</option>
+              <option value="03">Mar</option><option value="04">Apr</option>
+              <option value="05">May</option><option value="06">Jun</option>
+              <option value="07">Jul</option><option value="08">Aug</option>
+              <option value="09">Sep</option><option value="10">Oct</option>
+              <option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="loadPetrolSales()">Generate</button>
+          <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="psAutoRefreshStatus" style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--green)"></span>
+          <button class="btn btn-ghost btn-sm" onclick="togglePetrolAutoRefresh()">&#9654; Auto Refresh</button>
+        </div>
+      </div>
+      <div id="psSummaryContent"><p class="empty">Select year and month, then click Generate.</p></div>
+    </div>
+
+
+    <!-- ══ PETROL SALES SUMMARY PANEL ══════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div class="filter-bar">
+        <div class="filter-label">Petrol Sales Summary — All Branches</div>
+        <div class="filter-grid">
+          <div class="field mb0"><label>Year</label>
+            <input type="number" id="psYear" placeholder="2026" style="width:80px"></div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psMonth">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="field mb0" style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn btn-gold btn-sm" onclick="loadPetrolSalesReport()">Generate</button>
+            <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+          </div>
+        </div>
+      </div>
+      <div id="petrolSalesContent"><p class="empty">Select a year and month, then click Generate.</p></div>
+    </div>
+
+
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
   <!-- Header -->
@@ -10161,6 +11226,64 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
 </body>
 </html>
 
+    <!-- ══ PETROL SALES PANEL ═══════════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="field mb0"><label>Year</label>
+            <select id="psSalesYear" style="width:80px">
+              <option>2025</option><option selected>2026</option><option>2027</option>
+            </select>
+          </div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psSalesMonth" style="width:80px">
+              <option value="01">Jan</option><option value="02">Feb</option>
+              <option value="03">Mar</option><option value="04">Apr</option>
+              <option value="05">May</option><option value="06">Jun</option>
+              <option value="07">Jul</option><option value="08">Aug</option>
+              <option value="09">Sep</option><option value="10">Oct</option>
+              <option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="loadPetrolSales()">Generate</button>
+          <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="psAutoRefreshStatus" style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--green)"></span>
+          <button class="btn btn-ghost btn-sm" onclick="togglePetrolAutoRefresh()">&#9654; Auto Refresh</button>
+        </div>
+      </div>
+      <div id="psSummaryContent"><p class="empty">Select year and month, then click Generate.</p></div>
+    </div>
+
+
+    <!-- ══ PETROL SALES SUMMARY PANEL ══════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div class="filter-bar">
+        <div class="filter-label">Petrol Sales Summary — All Branches</div>
+        <div class="filter-grid">
+          <div class="field mb0"><label>Year</label>
+            <input type="number" id="psYear" placeholder="2026" style="width:80px"></div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psMonth">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="field mb0" style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn btn-gold btn-sm" onclick="loadPetrolSalesReport()">Generate</button>
+            <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+          </div>
+        </div>
+      </div>
+      <div id="petrolSalesContent"><p class="empty">Select a year and month, then click Generate.</p></div>
+    </div>
+
+
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
   <!-- Header -->
@@ -10238,6 +11361,64 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
 
 </body>
 </html>
+    <!-- ══ PETROL SALES PANEL ═══════════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="field mb0"><label>Year</label>
+            <select id="psSalesYear" style="width:80px">
+              <option>2025</option><option selected>2026</option><option>2027</option>
+            </select>
+          </div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psSalesMonth" style="width:80px">
+              <option value="01">Jan</option><option value="02">Feb</option>
+              <option value="03">Mar</option><option value="04">Apr</option>
+              <option value="05">May</option><option value="06">Jun</option>
+              <option value="07">Jul</option><option value="08">Aug</option>
+              <option value="09">Sep</option><option value="10">Oct</option>
+              <option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="loadPetrolSales()">Generate</button>
+          <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="psAutoRefreshStatus" style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--green)"></span>
+          <button class="btn btn-ghost btn-sm" onclick="togglePetrolAutoRefresh()">&#9654; Auto Refresh</button>
+        </div>
+      </div>
+      <div id="psSummaryContent"><p class="empty">Select year and month, then click Generate.</p></div>
+    </div>
+
+
+    <!-- ══ PETROL SALES SUMMARY PANEL ══════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div class="filter-bar">
+        <div class="filter-label">Petrol Sales Summary — All Branches</div>
+        <div class="filter-grid">
+          <div class="field mb0"><label>Year</label>
+            <input type="number" id="psYear" placeholder="2026" style="width:80px"></div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psMonth">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="field mb0" style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn btn-gold btn-sm" onclick="loadPetrolSalesReport()">Generate</button>
+            <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+          </div>
+        </div>
+      </div>
+      <div id="petrolSalesContent"><p class="empty">Select a year and month, then click Generate.</p></div>
+    </div>
+
+
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
   <!-- Header -->
@@ -10315,6 +11496,64 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
 
 </body>
 </html>
+
+    <!-- ══ PETROL SALES PANEL ═══════════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="field mb0"><label>Year</label>
+            <select id="psSalesYear" style="width:80px">
+              <option>2025</option><option selected>2026</option><option>2027</option>
+            </select>
+          </div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psSalesMonth" style="width:80px">
+              <option value="01">Jan</option><option value="02">Feb</option>
+              <option value="03">Mar</option><option value="04">Apr</option>
+              <option value="05">May</option><option value="06">Jun</option>
+              <option value="07">Jul</option><option value="08">Aug</option>
+              <option value="09">Sep</option><option value="10">Oct</option>
+              <option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="loadPetrolSales()">Generate</button>
+          <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="psAutoRefreshStatus" style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--green)"></span>
+          <button class="btn btn-ghost btn-sm" onclick="togglePetrolAutoRefresh()">&#9654; Auto Refresh</button>
+        </div>
+      </div>
+      <div id="psSummaryContent"><p class="empty">Select year and month, then click Generate.</p></div>
+    </div>
+
+
+    <!-- ══ PETROL SALES SUMMARY PANEL ══════════════════════════ -->
+    <div id="tabPetrolSales" class="adm-panel">
+      <div class="filter-bar">
+        <div class="filter-label">Petrol Sales Summary — All Branches</div>
+        <div class="filter-grid">
+          <div class="field mb0"><label>Year</label>
+            <input type="number" id="psYear" placeholder="2026" style="width:80px"></div>
+          <div class="field mb0"><label>Month</label>
+            <select id="psMonth">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="field mb0" style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn btn-gold btn-sm" onclick="loadPetrolSalesReport()">Generate</button>
+            <button class="btn btn-blue btn-sm" onclick="exportPetrolSalesCSV()">&#11123; CSV</button>
+          </div>
+        </div>
+      </div>
+      <div id="petrolSalesContent"><p class="empty">Select a year and month, then click Generate.</p></div>
+    </div>
+
 
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
