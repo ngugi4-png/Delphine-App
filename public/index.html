@@ -879,6 +879,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button class="adm-sub-btn" onclick="admSubTab(this,'tabBranches','mSettings')">Branches &amp; Products</button>
     <button class="adm-sub-btn" onclick="admSubTab(this,'tabBankAccts','mSettings')">Bank Accounts</button>
     <button class="adm-sub-btn" onclick="admSubTab(this,'tabEmailSettings','mSettings');loadEmailSettings()">Email Settings</button>
+    <button class="adm-sub-btn" style="color:var(--red);margin-left:auto" onclick="admSubTab(this,'tabDangerZone','mSettings')">&#9888; Danger Zone</button>
   </div>
   <div class="container">
 
@@ -4976,7 +4977,7 @@ function admTab(btn, panelId) {
   var bsp=["tabBranchSummary","tabPetrolSales"];
   var rp=["tabAppr","tabSales","tabRecon","tabDeps","tabPL","tabStock","tabAudit","tabInvReport","tabExport","tabStaffPerf"];
   var op=["tabInv","tabVend","tabCreateReport"];
-  var sp=["tabStaff","tabBranches","tabBankAccts"];
+  var sp=["tabStaff","tabBranches","tabBankAccts","tabDangerZone"];
   var mk="mDash";
   if(rp.indexOf(panelId)>=0)mk="mReports";
   if(op.indexOf(panelId)>=0)mk="mOps";
@@ -11082,6 +11083,104 @@ function _buildPetrolSummaryCSV(sd) {
   toast("Petrol summary exported: "+filename,"ok");
 }
 
+
+// ─── FULL DATA WIPE ────────────────────────────────────────────
+var WIPE_COLLECTIONS = [
+  "reports","inventory","invAdjustments","invPrices",
+  "users","settings","expenses","debts","bills",
+  "vendors","purchaseOrders","notifications","auditTrail","priceHistory"
+];
+
+function checkWipeConfirm() {
+  var val = el("wipeConfirmInput") ? el("wipeConfirmInput").value : "";
+  var btn = el("btnWipeAll");
+  if (btn) btn.disabled = (val !== "DELETE EVERYTHING");
+}
+
+function _wipeLog(msg, color) {
+  var logEl = el("wipeLog");
+  if (!logEl) return;
+  var line = document.createElement("div");
+  line.style.color = color || "var(--text2)";
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function _deleteCollection(colName, cb) {
+  var total = 0;
+  function deleteBatch() {
+    db.collection(colName).limit(400).get().then(function(snap) {
+      if (snap.empty) {
+        _wipeLog("✓ " + colName + ": " + total + " docs deleted", "var(--green)");
+        cb(null);
+        return;
+      }
+      var batch = db.batch();
+      snap.docs.forEach(function(d) { batch.delete(d.ref); });
+      batch.commit().then(function() {
+        total += snap.docs.length;
+        _wipeLog("  " + colName + ": removed batch of " + snap.docs.length + " (total " + total + ")", "var(--text3)");
+        setTimeout(deleteBatch, 250);
+      }).catch(function(e) {
+        _wipeLog("✗ Error in " + colName + ": " + e.message, "var(--red)");
+        cb(e);
+      });
+    }).catch(function(e) {
+      _wipeLog("✗ Cannot read " + colName + ": " + e.message, "var(--red)");
+      cb(null); // continue anyway
+    });
+  }
+  deleteBatch();
+}
+
+function startFullWipe() {
+  var btn = el("btnWipeAll");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ WIPING..."; }
+  var ci = el("wipeConfirmInput");
+  if (ci) ci.disabled = true;
+
+  var prog = el("wipeProgress");
+  if (prog) prog.style.display = "block";
+
+  _wipeLog("Starting full data wipe...", "var(--amber)");
+  _wipeLog("Signed in as: " + (currentUser ? currentUser.email : "unknown"), "var(--text3)");
+  _wipeLog("─────────────────────────────", "var(--border)");
+
+  var idx = 0;
+  var total = WIPE_COLLECTIONS.length;
+
+  function wipeNext() {
+    if (idx >= total) {
+      // Done
+      var pb = el("wipeProgressBar");
+      if (pb) pb.style.width = "100%";
+      var st = el("wipeStatus");
+      if (st) st.textContent = "✓ Complete — " + total + " collections cleared";
+      _wipeLog("─────────────────────────────", "var(--border)");
+      _wipeLog("✓ WIPE COMPLETE. All data deleted.", "var(--green)");
+      if (btn) btn.textContent = "✓ DONE";
+      var doneBox = el("wipeDoneBox");
+      if (doneBox) doneBox.style.display = "block";
+      return;
+    }
+
+    var colName = WIPE_COLLECTIONS[idx];
+    var pct = Math.round((idx / total) * 100);
+    var pb = el("wipeProgressBar");
+    if (pb) pb.style.width = pct + "%";
+    var st = el("wipeStatus");
+    if (st) st.textContent = "Deleting " + colName + "... (" + (idx+1) + "/" + total + ")";
+
+    idx++;
+    _deleteCollection(colName, function() {
+      wipeNext();
+    });
+  }
+
+  wipeNext();
+}
+
 // INIT PO & BILL FORM
 addPOItem();
 var poDateEl = el("poDate");
@@ -11148,6 +11247,49 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
     </div>
 
 
+    <!-- ══ DANGER ZONE PANEL ══════════════════════════════════ -->
+    <div id="tabDangerZone" class="adm-panel">
+      <div class="card" style="border:2px solid var(--red)">
+        <div class="card-title" style="color:var(--red)">⚠ Danger Zone — Wipe All Data</div>
+        <div style="background:var(--red2);border:1px solid var(--red);border-radius:3px;padding:14px;margin-bottom:16px;font-family:DM Mono,monospace;font-size:0.7rem;line-height:1.9;color:var(--text)">
+          <strong style="color:var(--red)">THIS CANNOT BE UNDONE.</strong><br>
+          Permanently deletes ALL data from the Delphine database:<br>
+          Reports · Inventory · Staff Accounts · Settings · Expenses · Debts ·
+          Bills · Vendors · Notifications · Audit Trail · Price History<br><br>
+          The app will return to a completely blank state.
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div class="field" style="margin-bottom:8px">
+            <label style="color:var(--red)">Type <strong>DELETE EVERYTHING</strong> to confirm</label>
+            <input type="text" id="wipeConfirmInput" placeholder="DELETE EVERYTHING"
+              oninput="checkWipeConfirm()" autocomplete="off"
+              style="border-color:var(--red);font-family:monospace">
+          </div>
+        </div>
+
+        <button id="btnWipeAll" class="btn btn-red" disabled onclick="startFullWipe()"
+          style="width:100%;font-size:0.8rem;letter-spacing:2px;padding:14px">
+          🗑 WIPE ALL DATA
+        </button>
+
+        <div id="wipeProgress" style="display:none;margin-top:14px">
+          <div style="background:var(--s3);border-radius:2px;height:8px;overflow:hidden;margin-bottom:8px">
+            <div id="wipeProgressBar" style="height:100%;width:0%;background:var(--red);transition:width 0.3s;border-radius:2px"></div>
+          </div>
+          <div id="wipeStatus" style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text3);text-align:center;margin-bottom:10px"></div>
+          <div id="wipeLog" style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:12px;font-family:DM Mono,monospace;font-size:0.62rem;line-height:2;max-height:280px;overflow-y:auto;color:var(--text2)"></div>
+        </div>
+
+        <div id="wipeDoneBox" style="display:none;margin-top:14px;background:var(--green2);border:1px solid var(--green);border-radius:3px;padding:14px;font-family:DM Mono,monospace;font-size:0.72rem;color:var(--green);text-align:center;line-height:1.9">
+          ✓ ALL DATA WIPED SUCCESSFULLY<br>
+          <span style="color:var(--text3);font-size:0.62rem">The app is now blank. Refresh to start fresh.</span><br><br>
+          <button class="btn btn-ghost btn-sm" onclick="location.reload()">↺ Reload App</button>
+        </div>
+      </div>
+    </div>
+
+
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
   <!-- Header -->
@@ -11284,6 +11426,49 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
     </div>
 
 
+    <!-- ══ DANGER ZONE PANEL ══════════════════════════════════ -->
+    <div id="tabDangerZone" class="adm-panel">
+      <div class="card" style="border:2px solid var(--red)">
+        <div class="card-title" style="color:var(--red)">⚠ Danger Zone — Wipe All Data</div>
+        <div style="background:var(--red2);border:1px solid var(--red);border-radius:3px;padding:14px;margin-bottom:16px;font-family:DM Mono,monospace;font-size:0.7rem;line-height:1.9;color:var(--text)">
+          <strong style="color:var(--red)">THIS CANNOT BE UNDONE.</strong><br>
+          Permanently deletes ALL data from the Delphine database:<br>
+          Reports · Inventory · Staff Accounts · Settings · Expenses · Debts ·
+          Bills · Vendors · Notifications · Audit Trail · Price History<br><br>
+          The app will return to a completely blank state.
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div class="field" style="margin-bottom:8px">
+            <label style="color:var(--red)">Type <strong>DELETE EVERYTHING</strong> to confirm</label>
+            <input type="text" id="wipeConfirmInput" placeholder="DELETE EVERYTHING"
+              oninput="checkWipeConfirm()" autocomplete="off"
+              style="border-color:var(--red);font-family:monospace">
+          </div>
+        </div>
+
+        <button id="btnWipeAll" class="btn btn-red" disabled onclick="startFullWipe()"
+          style="width:100%;font-size:0.8rem;letter-spacing:2px;padding:14px">
+          🗑 WIPE ALL DATA
+        </button>
+
+        <div id="wipeProgress" style="display:none;margin-top:14px">
+          <div style="background:var(--s3);border-radius:2px;height:8px;overflow:hidden;margin-bottom:8px">
+            <div id="wipeProgressBar" style="height:100%;width:0%;background:var(--red);transition:width 0.3s;border-radius:2px"></div>
+          </div>
+          <div id="wipeStatus" style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text3);text-align:center;margin-bottom:10px"></div>
+          <div id="wipeLog" style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:12px;font-family:DM Mono,monospace;font-size:0.62rem;line-height:2;max-height:280px;overflow-y:auto;color:var(--text2)"></div>
+        </div>
+
+        <div id="wipeDoneBox" style="display:none;margin-top:14px;background:var(--green2);border:1px solid var(--green);border-radius:3px;padding:14px;font-family:DM Mono,monospace;font-size:0.72rem;color:var(--green);text-align:center;line-height:1.9">
+          ✓ ALL DATA WIPED SUCCESSFULLY<br>
+          <span style="color:var(--text3);font-size:0.62rem">The app is now blank. Refresh to start fresh.</span><br><br>
+          <button class="btn btn-ghost btn-sm" onclick="location.reload()">↺ Reload App</button>
+        </div>
+      </div>
+    </div>
+
+
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
   <!-- Header -->
@@ -11419,6 +11604,49 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
     </div>
 
 
+    <!-- ══ DANGER ZONE PANEL ══════════════════════════════════ -->
+    <div id="tabDangerZone" class="adm-panel">
+      <div class="card" style="border:2px solid var(--red)">
+        <div class="card-title" style="color:var(--red)">⚠ Danger Zone — Wipe All Data</div>
+        <div style="background:var(--red2);border:1px solid var(--red);border-radius:3px;padding:14px;margin-bottom:16px;font-family:DM Mono,monospace;font-size:0.7rem;line-height:1.9;color:var(--text)">
+          <strong style="color:var(--red)">THIS CANNOT BE UNDONE.</strong><br>
+          Permanently deletes ALL data from the Delphine database:<br>
+          Reports · Inventory · Staff Accounts · Settings · Expenses · Debts ·
+          Bills · Vendors · Notifications · Audit Trail · Price History<br><br>
+          The app will return to a completely blank state.
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div class="field" style="margin-bottom:8px">
+            <label style="color:var(--red)">Type <strong>DELETE EVERYTHING</strong> to confirm</label>
+            <input type="text" id="wipeConfirmInput" placeholder="DELETE EVERYTHING"
+              oninput="checkWipeConfirm()" autocomplete="off"
+              style="border-color:var(--red);font-family:monospace">
+          </div>
+        </div>
+
+        <button id="btnWipeAll" class="btn btn-red" disabled onclick="startFullWipe()"
+          style="width:100%;font-size:0.8rem;letter-spacing:2px;padding:14px">
+          🗑 WIPE ALL DATA
+        </button>
+
+        <div id="wipeProgress" style="display:none;margin-top:14px">
+          <div style="background:var(--s3);border-radius:2px;height:8px;overflow:hidden;margin-bottom:8px">
+            <div id="wipeProgressBar" style="height:100%;width:0%;background:var(--red);transition:width 0.3s;border-radius:2px"></div>
+          </div>
+          <div id="wipeStatus" style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text3);text-align:center;margin-bottom:10px"></div>
+          <div id="wipeLog" style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:12px;font-family:DM Mono,monospace;font-size:0.62rem;line-height:2;max-height:280px;overflow-y:auto;color:var(--text2)"></div>
+        </div>
+
+        <div id="wipeDoneBox" style="display:none;margin-top:14px;background:var(--green2);border:1px solid var(--green);border-radius:3px;padding:14px;font-family:DM Mono,monospace;font-size:0.72rem;color:var(--green);text-align:center;line-height:1.9">
+          ✓ ALL DATA WIPED SUCCESSFULLY<br>
+          <span style="color:var(--text3);font-size:0.62rem">The app is now blank. Refresh to start fresh.</span><br><br>
+          <button class="btn btn-ghost btn-sm" onclick="location.reload()">↺ Reload App</button>
+        </div>
+      </div>
+    </div>
+
+
 <!-- ══ BRANCH VIEW OVERLAY ══════════════════════════════════════ -->
 <div id="branchViewOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);overflow-y:auto;flex-direction:column">
   <!-- Header -->
@@ -11552,6 +11780,49 @@ if (billDateEl) billDateEl.valueAsDate = new Date();
         </div>
       </div>
       <div id="petrolSalesContent"><p class="empty">Select a year and month, then click Generate.</p></div>
+    </div>
+
+
+    <!-- ══ DANGER ZONE PANEL ══════════════════════════════════ -->
+    <div id="tabDangerZone" class="adm-panel">
+      <div class="card" style="border:2px solid var(--red)">
+        <div class="card-title" style="color:var(--red)">⚠ Danger Zone — Wipe All Data</div>
+        <div style="background:var(--red2);border:1px solid var(--red);border-radius:3px;padding:14px;margin-bottom:16px;font-family:DM Mono,monospace;font-size:0.7rem;line-height:1.9;color:var(--text)">
+          <strong style="color:var(--red)">THIS CANNOT BE UNDONE.</strong><br>
+          Permanently deletes ALL data from the Delphine database:<br>
+          Reports · Inventory · Staff Accounts · Settings · Expenses · Debts ·
+          Bills · Vendors · Notifications · Audit Trail · Price History<br><br>
+          The app will return to a completely blank state.
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div class="field" style="margin-bottom:8px">
+            <label style="color:var(--red)">Type <strong>DELETE EVERYTHING</strong> to confirm</label>
+            <input type="text" id="wipeConfirmInput" placeholder="DELETE EVERYTHING"
+              oninput="checkWipeConfirm()" autocomplete="off"
+              style="border-color:var(--red);font-family:monospace">
+          </div>
+        </div>
+
+        <button id="btnWipeAll" class="btn btn-red" disabled onclick="startFullWipe()"
+          style="width:100%;font-size:0.8rem;letter-spacing:2px;padding:14px">
+          🗑 WIPE ALL DATA
+        </button>
+
+        <div id="wipeProgress" style="display:none;margin-top:14px">
+          <div style="background:var(--s3);border-radius:2px;height:8px;overflow:hidden;margin-bottom:8px">
+            <div id="wipeProgressBar" style="height:100%;width:0%;background:var(--red);transition:width 0.3s;border-radius:2px"></div>
+          </div>
+          <div id="wipeStatus" style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text3);text-align:center;margin-bottom:10px"></div>
+          <div id="wipeLog" style="background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:12px;font-family:DM Mono,monospace;font-size:0.62rem;line-height:2;max-height:280px;overflow-y:auto;color:var(--text2)"></div>
+        </div>
+
+        <div id="wipeDoneBox" style="display:none;margin-top:14px;background:var(--green2);border:1px solid var(--green);border-radius:3px;padding:14px;font-family:DM Mono,monospace;font-size:0.72rem;color:var(--green);text-align:center;line-height:1.9">
+          ✓ ALL DATA WIPED SUCCESSFULLY<br>
+          <span style="color:var(--text3);font-size:0.62rem">The app is now blank. Refresh to start fresh.</span><br><br>
+          <button class="btn btn-ghost btn-sm" onclick="location.reload()">↺ Reload App</button>
+        </div>
+      </div>
     </div>
 
 
