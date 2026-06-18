@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Delphine — Data Wipe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Mono', monospace; background: #111; color: #eee; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .box { background: #1a1a1a; border: 1px solid #333; border-radius: 6px;
+    padding: 32px; max-width: 540px; width: 100%; }
+  .logo { font-size: 1.1rem; font-weight: 700; letter-spacing: 3px; color: #C8922A;
+    margin-bottom: 6px; }
+  h1 { font-size: 1rem; color: #e53935; letter-spacing: 2px; margin-bottom: 20px; }
+  .warn { background: #3a0000; border: 1px solid #e53935; border-radius: 4px;
+    padding: 14px; margin-bottom: 20px; font-size: 0.72rem; line-height: 1.8; color: #ff8a80; }
+  .warn strong { color: #e53935; }
+  .collections { background: #141414; border: 1px solid #2a2a2a; border-radius: 4px;
+    padding: 14px; margin-bottom: 20px; font-size: 0.68rem; color: #888; line-height: 2; }
+  .collections span { color: #C8922A; }
+  .confirm-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  input[type=text] { flex: 1; background: #0d0d0d; border: 1px solid #444; border-radius: 3px;
+    padding: 10px 14px; color: #fff; font-family: monospace; font-size: 0.8rem; }
+  input[type=text]:focus { outline: none; border-color: #e53935; }
+  button { padding: 12px 20px; border: none; border-radius: 3px; font-family: monospace;
+    font-size: 0.78rem; font-weight: 700; cursor: pointer; letter-spacing: 1px; }
+  #btnWipe { background: #e53935; color: #fff; width: 100%; margin-top: 8px;
+    letter-spacing: 2px; font-size: 0.8rem; }
+  #btnWipe:disabled { background: #444; color: #666; cursor: not-allowed; }
+  #btnWipe:hover:not(:disabled) { background: #c62828; }
+  #log { background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 4px;
+    padding: 14px; margin-top: 16px; font-size: 0.62rem; color: #4caf50;
+    line-height: 2; max-height: 320px; overflow-y: auto; display: none; }
+  #log .err { color: #e53935; }
+  #log .done { color: #C8922A; font-weight: 700; }
+  #log .info { color: #888; }
+  .progress { background: #1e1e1e; border-radius: 2px; height: 6px; margin-top: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; background: #e53935; width: 0%; transition: width 0.3s; border-radius: 2px; }
+  #status { font-size: 0.65rem; color: #666; margin-top: 8px; text-align: center; }
+  .success-box { background: #0a1f0a; border: 1px solid #2e7d32; border-radius: 4px;
+    padding: 16px; margin-top: 16px; display: none; text-align: center; color: #4caf50; }
+  .success-box a { color: #C8922A; text-decoration: none; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">⛽ DELPHINE</div>
+  <h1>⚠ COMPLETE DATA WIPE</h1>
+
+  <div class="warn">
+    <strong>WARNING — THIS CANNOT BE UNDONE.</strong><br>
+    This will permanently delete ALL data from the Delphine Firestore database:
+    reports, inventory, staff accounts, settings, expenses, debts, bills, vendors,
+    notifications, audit trail, price history — everything.<br><br>
+    <strong>The app will be returned to a completely blank state.</strong>
+  </div>
+
+  <div class="collections">
+    Collections to be deleted:<br>
+    <span>reports · inventory · invAdjustments · invPrices · users · settings
+    · expenses · debts · bills · vendors · purchaseOrders · notifications
+    · auditTrail · priceHistory · expenses · debts</span>
+  </div>
+
+  <div style="font-size:0.7rem;color:#888;margin-bottom:14px">
+    Type <strong style="color:#e53935">DELETE EVERYTHING</strong> to confirm:
+  </div>
+  <div class="confirm-row">
+    <input type="text" id="confirmInput" placeholder="DELETE EVERYTHING"
+      oninput="checkConfirm()">
+  </div>
+
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+  <div id="status">Enter confirmation phrase to enable wipe</div>
+
+  <button id="btnWipe" disabled onclick="startWipe()">🗑 WIPE ALL DATA</button>
+
+  <div id="log"></div>
+  <div class="success-box" id="successBox">
+    ✓ All data wiped successfully.<br><br>
+    <a href="/index.html">→ Go to Delphine App</a>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<script>
+firebase.initializeApp({
+  apiKey:            "AIzaSyAZ2gkGqM4THSe2m4zxJWrfCkaWVN6zLSI",
+  authDomain:        "delphine-b4214.firebaseapp.com",
+  projectId:         "delphine-b4214",
+  storageBucket:     "delphine-b4214.firebasestorage.app",
+  messagingSenderId: "571722955845",
+  appId:             "1:571722955845:web:c7e5e0fcbe6074d947f72c"
+});
+var db   = firebase.firestore();
+var auth = firebase.auth();
+
+var COLLECTIONS = [
+  "reports","inventory","invAdjustments","invPrices",
+  "users","settings","expenses","debts","bills",
+  "vendors","purchaseOrders","notifications","auditTrail","priceHistory"
+];
+
+function checkConfirm() {
+  var val = document.getElementById("confirmInput").value;
+  var btn = document.getElementById("btnWipe");
+  btn.disabled = (val !== "DELETE EVERYTHING");
+}
+
+function log(msg, cls) {
+  var logEl = document.getElementById("log");
+  logEl.style.display = "block";
+  var line = document.createElement("div");
+  line.className = cls||"";
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setProgress(pct, statusMsg) {
+  document.getElementById("progressBar").style.width = pct + "%";
+  document.getElementById("status").textContent = statusMsg;
+}
+
+// Delete all docs in a collection in batches of 400
+function deleteCollection(colName) {
+  return new Promise(function(resolve, reject) {
+    var total = 0;
+    function deleteBatch() {
+      db.collection(colName).limit(400).get().then(function(snap) {
+        if (snap.empty) {
+          log("✓ " + colName + ": deleted " + total + " docs");
+          resolve(total);
+          return;
+        }
+        var batch = db.batch();
+        snap.docs.forEach(function(d) { batch.delete(d.ref); });
+        batch.commit().then(function() {
+          total += snap.docs.length;
+          log("  " + colName + ": removed " + snap.docs.length + " docs (total: " + total + ")", "info");
+          // Small delay to avoid Firestore rate limits
+          setTimeout(deleteBatch, 300);
+        }).catch(function(e) {
+          log("✗ Error deleting batch from " + colName + ": " + e.message, "err");
+          reject(e);
+        });
+      }).catch(function(e) {
+        log("✗ Error reading " + colName + ": " + e.message, "err");
+        reject(e);
+      });
+    }
+    deleteBatch();
+  });
+}
+
+function startWipe() {
+  var btn = document.getElementById("btnWipe");
+  btn.disabled = true;
+  btn.textContent = "⏳ WIPING...";
+  document.getElementById("confirmInput").disabled = true;
+
+  log("Starting complete data wipe...", "info");
+  log("Authenticated as: " + (auth.currentUser ? auth.currentUser.email : "not signed in"), "info");
+  log("─────────────────────────────────────", "info");
+
+  var done = 0;
+  var total = COLLECTIONS.length;
+
+  function wipeNext(idx) {
+    if (idx >= total) {
+      setProgress(100, "✓ Complete — all data deleted");
+      log("─────────────────────────────────────", "info");
+      log("✓ WIPE COMPLETE — all " + total + " collections cleared.", "done");
+      btn.textContent = "✓ DONE";
+      document.getElementById("successBox").style.display = "block";
+      return;
+    }
+    var col = COLLECTIONS[idx];
+    var pct = Math.round((idx / total) * 100);
+    setProgress(pct, "Deleting " + col + "... (" + (idx+1) + "/" + total + ")");
+
+    deleteCollection(col).then(function() {
+      done++;
+      wipeNext(idx + 1);
+    }).catch(function(e) {
+      log("Skipping " + col + " due to error: " + e.message, "err");
+      wipeNext(idx + 1); // continue with next collection even on error
+    });
+  }
+
+  // Check auth first
+  if (!auth.currentUser) {
+    log("⚠ Not signed in. Sign in at the main app first, then return here.", "err");
+    btn.disabled = false;
+    btn.textContent = "🗑 WIPE ALL DATA";
+    return;
+  }
+
+  wipeNext(0);
+}
+
+// Check auth state on load
+auth.onAuthStateChanged(function(user) {
+  if (user) {
+    document.getElementById("status").textContent =
+      "Signed in as " + user.email + " — enter confirmation phrase";
+  } else {
+    document.getElementById("status").textContent =
+      "⚠ Not signed in — open the main app first to sign in, then return here";
+    document.getElementById("btnWipe").disabled = true;
+  }
+});
+</script>
+</body>
+</html>
