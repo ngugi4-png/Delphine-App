@@ -1955,8 +1955,29 @@ auth.onAuthStateChanged(function(user) {
     db.collection("users").doc(user.uid).get()
       .then(function(snap) {
         if (!snap.exists) {
-          auth.signOut();
-          showOnly("sAuth");
+          // No profile found — auto-create admin if this is the admin email
+          if (user.email === ADMIN_EMAIL) {
+            var adminProfile = {
+              name: "Admin",
+              email: user.email,
+              role: "admin",
+              status: "approved",
+              branch: "",
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            db.collection("users").doc(user.uid).set(adminProfile).then(function() {
+              currentProfile = adminProfile;
+              showOnly("sAdmin");
+              loadAdmin();
+            }).catch(function(e) {
+              toast("Error creating admin profile: " + e.message, "err");
+              showOnly("sAuth");
+            });
+          } else {
+            // Non-admin with no profile — sign out
+            auth.signOut();
+            showOnly("sAuth");
+          }
           return;
         }
         currentProfile = snap.data();
