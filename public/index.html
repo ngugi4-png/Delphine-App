@@ -35,6 +35,141 @@ input[type=number], .tbl td, .tbl th,
 .st-val, .computed, .appr-item-val, .mw-val, .dc-val,
 code, pre { font-family: var(--font-mono); }
 
+
+/* ── DAILY SALES REPORT (Figma UI) ─────────────────────────── */
+.dsr-wrap { background:var(--s1); border-radius:8px; overflow:hidden; }
+.dsr-header { display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; border-bottom:1px solid var(--border); background:var(--s2); }
+.dsr-header-left { display:flex; align-items:center; gap:12px; }
+.dsr-logo-box { width:36px; height:36px; background:var(--gold);
+  border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.dsr-logo-box img { width:26px; height:26px; object-fit:contain; filter:brightness(0) invert(1); }
+.dsr-station-name { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:0.85rem; font-weight:700; color:var(--text); }
+.dsr-station-sub { font-family:'DM Mono',monospace; font-size:0.58rem;
+  color:var(--text3); letter-spacing:1px; text-transform:uppercase; }
+.dsr-header-right { display:flex; align-items:center; gap:10px; }
+.dsr-date-pill { background:var(--s3); border:1px solid var(--border);
+  border-radius:6px; padding:6px 14px; font-family:'DM Mono',monospace;
+  font-size:0.7rem; color:var(--text2); display:flex; align-items:center; gap:8px; }
+.dsr-btn-icon { width:32px; height:32px; background:var(--s3);
+  border:1px solid var(--border); border-radius:6px; display:flex;
+  align-items:center; justify-content:center; cursor:pointer; color:var(--text3);
+  font-size:0.9rem; transition:background 0.15s; }
+.dsr-btn-icon:hover { background:var(--border); color:var(--text); }
+.dsr-btn-export { background:var(--gold); color:#fff; border:none; border-radius:6px;
+  padding:7px 16px; font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:0.72rem; font-weight:700; cursor:pointer; display:flex;
+  align-items:center; gap:6px; letter-spacing:0.5px; }
+.dsr-btn-export:hover { background:var(--gold2); }
+
+/* Hero title */
+.dsr-title-row { padding:20px 20px 4px; display:flex; align-items:flex-start;
+  justify-content:space-between; }
+.dsr-title { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:1.6rem; font-weight:700; color:var(--text); letter-spacing:-0.5px; }
+.dsr-subtitle { font-family:'DM Mono',monospace; font-size:0.62rem;
+  color:var(--text3); margin-top:3px; }
+.dsr-subtitle span { color:var(--gold); }
+.dsr-status-pill { background:rgba(74,158,106,0.15); border:1px solid #4a9e6a;
+  color:#4a9e6a; border-radius:20px; padding:5px 14px; font-family:'DM Mono',monospace;
+  font-size:0.62rem; display:flex; align-items:center; gap:6px; }
+.dsr-status-dot { width:7px; height:7px; background:#4a9e6a;
+  border-radius:50%; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* KPI tiles */
+.dsr-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr);
+  gap:12px; padding:16px 20px; }
+@media(max-width:900px){ .dsr-kpi-grid{ grid-template-columns:repeat(2,1fr); } }
+.dsr-kpi { background:var(--s2); border:1px solid var(--border); border-radius:10px;
+  padding:18px; position:relative; overflow:hidden; }
+.dsr-kpi-label { font-family:'DM Mono',monospace; font-size:0.55rem;
+  letter-spacing:2px; text-transform:uppercase; color:var(--text3); margin-bottom:8px; }
+.dsr-kpi-icon { position:absolute; top:14px; right:14px; width:32px; height:32px;
+  border-radius:8px; display:flex; align-items:center; justify-content:center;
+  font-size:0.9rem; }
+.dsr-kpi-val { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:1.55rem; font-weight:700; line-height:1; margin-bottom:5px; }
+.dsr-kpi-desc { font-family:'DM Mono',monospace; font-size:0.6rem; color:var(--text3); }
+.dsr-kpi-delta { font-family:'DM Mono',monospace; font-size:0.62rem;
+  margin-top:8px; display:flex; align-items:center; gap:4px; }
+.dsr-kpi-delta.up   { color:#4a9e6a; }
+.dsr-kpi-delta.down { color:var(--red); }
+.dsr-kpi-delta.neu  { color:var(--text3); }
+
+/* Sub-tabs (Overview / Pump Readings / Shift Report / Reconciliation) */
+.dsr-tabs { display:flex; gap:4px; padding:0 20px; border-bottom:1px solid var(--border); }
+.dsr-tab { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:0.72rem; padding:10px 18px; border:none; background:transparent;
+  cursor:pointer; color:var(--text3); border-bottom:2px solid transparent;
+  transition:all 0.15s; border-radius:0; }
+.dsr-tab.active { color:var(--gold); border-bottom-color:var(--gold); font-weight:700; }
+.dsr-tab:hover:not(.active) { color:var(--text); }
+
+/* Content panels */
+.dsr-panel { display:none; padding:20px; }
+.dsr-panel.active { display:block; }
+
+/* Charts row */
+.dsr-charts-row { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:16px; }
+@media(max-width:900px){ .dsr-charts-row{ grid-template-columns:1fr; } }
+.dsr-chart-card { background:var(--s2); border:1px solid var(--border);
+  border-radius:10px; padding:20px; }
+.dsr-chart-title { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:0.9rem; font-weight:700; color:var(--text); margin-bottom:3px; }
+.dsr-chart-sub { font-family:'DM Mono',monospace; font-size:0.6rem;
+  color:var(--text3); margin-bottom:16px; }
+.dsr-chart-canvas { position:relative; height:240px; }
+
+/* Donut legend */
+.dsr-donut-row { display:flex; gap:12px; align-items:flex-start; }
+.dsr-donut-canvas { position:relative; width:140px; height:140px; flex-shrink:0; }
+.dsr-legend { flex:1; }
+.dsr-legend-item { padding:8px 0; border-bottom:1px solid var(--border); }
+.dsr-legend-item:last-child { border-bottom:none; }
+.dsr-legend-name { display:flex; align-items:center; gap:7px; margin-bottom:3px; }
+.dsr-legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.dsr-legend-label { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:0.72rem; color:var(--text); }
+.dsr-legend-pct { font-family:'DM Mono',monospace; font-size:0.68rem;
+  color:var(--text3); margin-left:auto; }
+.dsr-legend-detail { display:flex; justify-content:space-between;
+  font-family:'DM Mono',monospace; font-size:0.62rem; }
+.dsr-legend-litres { color:var(--text3); }
+.dsr-legend-ksh { color:var(--gold); font-weight:600; }
+
+/* Tank levels */
+.dsr-tanks-card { background:var(--s2); border:1px solid var(--border);
+  border-radius:10px; padding:20px; }
+.dsr-tank-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+@media(max-width:700px){ .dsr-tank-grid{ grid-template-columns:1fr; } }
+.dsr-tank-label-row { display:flex; justify-content:space-between;
+  font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--text3);
+  margin-bottom:6px; }
+.dsr-tank-name { font-family:'ClashGrotesk-Variable','Clash Grotesk',sans-serif;
+  font-size:0.75rem; font-weight:600; color:var(--text); }
+.dsr-tank-bar { height:8px; background:var(--s3); border-radius:4px;
+  overflow:hidden; margin-bottom:5px; }
+.dsr-tank-fill { height:100%; border-radius:4px; transition:width 0.6s ease; }
+.dsr-tank-pct { font-family:'DM Mono',monospace; font-size:0.6rem; color:var(--text3); }
+
+/* Pump readings table */
+.dsr-pump-tbl { width:100%; border-collapse:collapse; }
+.dsr-pump-tbl th { font-family:'DM Mono',monospace; font-size:0.55rem;
+  letter-spacing:1.5px; text-transform:uppercase; color:var(--text3);
+  padding:8px 12px; text-align:left; border-bottom:1px solid var(--border); }
+.dsr-pump-tbl td { font-family:'DM Mono',monospace; font-size:0.7rem;
+  padding:10px 12px; border-bottom:1px solid var(--s3); color:var(--text); }
+.dsr-pump-tbl tr:last-child td { border-bottom:none; }
+.dsr-pump-tbl td.num { text-align:right; color:var(--gold); font-weight:600; }
+.dsr-pump-tbl td.green { color:#4a9e6a; }
+.dsr-pump-tbl td.red { color:var(--red); }
+
+/* Report filter bar */
+.dsr-filter-row { display:flex; gap:10px; align-items:flex-end;
+  flex-wrap:wrap; margin-bottom:16px; }
+
 /* ── ADMIN SUB-NAV ── */
 .adm-sub-nav{display:flex;border-bottom:1px solid var(--border);background:var(--s2);overflow-x:auto;padding:0 20px;gap:2px;}
 .adm-sub-btn{padding:9px 14px;font-family:'DM Mono',monospace;font-size:0.56rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--text3);border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap;margin-bottom:-1px;}
@@ -957,29 +1092,179 @@ body{background:var(--bg);color:var(--text);font-family:'ClashGrotesk-Variable',
       <div id="apprList"><p class="empty">Loading...</p></div>
     </div>
 
-    <div id="tabSales" class="adm-panel">
-      <div class="filter-bar">
-        <div class="filter-label">Daily Sales Report</div>
-        <div class="filter-grid">
-          <div class="field mb0"><label>Branch</label><select id="rFBranch"><option value="">All</option><option>Kahuti</option><option>Karega</option><option>Kanyenyaini</option></select></div>
-          <div class="field mb0"><label>From</label><input type="date" id="rFFrom"></div>
-          <div class="field mb0"><label>To</label><input type="date" id="rFTo"></div>
-          <div class="field mb0"><label>Staff</label><select id="rFStaff"><option value="">All Staff</option></select></div>
+    <div id="tabSales" class="adm-panel" style="padding:0;background:var(--bg)">
+
+  <!-- ══ DSR SHELL ══════════════════════════════════════════════ -->
+  <div id="dsrShell" style="min-height:100vh;background:var(--bg)">
+
+    <!-- Top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:12px 24px;background:var(--s1);border-bottom:1px solid var(--border);
+      position:sticky;top:0;z-index:20">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:var(--gold);border-radius:8px;width:32px;height:32px;
+            display:flex;align-items:center;justify-content:center;font-size:1rem">⛽</div>
+          <div>
+            <div style="font-weight:700;font-size:0.85rem;color:var(--text)">Delphine Enterprise</div>
+            <div style="font-size:0.62rem;color:var(--text3)">Daily Sales Report</div>
+          </div>
         </div>
-        <div class="filter-grid" style="margin-top:9px">
-          <div class="field mb0"><label>Show Product</label><select id="rFProduct"><option value="">All Products</option><option value="petrol">Petrol</option><option value="p2t">2T Motor Oil</option><option value="p2tk">2T-Kupima</option><option value="puoil">Used Oil</option><option value="pshell">Shell Advance</option></select></div>
-          <div class="field mb0"><label>Min Qty</label><input type="number" id="rFMinQty" placeholder="e.g. 100" step="0.1"></div>
-          <div class="field mb0"><label>Status</label><select id="rFStatus"><option value="">All Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
-          <div class="field mb0"></div>
-        </div>
-        <div class="filter-actions"><button class="btn btn-gold btn-sm" onclick="loadDailySales()">Apply</button><button class="btn btn-ghost btn-sm" onclick="clearFlt(['rFBranch','rFFrom','rFTo','rFStaff','rFProduct','rFMinQty','rFStatus'])">Clear</button><button class="btn btn-blue btn-sm" onclick="exportToExcel()">↓ Excel</button></div>
       </div>
-      <div id="salesSummaryBar" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:2px;padding:12px 16px;margin-bottom:10px;font-family:DM Mono,monospace;font-size:0.72rem;color:var(--text2)"></div>
-      <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Date</th><th>Branch</th><th>Staff</th><th>Shift</th><th class="num">Petrol L</th><th class="num">Petrol KSh</th><th class="num">2T (pcs)</th><th class="num">2T-Kupima L</th><th class="num">Used Oil L</th><th class="num">Shell (pcs)</th><th class="num">Total</th><th>Status</th><th></th></tr></thead>
-        <tbody id="salesBody"><tr><td colspan="13" class="empty" style="padding:14px">Click Apply to load.</td></tr></tbody>
-      </table></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <select id="dsrBranch" onchange="loadDSR()"
+          style="background:var(--s2);border:1px solid var(--border);border-radius:6px;
+          padding:6px 12px;font-size:0.72rem;color:var(--text);cursor:pointer">
+          <option value="">All Branches</option>
+        </select>
+        <input type="date" id="dsrDate" onchange="loadDSR()"
+          style="background:var(--s2);border:1px solid var(--border);border-radius:6px;
+          padding:6px 12px;font-size:0.72rem;color:var(--text)">
+        <button onclick="loadDSR()"
+          style="background:var(--s2);border:1px solid var(--border);border-radius:6px;
+          padding:6px 10px;font-size:0.85rem;cursor:pointer;color:var(--text)">⟳</button>
+        <button onclick="dsrExportPDF()"
+          style="background:var(--gold);border:none;border-radius:6px;
+          padding:7px 14px;font-weight:700;font-size:0.72rem;color:#fff;cursor:pointer;
+          display:flex;align-items:center;gap:6px">⬇ Export</button>
+      </div>
     </div>
+
+    <!-- Report title -->
+    <div style="padding:20px 24px 4px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <h2 id="dsrTitle" style="font-size:1.5rem;font-weight:700;color:var(--text);margin:0">
+            Daily Sales Report — <span id="dsrTitleDate"></span>
+          </h2>
+          <div style="font-size:0.72rem;color:var(--gold);margin-top:4px">
+            All values in Kenyan Shillings (KSh) · Fuel volumes in litres
+          </div>
+        </div>
+        <div id="dsrStatusPill" style="display:flex;align-items:center;gap:6px;
+          background:rgba(74,158,106,0.12);border:1px solid var(--green);
+          border-radius:20px;padding:6px 14px;font-size:0.68rem;font-weight:600;color:var(--green)">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block"></span>
+          Station Active
+        </div>
+      </div>
+    </div>
+
+    <!-- ── KPI TILES ─────────────────────────────────────────── -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:16px 24px">
+
+      <!-- Total Revenue -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:0.6rem;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase">Total Revenue</div>
+          <div style="background:rgba(200,146,42,0.12);border-radius:8px;width:32px;height:32px;
+            display:flex;align-items:center;justify-content:center;font-size:1rem">📈</div>
+        </div>
+        <div id="dsrKpiRevenue" style="font-size:1.4rem;font-weight:800;color:var(--gold);margin-bottom:6px">—</div>
+        <div style="font-size:0.65rem;color:var(--text3)">Fuel + non-fuel</div>
+        <div id="dsrKpiRevDelta" style="font-size:0.65rem;margin-top:6px;font-weight:600"></div>
+      </div>
+
+      <!-- Total Volume -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:0.6rem;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase">Total Volume</div>
+          <div style="background:rgba(74,158,106,0.12);border-radius:8px;width:32px;height:32px;
+            display:flex;align-items:center;justify-content:center;font-size:1rem">🛢️</div>
+        </div>
+        <div id="dsrKpiVolume" style="font-size:1.4rem;font-weight:800;color:#4ecdc4;margin-bottom:6px">—</div>
+        <div style="font-size:0.65rem;color:var(--text3)">All fuel types</div>
+        <div id="dsrKpiVolDelta" style="font-size:0.65rem;margin-top:6px;font-weight:600"></div>
+      </div>
+
+      <!-- Reports -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:0.6rem;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase">Reports</div>
+          <div style="background:rgba(200,146,42,0.08);border-radius:8px;width:32px;height:32px;
+            display:flex;align-items:center;justify-content:center;font-size:1rem">📋</div>
+        </div>
+        <div id="dsrKpiReports" style="font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:6px">—</div>
+        <div style="font-size:0.65rem;color:var(--text3)">All shifts</div>
+        <div id="dsrKpiRepDelta" style="font-size:0.65rem;margin-top:6px;font-weight:600"></div>
+      </div>
+
+      <!-- Avg Litres/Report -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:0.6rem;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase">Avg Sale/Report</div>
+          <div style="background:rgba(150,100,200,0.12);border-radius:8px;width:32px;height:32px;
+            display:flex;align-items:center;justify-content:center;font-size:1rem">⛽</div>
+        </div>
+        <div id="dsrKpiAvg" style="font-size:1.4rem;font-weight:800;color:#b48ae0;margin-bottom:6px">—</div>
+        <div style="font-size:0.65rem;color:var(--text3)">Per report</div>
+        <div id="dsrKpiAvgDelta" style="font-size:0.65rem;margin-top:6px;font-weight:600"></div>
+      </div>
+
+    </div>
+
+    <!-- ── INNER TABS ──────────────────────────────────────────── -->
+    <div style="padding:0 24px;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <div style="display:flex;gap:4px">
+        <button class="dsr-itab active" onclick="dsrInnerTab(this,'dsrOverview')">Overview</button>
+        <button class="dsr-itab" onclick="dsrInnerTab(this,'dsrShifts')">Shift Reports</button>
+        <button class="dsr-itab" onclick="dsrInnerTab(this,'dsrRecon')">Reconciliation</button>
+        <button class="dsr-itab" onclick="dsrInnerTab(this,'dsrProducts')">Products</button>
+      </div>
+    </div>
+
+    <!-- ── OVERVIEW TAB ────────────────────────────────────────── -->
+    <div id="dsrOverview" class="dsr-ipanel active" style="padding:0 24px 24px">
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:16px">
+
+        <!-- Branch performance bars -->
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:4px">Branch Performance</div>
+          <div style="font-size:0.65rem;color:var(--text3);margin-bottom:16px">Revenue by branch</div>
+          <div id="dsrBranchBars"></div>
+        </div>
+
+        <!-- Product breakdown donut -->
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:4px">Revenue Breakdown</div>
+          <div style="font-size:0.65rem;color:var(--text3);margin-bottom:12px">Revenue share by product</div>
+          <div style="position:relative;height:160px;display:flex;align-items:center;justify-content:center">
+            <canvas id="dsrDonut" width="160" height="160"></canvas>
+          </div>
+          <div id="dsrDonutLegend" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </div>
+
+      <!-- Stock levels -->
+      <div style="margin-top:16px;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <div style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:4px">Stock Levels</div>
+        <div style="font-size:0.65rem;color:var(--text3);margin-bottom:16px">End-of-day inventory by branch</div>
+        <div id="dsrStockBars" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px"></div>
+      </div>
+    </div>
+
+    <!-- ── SHIFT REPORTS TAB ───────────────────────────────────── -->
+    <div id="dsrShifts" class="dsr-ipanel" style="padding:0 24px 24px">
+      <div id="dsrShiftsContent"><p class="empty" style="padding:20px">Select a date to view shift reports.</p></div>
+    </div>
+
+    <!-- ── RECONCILIATION TAB ──────────────────────────────────── -->
+    <div id="dsrRecon" class="dsr-ipanel" style="padding:0 24px 24px">
+      <div id="dsrReconContent"><p class="empty" style="padding:20px">Select a date to view reconciliation.</p></div>
+    </div>
+
+    <!-- ── PRODUCTS TAB ────────────────────────────────────────── -->
+    <div id="dsrProducts" class="dsr-ipanel" style="padding:0 24px 24px">
+      <div id="dsrProductsContent"><p class="empty" style="padding:20px">Select a date to view product breakdown.</p></div>
+    </div>
+
+    <div id="dsrEmpty" style="display:none;text-align:center;padding:60px 24px;color:var(--text3)">
+      <div style="font-size:2rem;margin-bottom:12px">📊</div>
+      <div style="font-size:0.9rem;font-weight:600">Select a date above to load the Daily Sales Report</div>
+    </div>
+
+  </div><!-- /dsrShell -->
+
 
     <div id="tabRecon" class="adm-panel">
       <div class="filter-bar">
@@ -5010,6 +5295,7 @@ function admTab(btn, panelId) {
   var sp=["tabStaff","tabBranches","tabBankAccts","tabDangerZone"];
   var mk="mDash";
   if(rp.indexOf(panelId)>=0)mk="mReports";
+  if(panelId==="tabSales"){ setTimeout(function(){ var d=el("dsrDate"); if(d&&!d.value){d.valueAsDate=new Date();} initDSR(); loadDSR(); },100); }
   if(op.indexOf(panelId)>=0)mk="mOps";
   if(sp.indexOf(panelId)>=0)mk="mSettings";
   if(fp.indexOf(panelId)>=0)mk="mFinance";
@@ -11209,6 +11495,677 @@ function startFullWipe() {
   }
 
   wipeNext();
+}
+
+
+// ─── DAILY SALES REPORT (Figma UI) ────────────────────────────
+var _dsrCharts = {};
+var PROD_COLORS = {
+  petrol:'#C8922A', p2t:'#4a9e6a', p2tk:'#4a9fd4',
+  puoil:'#a855f7',  pshell:'#e8a020'
+};
+var PROD_LABELS = {
+  petrol:'Petrol', p2t:'2T Motor Oil', p2tk:'2T-Kupima',
+  puoil:'Used Oil', pshell:'Shell Advance'
+};
+var BRANCH_COLORS = ['#C8922A','#4a9e6a','#4a9fd4','#a855f7','#e8a020'];
+
+function dsrTab(btn, panelId) {
+  document.querySelectorAll('.dsr-tab').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.dsr-panel').forEach(function(p){ p.classList.remove('active'); });
+  btn.classList.add('active');
+  var panel = el(panelId); if(panel) panel.classList.add('active');
+}
+
+function _delta(today, yesterday) {
+  if(!yesterday || yesterday===0) return {pct:null, dir:'neu'};
+  var pct = ((today-yesterday)/yesterday*100);
+  return { pct:Math.abs(pct).toFixed(1), dir: pct>0.5?'up':pct<-0.5?'down':'neu',
+    sym: pct>0.5?'▲':'▼' };
+}
+
+function _setKpiDelta(elId, today, yesterday) {
+  var d = _delta(today, yesterday);
+  var el2 = el(elId); if(!el2) return;
+  if(d.pct===null){ el2.textContent='—'; el2.className='dsr-kpi-delta neu'; return; }
+  el2.textContent = d.sym + d.pct + '% vs yesterday';
+  el2.className   = 'dsr-kpi-delta ' + d.dir;
+}
+
+function _destroyChart(name) {
+  if(_dsrCharts[name]) { _dsrCharts[name].destroy(); delete _dsrCharts[name]; }
+}
+
+function loadDailySales() {
+  var dateEl = el('dsrDate');
+  if(!dateEl || !dateEl.value) {
+    // Default to today
+    dateEl.valueAsDate = new Date();
+  }
+  var date = dateEl.value;
+  var prevDate = new Date(date); prevDate.setDate(prevDate.getDate()-1);
+  var prevStr  = prevDate.toISOString().split('T')[0];
+  var branch   = gv('rFBranch');
+
+  // Update header date label
+  var dl = el('dsrDateLabel');
+  if(dl) dl.textContent = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  var td2 = el('dsrTitleDate');
+  if(td2) td2.textContent = new Date(date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+
+  // Populate rFBranch if empty
+  var rb = el('rFBranch');
+  if(rb && rb.options.length < 2) {
+    BRANCHES.forEach(function(b){
+      var o=document.createElement('option'); o.value=b; o.textContent=b; rb.appendChild(o);
+    });
+  }
+
+  // Fetch today + yesterday reports
+  Promise.all([
+    db.collection('reports').where('date','==',date).get(),
+    db.collection('reports').where('date','==',prevStr).get(),
+    db.collection('inventory').get()
+  ]).then(function(results) {
+    var todaySnap=results[0], prevSnap=results[1], invSnap=results[2];
+
+    // Filter by branch
+    var todayReps=[], prevReps=[];
+    todaySnap.forEach(function(d){
+      var r=d.data(); r._id=d.id;
+      if(!branch||r.branch===branch) todayReps.push(r);
+    });
+    prevSnap.forEach(function(d){
+      var r=d.data();
+      if(!branch||r.branch===branch) prevReps.push(r);
+    });
+
+    // ── Aggregate today ───────────────────────────────────────
+    var todayRev=0, todayVol=0, todayRev2=0, todayVol2=0;
+    var byBranch={}, prodRevenue={petrol:0,p2t:0,p2tk:0,puoil:0,pshell:0};
+    var prodVol={petrol:0};
+
+    todayReps.forEach(function(r){
+      if(r.approvalStatus!=='approved') return;
+      var pu=r.pump||{},m=pu.metre||{};
+      var p=r.products||{};
+      var petrolSale=m.value||r.grandTotal||0;
+      var litres=m.sold||0;
+      var total=r.grandTotal||0;
+      todayRev+=total; todayVol+=litres;
+      var b=r.branch||'Unknown';
+      if(!byBranch[b]) byBranch[b]={revenue:0,litres:0,reports:0};
+      byBranch[b].revenue+=total; byBranch[b].litres+=litres; byBranch[b].reports++;
+      prodRevenue.petrol +=(m.value||0);
+      prodRevenue.p2t    +=(p.p2t&&p.p2t.total)||0;
+      prodRevenue.p2tk   +=(p.p2tk&&p.p2tk.total)||0;
+      prodRevenue.puoil  +=(p.puoil&&p.puoil.total)||0;
+      prodRevenue.pshell +=(p.pshell&&p.pshell.total)||0;
+      prodVol.petrol+=litres;
+    });
+
+    prevReps.forEach(function(r){
+      if(r.approvalStatus!=='approved') return;
+      todayRev2+=(r.grandTotal||0);
+      todayVol2+=((r.pump&&r.pump.metre&&r.pump.metre.sold)||0);
+    });
+
+    var todayCount  = todayReps.filter(function(r){return r.approvalStatus==='approved';}).length;
+    var prevCount   = prevReps.filter(function(r){return r.approvalStatus==='approved';}).length;
+    var todayAvg    = todayCount>0?todayRev/todayCount:0;
+    var prevAvg     = prevCount>0?todayRev2/prevCount:0;
+    var statusTxt   = todayCount>0?'Active — '+todayCount+' Report'+(todayCount>1?'s':''):'No Reports Today';
+
+    // ── Update KPI tiles ──────────────────────────────────────
+    setText('dsrKpiRevenue',    'KSh '+fmt(todayRev));
+    setText('dsrKpiVolume',     todayVol.toFixed(0)+' L');
+    setText('dsrKpiReports',    String(todayCount));
+    setText('dsrKpiAvg',        'KSh '+fmt(todayAvg));
+    setText('dsrStatusLabel',   statusTxt);
+    _setKpiDelta('dsrKpiRevenueDelta', todayRev,   todayRev2);
+    _setKpiDelta('dsrKpiVolumeDelta',  todayVol,   todayVol2);
+    _setKpiDelta('dsrKpiReportsDelta', todayCount, prevCount);
+    _setKpiDelta('dsrKpiAvgDelta',     todayAvg,   prevAvg);
+
+    // ── Bar chart: revenue by branch ──────────────────────────
+    _destroyChart('bar');
+    var barLabels = Object.keys(byBranch);
+    var barData   = barLabels.map(function(b){return byBranch[b].revenue;});
+    var barColors = barLabels.map(function(_,i){return BRANCH_COLORS[i%BRANCH_COLORS.length];});
+    var barCtx = el('dsrBarChart');
+    if(barCtx) {
+      _dsrCharts.bar = new Chart(barCtx, {
+        type:'bar',
+        data:{ labels:barLabels, datasets:[{
+          label:'Revenue (KSh)',
+          data:barData, backgroundColor:barColors,
+          borderRadius:6, borderSkipped:false
+        }]},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{
+            label:function(ctx){return ' KSh '+fmt(ctx.raw);}
+          }}},
+          scales:{
+            x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5248',font:{size:11}}},
+            y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5248',font:{size:10},
+              callback:function(v){return 'KSh '+fmt(v);}}}
+          }
+        }
+      });
+    }
+
+    // ── Donut chart: product revenue mix ─────────────────────
+    _destroyChart('donut');
+    var totalProdRev = Object.values(prodRevenue).reduce(function(s,v){return s+v;},0);
+    var dLabels=[], dData=[], dColors=[], legendHtml='';
+    Object.keys(prodRevenue).forEach(function(k){
+      if(prodRevenue[k]<=0) return;
+      var pct=totalProdRev>0?(prodRevenue[k]/totalProdRev*100).toFixed(1):0;
+      dLabels.push(PROD_LABELS[k]); dData.push(prodRevenue[k]);
+      dColors.push(PROD_COLORS[k]);
+      legendHtml+='<div class="dsr-legend-item">'
+        +'<div class="dsr-legend-name">'
+        +'<div class="dsr-legend-dot" style="background:'+PROD_COLORS[k]+'"></div>'
+        +'<span class="dsr-legend-label">'+PROD_LABELS[k]+'</span>'
+        +'<span class="dsr-legend-pct">'+pct+'%</span>'
+        +'</div>'
+        +'<div class="dsr-legend-detail">'
+        +'<span class="dsr-legend-litres">'+(k==='petrol'?todayVol.toFixed(0)+' L':'')+'</span>'
+        +'<span class="dsr-legend-ksh">KSh '+fmt(prodRevenue[k])+'</span>'
+        +'</div></div>';
+    });
+    var lgEl=el('dsrLegend'); if(lgEl) lgEl.innerHTML=legendHtml||'<p class="empty">No data</p>';
+    var dCtx=el('dsrDonutChart');
+    if(dCtx&&dData.length) {
+      _dsrCharts.donut = new Chart(dCtx,{
+        type:'doughnut',
+        data:{labels:dLabels,datasets:[{data:dData,backgroundColor:dColors,
+          borderWidth:2,borderColor:'#181818',hoverOffset:6}]},
+        options:{responsive:true,maintainAspectRatio:true,cutout:'72%',
+          plugins:{legend:{display:false},tooltip:{callbacks:{
+            label:function(ctx){
+              var pct=(ctx.raw/totalProdRev*100).toFixed(1);
+              return ' '+ctx.label+': KSh '+fmt(ctx.raw)+' ('+pct+'%)';
+            }
+          }}}}
+      });
+    }
+
+    // ── Tank/inventory levels ─────────────────────────────────
+    var invData={};
+    invSnap.forEach(function(d){ invData[d.id]=d.data(); });
+    var tankBranches = barLabels.length?barLabels:BRANCHES;
+    var TANK_CAPACITY = 40000;
+    var tankHtml = tankBranches.map(function(b,i){
+      var inv=invData[b]||{};
+      var petrol=inv.petrol||0;
+      var pct=TANK_CAPACITY>0?Math.max(0,Math.min(100,(petrol/TANK_CAPACITY)*100)):0;
+      var col=BRANCH_COLORS[i%BRANCH_COLORS.length];
+      var neg=petrol<0;
+      return '<div>'
+        +'<div class="dsr-tank-label-row">'
+        +'<span class="dsr-tank-name">'+b+'</span>'
+        +'<span style="font-size:0.62rem;color:'+(neg?'var(--red)':'var(--text3)')+'">'+Math.round(petrol).toLocaleString()+' L</span>'
+        +'</div>'
+        +'<div class="dsr-tank-bar">'
+        +'<div class="dsr-tank-fill" style="width:'+pct.toFixed(1)+'%;background:'+(neg?'var(--red)':col)+'"></div>'
+        +'</div>'
+        +'<div class="dsr-tank-pct">'+(neg?'⚠ Negative stock':pct.toFixed(1)+'% remaining')+'</div>'
+        +'</div>';
+    }).join('');
+    var tg=el('dsrTankGrid'); if(tg) tg.innerHTML=tankHtml||'<p class="empty">No inventory data</p>';
+
+    // ── Pump readings table ───────────────────────────────────
+    var pumpRows = todayReps.map(function(r){
+      var pu=r.pump||{},m=pu.metre||{},di=pu.display||{};
+      var neg=m.sold<0;
+      return '<tr>'
+        +'<td><span class="branch-pill">'+r.branch+'</span></td>'
+        +'<td>'+( r.staffName||'—')+'</td>'
+        +'<td>'+( r.shift||'—')+'</td>'
+        +'<td>'+( m.opening||0).toFixed(2)+'</td>'
+        +'<td>'+( m.closing||0).toFixed(2)+'</td>'
+        +'<td>'+( di.opening>0?fmt(di.opening):'—')+'</td>'
+        +'<td>'+( di.closing>0?fmt(di.closing):'—')+'</td>'
+        +'<td class="num '+(neg?'red':'green')+'">'+( m.sold||0).toFixed(2)+' L</td>'
+        +'<td class="num">'+( m.pricePerLitre||0).toFixed(2)+'</td>'
+        +'<td class="num">'+( m.value>0?fmt(m.value):'—')+'</td>'
+        +'</tr>';
+    }).join('');
+    var pb=el('dsrPumpBody');
+    if(pb) pb.innerHTML=pumpRows||'<tr><td colspan="10" class="empty" style="padding:20px;text-align:center">No approved reports for this date.</td></tr>';
+
+    // ── Shift report cards ───────────────────────────────────
+    var shiftCards = todayReps.map(function(r){
+      var pu=r.pump||{},m=pu.metre||{},p=r.products||{};
+      var rc=r.reconciliation||{};
+      var varColor=rc.variance>200?'var(--red)':rc.variance>0?'var(--green)':'var(--text3)';
+      return '<div class="card">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+        +'<div><span class="branch-pill">'+r.branch+'</span> '
+        +'<strong>'+( r.staffName||'—')+'</strong>'
+        +'<span style="font-size:0.62rem;color:var(--text3);margin-left:8px">'+( r.shift||'')+'</span></div>'
+        +'<span class="sb-'+(r.approvalStatus||'pending')+'">'+( r.approvalStatus||'pending')+'</span>'
+        +'</div>'
+        +'<div class="appr-items">'
+        +'<div class="appr-item"><div class="appr-item-label">Litres Sold</div><div class="appr-item-val gold">'+( m.sold||0).toFixed(2)+' L</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">Petrol Sales</div><div class="appr-item-val gold">'+fmt(m.value||0)+'</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">2T Motor Oil</div><div class="appr-item-val">'+( (p.p2t&&p.p2t.qty)||0)+' pcs</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">2T-Kupima</div><div class="appr-item-val">'+( ((p.p2tk&&p.p2tk.qty)||0).toFixed(2))+' L</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">Used Oil</div><div class="appr-item-val">'+( ((p.puoil&&p.puoil.qty)||0).toFixed(2))+' L</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">Shell Advance</div><div class="appr-item-val">'+( (p.pshell&&p.pshell.qty)||0)+' pcs</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">Total Sales</div><div class="appr-item-val gold" style="font-weight:700">'+fmt(r.grandTotal||0)+'</div></div>'
+        +'<div class="appr-item"><div class="appr-item-label">Variance</div><div class="appr-item-val" style="color:'+varColor+'">'+fmt(rc.variance||0)+'</div></div>'
+        +'</div></div>';
+    }).join('');
+    var sc=el('dsrShiftCards');
+    if(sc) sc.innerHTML=shiftCards||'<div style="color:var(--text3);font-size:0.7rem;padding:20px">No reports for this date.</div>';
+
+    // ── Reconciliation table ──────────────────────────────────
+    var reconRows = todayReps.map(function(r){
+      var rc=r.reconciliation||{}, pa=r.payments||{};
+      var vv=rc.variance||0;
+      var vcol=Math.abs(vv)>500?'var(--red)':Math.abs(vv)>100?'var(--amber)':'var(--green)';
+      return '<tr>'
+        +'<td><span class="branch-pill">'+r.branch+'</span></td>'
+        +'<td>'+( r.staffName||'—')+'</td>'
+        +'<td>'+( r.shift||'—')+'</td>'
+        +'<td class="num">'+fmt(r.grandTotal||0)+'</td>'
+        +'<td class="num">'+( pa.till>0?fmt(pa.till):'—')+'</td>'
+        +'<td class="num">'+( pa.cash>0?fmt(pa.cash):'—')+'</td>'
+        +'<td class="num">'+( r.totalDeposit>0?fmt(r.totalDeposit):'—')+'</td>'
+        +'<td class="num">'+( rc.expenses>0?fmt(rc.expenses):'—')+'</td>'
+        +'<td class="num">'+( rc.expected>0?fmt(rc.expected):'—')+'</td>'
+        +'<td class="num">'+( rc.actual>0?fmt(rc.actual):'—')+'</td>'
+        +'<td class="num" style="color:'+vcol+';font-weight:600">'+fmt(vv)+'</td>'
+        +'<td><span class="sb-'+(r.approvalStatus||'pending')+'">'+( r.approvalStatus||'pending')+'</span></td>'
+        +'</tr>';
+    }).join('');
+    var rb2=el('dsrReconBody');
+    if(rb2) rb2.innerHTML=reconRows||'<tr><td colspan="12" class="empty" style="padding:20px;text-align:center">No data.</td></tr>';
+
+  }).catch(function(e){ toast('DSR error: '+e.message,'err'); });
+}
+
+
+// ─── DAILY SALES REPORT (Figma Design) ───────────────────────
+var _dsrCharts = {};
+var _dsrData   = null;
+
+function initDSR() {
+  // Populate branch dropdown
+  var sel = el("dsrBranch");
+  if (sel && sel.options.length <= 1) {
+    BRANCHES.forEach(function(b){
+      var opt=document.createElement("option");
+      opt.value=b; opt.textContent=b; sel.appendChild(opt);
+    });
+  }
+  // Set today if no date
+  var d = el("dsrDate");
+  if (d && !d.value) d.valueAsDate = new Date();
+  // Set title date
+  if (d && d.value) el("dsrTitleDate") && (el("dsrTitleDate").textContent = _dsrFmtDate(d.value));
+}
+
+function _dsrFmtDate(s) {
+  if (!s) return "";
+  var dt = new Date(s + "T00:00:00");
+  return dt.toLocaleDateString("en-GB", {day:"numeric", month:"short", year:"numeric"});
+}
+
+function dsrInnerTab(btn, panelId) {
+  document.querySelectorAll(".dsr-itab").forEach(function(b){ b.classList.remove("active"); });
+  document.querySelectorAll(".dsr-ipanel").forEach(function(p){ p.classList.remove("active"); });
+  btn.classList.add("active");
+  var panel = el(panelId); if (panel) panel.classList.add("active");
+  if (panelId === "dsrShifts"   && _dsrData) _dsrRenderShifts(_dsrData);
+  if (panelId === "dsrRecon"    && _dsrData) _dsrRenderRecon(_dsrData);
+  if (panelId === "dsrProducts" && _dsrData) _dsrRenderProducts(_dsrData);
+}
+
+function loadDSR() {
+  var date   = gv("dsrDate");
+  var branch = gv("dsrBranch");
+  if (!date) { el("dsrEmpty").style.display = "block"; return; }
+  el("dsrEmpty").style.display = "none";
+
+  // Update title
+  var td = el("dsrTitleDate"); if (td) td.textContent = _dsrFmtDate(date);
+
+  // KPI loading state
+  ["dsrKpiRevenue","dsrKpiVolume","dsrKpiReports","dsrKpiAvg"].forEach(function(id){
+    var e=el(id); if(e) e.textContent="…";
+  });
+
+  // Yesterday for deltas
+  var dt = new Date(date + "T00:00:00");
+  dt.setDate(dt.getDate()-1);
+  var yesterday = dt.toISOString().split("T")[0];
+
+  Promise.all([
+    db.collection("reports").where("date","==",date).get(),
+    db.collection("reports").where("date","==",yesterday).get(),
+    Promise.all(BRANCHES.map(function(b){return db.collection("inventory").doc(b).get();}))
+  ]).then(function(res){
+    var todaySnap=res[0], yesterdaySnap=res[1], invSnaps=res[2];
+
+    // Aggregate today
+    var today = _dsrAgg(todaySnap, branch);
+    var yest  = _dsrAgg(yesterdaySnap, branch);
+
+    _dsrData = { today:today, yesterday:yest, date:date, branch:branch, invSnaps:invSnaps };
+
+    // ── KPI tiles ──────────────────────────────────────────
+    _dsrSetKpi("dsrKpiRevenue", "KSh "+_dsrFmt(today.revenue), yest.revenue, "KSh");
+    _dsrSetKpi("dsrKpiVolume",  _dsrFmtNum(today.litres)+" L", yest.litres, "L");
+    _dsrSetKpi("dsrKpiReports", String(today.count), yest.count, "");
+    var avgToday = today.count>0 ? today.revenue/today.count : 0;
+    var avgYest  = yest.count>0  ? yest.revenue/yest.count   : 0;
+    _dsrSetKpi("dsrKpiAvg",     "KSh "+_dsrFmt(avgToday), avgYest, "KSh");
+
+    // ── Branch bars ────────────────────────────────────────
+    _dsrRenderBranchBars(today.byBranch);
+
+    // ── Donut chart ────────────────────────────────────────
+    _dsrRenderDonut(today);
+
+    // ── Stock bars ─────────────────────────────────────────
+    _dsrRenderStock(invSnaps, branch);
+
+    // ── Sub-tabs (if already open) ─────────────────────────
+    var activePanel = document.querySelector(".dsr-ipanel.active");
+    if (activePanel && activePanel.id === "dsrShifts")   _dsrRenderShifts(_dsrData);
+    if (activePanel && activePanel.id === "dsrRecon")    _dsrRenderRecon(_dsrData);
+    if (activePanel && activePanel.id === "dsrProducts") _dsrRenderProducts(_dsrData);
+
+  }).catch(function(e){ toast("DSR load error: "+e.message,"err"); });
+}
+
+function _dsrAgg(snap, branchFilter) {
+  var out = { revenue:0, litres:0, count:0, petrolVal:0, otherVal:0,
+    byBranch:{}, p2tTotal:0, p2tkTotal:0, puoilTotal:0, pshellTotal:0,
+    reports:[] };
+  snap.forEach(function(d){
+    var r=d.data();
+    if (branchFilter && r.branch !== branchFilter) return;
+    if (r.approvalStatus !== "approved") return;
+    var pu=r.pump||{}, m=pu.metre||{}, pr=r.products||{};
+    var lit = m.sold||0, pv = m.value||0;
+    var oth = (pr.p2t&&pr.p2t.total||0)+(pr.p2tk&&pr.p2tk.total||0)
+             +(pr.puoil&&pr.puoil.total||0)+(pr.pshell&&pr.pshell.total||0);
+    out.revenue  += r.grandTotal||0;
+    out.litres   += lit;
+    out.petrolVal+= pv;
+    out.otherVal += oth;
+    out.count++;
+    out.p2tTotal  += pr.p2t&&pr.p2t.total||0;
+    out.p2tkTotal += pr.p2tk&&pr.p2tk.total||0;
+    out.puoilTotal+= pr.puoil&&pr.puoil.total||0;
+    out.pshellTotal+=pr.pshell&&pr.pshell.total||0;
+    var b=r.branch||"Unknown";
+    if (!out.byBranch[b]) out.byBranch[b]={revenue:0,litres:0,count:0};
+    out.byBranch[b].revenue+=r.grandTotal||0;
+    out.byBranch[b].litres +=lit;
+    out.byBranch[b].count++;
+    out.reports.push({id:d.id,data:r});
+  });
+  return out;
+}
+
+function _dsrSetKpi(id, valStr, prevVal, unit) {
+  var el2=el(id); if(el2) el2.textContent=valStr;
+  var deltaId = id+"Delta"; // e.g. dsrKpiRevenueDelta
+  // map to actual delta element id
+  var deltaMap = {
+    dsrKpiRevenue:"dsrKpiRevDelta", dsrKpiVolume:"dsrKpiVolDelta",
+    dsrKpiReports:"dsrKpiRepDelta", dsrKpiAvg:"dsrKpiAvgDelta"
+  };
+  var did = deltaMap[id];
+  if (!did) return;
+  var de = el(did); if (!de) return;
+  if (prevVal === 0) { de.textContent=""; return; }
+  // Extract numeric value from valStr
+  var curNum = parseFloat(valStr.replace(/[^0-9.]/g,""))||0;
+  var pct = ((curNum - prevVal) / Math.abs(prevVal)) * 100;
+  var arrow = pct>=0 ? "▲" : "▼";
+  var color = pct>=0 ? "var(--green)" : "var(--red)";
+  de.style.color = color;
+  de.textContent  = arrow+" "+Math.abs(pct).toFixed(1)+"% vs yesterday";
+}
+
+function _dsrRenderBranchBars(byBranch) {
+  var c = el("dsrBranchBars"); if (!c) return;
+  var branches = Object.keys(byBranch);
+  if (!branches.length) { c.innerHTML='<p class="empty">No approved reports for this date.</p>'; return; }
+  var maxRev = Math.max.apply(null, branches.map(function(b){return byBranch[b].revenue;}));
+  var COLORS = ["var(--gold)","#4ecdc4","#b48ae0","var(--green)","var(--amber)"];
+  c.innerHTML = branches.map(function(b, i){
+    var bd=byBranch[b];
+    var pct=maxRev>0?Math.round((bd.revenue/maxRev)*100):0;
+    return '<div style="margin-bottom:18px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px">'
+      +'<span style="font-weight:600;font-size:0.78rem;color:var(--text)">'+b+'</span>'
+      +'<span style="font-family:DM Mono,monospace;font-size:0.78rem;color:'+COLORS[i%COLORS.length]+';font-weight:700">KSh '+_dsrFmt(bd.revenue)+'</span>'
+      +'</div>'
+      +'<div style="background:var(--s3);border-radius:4px;height:8px;overflow:hidden">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+COLORS[i%COLORS.length]+';border-radius:4px;transition:width 0.4s"></div>'
+      +'</div>'
+      +'<div style="font-size:0.62rem;color:var(--text3);margin-top:4px">'+_dsrFmtNum(bd.litres)+' L · '+bd.count+' report(s)</div>'
+      +'</div>';
+  }).join("");
+}
+
+function _dsrRenderDonut(today) {
+  var canvas = el("dsrDonut");
+  var legend = el("dsrDonutLegend");
+  if (!canvas) return;
+
+  var labels = ["Petrol","2T Motor Oil","2T-Kupima","Used Oil","Shell Advance"];
+  var values = [
+    today.petrolVal, today.p2tTotal, today.p2tkTotal,
+    today.puoilTotal, today.pshellTotal
+  ];
+  var COLORS = ["#C8922A","#4ecdc4","#b48ae0","var(--green)","#f39c12"];
+  var total = values.reduce(function(s,v){return s+v;},0);
+
+  // Destroy old chart
+  if (_dsrCharts.donut) { _dsrCharts.donut.destroy(); _dsrCharts.donut=null; }
+
+  if (total === 0) {
+    if (legend) legend.innerHTML='<p class="empty" style="font-size:0.7rem">No sales data</p>';
+    return;
+  }
+
+  var ctx = canvas.getContext("2d");
+  _dsrCharts.donut = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: labels,
+      datasets: [{ data: values, backgroundColor: COLORS, borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      cutout: "70%", responsive: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              var pct = total>0?((ctx.raw/total)*100).toFixed(1):0;
+              return " KSh "+_dsrFmt(ctx.raw)+" ("+pct+"%)";
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Legend
+  if (legend) {
+    legend.innerHTML = labels.map(function(l,i){
+      if (!values[i]) return "";
+      var pct = ((values[i]/total)*100).toFixed(1);
+      return '<div style="display:flex;align-items:center;justify-content:space-between">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<span style="width:10px;height:10px;border-radius:50%;background:'+COLORS[i]+';display:inline-block;flex-shrink:0"></span>'
+        +'<span style="font-size:0.68rem;color:var(--text2)">'+l+'</span>'
+        +'</div>'
+        +'<span style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--gold);font-weight:600">'+pct+'%</span>'
+        +'</div>';
+    }).join("");
+  }
+}
+
+function _dsrRenderStock(invSnaps, branchFilter) {
+  var c = el("dsrStockBars"); if (!c) return;
+  var branches = branchFilter ? [branchFilter] : BRANCHES;
+  var PRODUCTS = [
+    {key:"petrol",name:"Petrol",color:"#C8922A"},
+    {key:"p2t",   name:"2T Oil",color:"#4ecdc4"},
+    {key:"p2tk",  name:"2T-K",  color:"#b48ae0"},
+    {key:"puoil", name:"Used",  color:"var(--green)"},
+    {key:"pshell",name:"Shell", color:"#f39c12"}
+  ];
+  c.innerHTML = BRANCHES.map(function(b, bi){
+    if (branchFilter && b !== branchFilter) return "";
+    var inv = invSnaps[bi] && invSnaps[bi].exists ? invSnaps[bi].data() : {};
+    var petrol = inv.petrol||0;
+    var color = petrol < 0 ? "var(--red)" : petrol < 200 ? "var(--amber)" : "#C8922A";
+    return '<div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:16px">'
+      +'<div style="font-weight:700;font-size:0.8rem;color:var(--text);margin-bottom:12px">'+b+'</div>'
+      +PRODUCTS.map(function(p){
+        var val = inv[p.key]||0;
+        var pct = Math.max(0,Math.min(100,(val/5000)*100)); // rough scale
+        return '<div style="margin-bottom:10px">'
+          +'<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+          +'<span style="font-size:0.65rem;color:var(--text3)">'+p.name+'</span>'
+          +'<span style="font-family:DM Mono,monospace;font-size:0.65rem;color:'+p.color+';font-weight:600">'
+          +(p.key==="petrol"||p.key==="p2tk"||p.key==="puoil"?val.toFixed(1)+" L":Math.round(val)+" pcs")+'</span>'
+          +'</div>'
+          +'<div style="background:var(--s3);border-radius:3px;height:5px;overflow:hidden">'
+          +'<div style="height:100%;width:'+pct+'%;background:'+p.color+';border-radius:3px"></div>'
+          +'</div></div>';
+      }).join("")
+      +'</div>';
+  }).join("");
+}
+
+function _dsrRenderShifts(d) {
+  var c = el("dsrShiftsContent"); if (!c) return;
+  var reports = d.today.reports;
+  if (!reports.length) { c.innerHTML='<p class="empty" style="padding:20px">No approved reports for this date.</p>'; return; }
+  var rows = reports.map(function(rep){
+    var r=rep.data, pu=r.pump||{}, m=pu.metre||{}, pr=r.products||{};
+    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      +'<div>'
+      +'<div style="font-weight:700;font-size:0.85rem;color:var(--text)">'+r.staffName+'</div>'
+      +'<div style="font-size:0.65rem;color:var(--text3);margin-top:2px">'+r.shift+' · '+r.branch+'</div>'
+      +'</div>'
+      +'<div style="text-align:right">'
+      +'<div style="font-family:DM Mono,monospace;font-weight:800;font-size:1rem;color:var(--gold)">KSh '+_dsrFmt(r.grandTotal||0)+'</div>'
+      +sbHtml(r.approvalStatus)
+      +'</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'
+      +_dsrKv("Litres Sold", (m.sold||0).toFixed(2)+" L")
+      +_dsrKv("Price/L", "KSh "+_dsrFmt(m.pricePerLitre||0))
+      +_dsrKv("Petrol Value", "KSh "+_dsrFmt(m.value||0))
+      +_dsrKv("Cash Sales", "KSh "+_dsrFmt((r.payments&&r.payments.cash)||0))
+      +'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:12px">'
+      +'<button class="btn btn-xs btn-ghost" onclick="viewReport(&quot;'+rep.id+'&quot;)">View</button>'
+      +'<button class="btn btn-xs btn-amber" onclick="adminEditFull(&quot;'+rep.id+'&quot;)">Edit</button>'
+      +'<button class="btn btn-xs btn-ghost" onclick="exportPDF(&quot;'+rep.id+'&quot;)">PDF</button>'
+      +(Object.keys(r.photos||{}).length?'<button class="btn btn-xs btn-green" onclick="syncOneReportToDrive(&quot;'+rep.id+'&quot;)">↑ Drive</button>':'')
+      +'</div>'
+      +'</div>';
+  }).join("");
+  c.innerHTML = rows;
+}
+
+function _dsrRenderRecon(d) {
+  var c = el("dsrReconContent"); if (!c) return;
+  var reports = d.today.reports;
+  if (!reports.length) { c.innerHTML='<p class="empty" style="padding:20px">No approved reports for this date.</p>'; return; }
+  var rows = reports.map(function(rep){
+    var r=rep.data, rc=r.reconciliation||{}, pa=r.payments||{};
+    var v=rc.variance||0;
+    var vc = v===0?"var(--green)":Math.abs(v)<500?"var(--amber)":"var(--red)";
+    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">'
+      +'<div style="font-weight:700;font-size:0.85rem;color:var(--text);margin-bottom:12px">'+r.staffName+' · '+r.branch+' · '+r.shift+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">'
+      +_dsrKv("Cash Sales",    "KSh "+_dsrFmt(pa.cash||0))
+      +_dsrKv("Till Sales",    "KSh "+_dsrFmt(pa.till||0))
+      +_dsrKv("Total Sales",   "KSh "+_dsrFmt(pa.total||0), "var(--gold)")
+      +_dsrKv("Opening Float", "KSh "+_dsrFmt(rc.openFloat||0))
+      +_dsrKv("Deposits",      "KSh "+_dsrFmt(r.totalDeposit||0))
+      +_dsrKv("Expected",      "KSh "+_dsrFmt(rc.expected||0))
+      +'</div>'
+      +'<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:6px;display:flex;justify-content:space-between;align-items:center">'
+      +'<span style="font-size:0.72rem;color:var(--text2)">Actual Cash</span>'
+      +'<span style="font-family:DM Mono,monospace;font-weight:700;font-size:0.85rem;color:var(--text)">KSh '+_dsrFmt(rc.actual||0)+'</span>'
+      +'<span style="font-size:0.72rem;color:var(--text2)">Variance</span>'
+      +'<span style="font-family:DM Mono,monospace;font-weight:800;font-size:0.95rem;color:'+vc+'">'
+      +(v>=0?"+":"")+fmt(v)+'</span>'
+      +'</div>'
+      +'</div>';
+  }).join("");
+  c.innerHTML = rows;
+}
+
+function _dsrRenderProducts(d) {
+  var c = el("dsrProductsContent"); if (!c) return;
+  var t = d.today;
+  if (!t.count) { c.innerHTML='<p class="empty" style="padding:20px">No approved reports for this date.</p>'; return; }
+  var PRODS = [
+    {name:"Petrol",    val:t.petrolVal,   color:"#C8922A"},
+    {name:"2T Motor Oil",val:t.p2tTotal,  color:"#4ecdc4"},
+    {name:"2T-Kupima", val:t.p2tkTotal,   color:"#b48ae0"},
+    {name:"Used Oil",  val:t.puoilTotal,  color:"var(--green)"},
+    {name:"Shell Advance",val:t.pshellTotal,color:"#f39c12"}
+  ];
+  var total = t.revenue||1;
+  c.innerHTML = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:16px">'
+    +PRODS.map(function(p){
+      var pct = ((p.val/total)*100).toFixed(1);
+      return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px">'
+        +'<div style="font-size:0.65rem;color:var(--text3);margin-bottom:8px">'+p.name+'</div>'
+        +'<div style="font-family:DM Mono,monospace;font-weight:800;font-size:0.95rem;color:'+p.color+'">KSh '+_dsrFmt(p.val)+'</div>'
+        +'<div style="font-size:0.62rem;color:var(--text3);margin-top:4px">'+pct+'% of total</div>'
+        +'<div style="margin-top:8px;background:var(--s3);border-radius:3px;height:4px;overflow:hidden">'
+        +'<div style="height:100%;width:'+pct+'%;background:'+p.color+';border-radius:3px"></div>'
+        +'</div>'
+        +'</div>';
+    }).join("")
+    +'</div>';
+}
+
+function _dsrKv(label, val, color) {
+  return '<div style="background:var(--s2);border-radius:6px;padding:10px">'
+    +'<div style="font-size:0.58rem;color:var(--text3);margin-bottom:4px">'+label+'</div>'
+    +'<div style="font-family:DM Mono,monospace;font-size:0.78rem;font-weight:700;color:'+(color||"var(--text)")+'">'+val+'</div>'
+    +'</div>';
+}
+
+function _dsrFmt(n) {
+  return Math.round(n||0).toLocaleString("en-KE");
+}
+function _dsrFmtNum(n) {
+  return (n||0).toFixed(2);
+}
+
+function dsrExportPDF() {
+  var date = gv("dsrDate");
+  var branch = gv("dsrBranch");
+  if (!date) { toast("Select a date first.", "err"); return; }
+  if (!_dsrData || !_dsrData.today.reports.length) { toast("Load the report first.", "err"); return; }
+  // Export all reports for this date
+  _dsrData.today.reports.forEach(function(rep){
+    exportPDF(rep.id);
+  });
+  toast("Exporting "+_dsrData.today.reports.length+" PDF(s)...", "ok");
 }
 
 // INIT PO & BILL FORM
