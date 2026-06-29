@@ -681,6 +681,25 @@ body{background:var(--bg);color:var(--text);font-family:'ClashGrotesk-Variable',
 /* DSR sub-tab hover */
 .dsr-itab:hover{color:#888 !important}
 .dsr-itab.active{color:#C8922A !important;border-bottom-color:#C8922A !important}
+
+/* DSR period option buttons */
+.dsr-period-opt {
+  padding:7px 10px;border:1px solid #2a2a2a;border-radius:6px;
+  background:#111;color:#666;font-family:'ClashGrotesk-Variable',sans-serif;
+  font-size:0.7rem;cursor:pointer;transition:all 0.15s;text-align:center;
+  font-weight:500;
+}
+.dsr-period-opt:hover { border-color:#555;color:#aaa;background:#1a1a1a; }
+.dsr-period-opt.active { border-color:#C8922A;background:rgba(200,146,42,0.15);color:#C8922A;font-weight:700; }
+/* DSR branch pill */
+.dsr-bp {
+  display:inline-flex;align-items:center;gap:5px;padding:5px 12px;
+  border-radius:20px;border:1px solid #2a2a2a;background:#111;
+  color:#555;font-size:0.68rem;font-family:'ClashGrotesk-Variable',sans-serif;
+  cursor:pointer;transition:all 0.15s;font-weight:500;white-space:nowrap;
+}
+.dsr-bp:hover { border-color:#888;color:#aaa; }
+.dsr-bp.active { font-weight:700; }
 </style>
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -1205,28 +1224,74 @@ body{background:var(--bg);color:var(--text);font-family:'ClashGrotesk-Variable',
 
     <div style="flex:1"></div>
 
-    <!-- Date picker -->
-    <div style="display:flex;align-items:center;gap:7px;background:#1a1a1a;
-      border:1px solid #2a2a2a;border-radius:8px;padding:7px 13px;cursor:pointer">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2">
-        <rect x="3" y="4" width="18" height="18" rx="2"/>
-        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-        <line x1="3" y1="10" x2="21" y2="10"/>
-      </svg>
-      <input type="date" id="dsrDate" onchange="loadDSR()"
-        style="background:transparent;border:none;outline:none;color:#ccc;
-        font-family:'ClashGrotesk-Variable',sans-serif;font-size:0.75rem;cursor:pointer">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
+    <!-- Period selector dropdown -->
+    <div style="position:relative">
+      <button id="dsrPeriodBtn" onclick="dsrTogglePeriodMenu()"
+        style="display:flex;align-items:center;gap:8px;background:#1a1a1a;
+        border:1px solid #2a2a2a;border-radius:8px;padding:7px 14px;cursor:pointer;
+        color:#ccc;font-family:'ClashGrotesk-Variable',sans-serif;font-size:0.75rem;
+        font-weight:500;white-space:nowrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span id="dsrPeriodLabel">Today</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      <!-- Period dropdown menu -->
+      <div id="dsrPeriodMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;
+        background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:6px;
+        min-width:220px;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+
+        <!-- Preset pills -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">
+          <button class="dsr-period-opt active" id="dpo_today"    onclick="dsrSetPeriod('today')"   >Today</button>
+          <button class="dsr-period-opt"         id="dpo_yesterday" onclick="dsrSetPeriod('yesterday')">Yesterday</button>
+          <button class="dsr-period-opt"         id="dpo_week"    onclick="dsrSetPeriod('week')"    >This Week</button>
+          <button class="dsr-period-opt"         id="dpo_month"   onclick="dsrSetPeriod('month')"   >This Month</button>
+          <button class="dsr-period-opt"         id="dpo_last30"  onclick="dsrSetPeriod('last30')"  >Last 30 Days</button>
+          <button class="dsr-period-opt"         id="dpo_last90"  onclick="dsrSetPeriod('last90')"  >Last 90 Days</button>
+        </div>
+
+        <!-- Divider -->
+        <div style="border-top:1px solid #222;margin:6px 0;"></div>
+        <div style="font-size:0.6rem;color:#444;letter-spacing:1.5px;text-transform:uppercase;
+          padding:2px 4px;margin-bottom:6px">Custom Range</div>
+
+        <!-- Custom date range -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div>
+            <div style="font-size:0.6rem;color:#444;margin-bottom:3px">From</div>
+            <input type="date" id="dsrCustomFrom"
+              style="width:100%;background:#111;border:1px solid #2a2a2a;border-radius:6px;
+              padding:6px 8px;color:#ccc;font-size:0.72rem;font-family:'ClashGrotesk-Variable',sans-serif;
+              outline:none">
+          </div>
+          <div>
+            <div style="font-size:0.6rem;color:#444;margin-bottom:3px">To</div>
+            <input type="date" id="dsrCustomTo"
+              style="width:100%;background:#111;border:1px solid #2a2a2a;border-radius:6px;
+              padding:6px 8px;color:#ccc;font-size:0.72rem;font-family:'ClashGrotesk-Variable',sans-serif;
+              outline:none">
+          </div>
+        </div>
+        <button onclick="dsrApplyCustom()"
+          style="width:100%;background:#C8922A;border:none;border-radius:6px;padding:8px;
+          color:#000;font-family:'ClashGrotesk-Variable',sans-serif;font-size:0.72rem;
+          font-weight:700;cursor:pointer">Apply Custom Range</button>
+      </div>
     </div>
 
-    <!-- Branch select -->
-    <select id="dsrBranch" onchange="loadDSR()" style="background:#1a1a1a;border:1px solid #2a2a2a;
-      border-radius:8px;padding:7px 13px;color:#ccc;font-family:'ClashGrotesk-Variable',sans-serif;
-      font-size:0.75rem;outline:none;cursor:pointer">
-      <option value="">All Branches</option>
-    </select>
+    <!-- Hidden inputs used by existing loadDSR/dsrLoadTrend -->
+    <input type="hidden" id="dsrDate">
+    <input type="hidden" id="dsrBranch">
+
+    <!-- Branch multi-select pills -->
+    <div id="dsrBranchPills2" style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap"></div>
 
     <!-- Refresh -->
     <button onclick="loadDSR()" title="Refresh" style="background:#1a1a1a;border:1px solid #2a2a2a;
@@ -5529,7 +5594,13 @@ function admTab(btn, panelId) {
   var sp=["tabStaff","tabBranches","tabBankAccts","tabDangerZone"];
   var mk="mDash";
   if(rp.indexOf(panelId)>=0)mk="mReports";
-  if(panelId==="tabSales"){ setTimeout(function(){ var d=el("dsrDate"); if(d&&!d.value){d.valueAsDate=new Date();} initDSR(); loadDSR(); },100); }
+  if(panelId==="tabSales"){ setTimeout(function(){
+    dsrInitBranchPills();
+    BRANCHES.forEach(function(b){ _dsrActiveBranches[b]=true; });
+    // Set default period = today
+    dsrSetPeriod('today');
+    initDSR();
+  },100); }
   if(op.indexOf(panelId)>=0)mk="mOps";
   if(sp.indexOf(panelId)>=0)mk="mSettings";
   if(fp.indexOf(panelId)>=0)mk="mFinance";
@@ -12669,6 +12740,349 @@ window.addEventListener('load', function() {
     }, 3000);
   }
 });
+
+
+// ─── DSR PERIOD & BRANCH CONTROLS ─────────────────────────────
+var _dsrPeriod       = 'today';      // active period preset
+var _dsrFromDate     = '';
+var _dsrToDate       = '';
+var _dsrActiveBranches = {};         // {branchName: true/false}
+
+// Pill colours per branch
+var DSR_PILL_COLORS = ['#C8922A','#4ecdc4','#b48ae0','#4caf50','#f39c12','#e74c3c'];
+
+// Toggle period dropdown
+function dsrTogglePeriodMenu() {
+  var m = el('dsrPeriodMenu');
+  if (!m) return;
+  var isOpen = m.style.display !== 'none';
+  m.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    // Close on outside click
+    setTimeout(function(){
+      document.addEventListener('click', function closePM(e){
+        if (!el('dsrPeriodMenu').contains(e.target) && !el('dsrPeriodBtn').contains(e.target)) {
+          el('dsrPeriodMenu').style.display = 'none';
+          document.removeEventListener('click', closePM);
+        }
+      });
+    }, 10);
+  }
+}
+
+// Set a period preset
+function dsrSetPeriod(preset) {
+  _dsrPeriod = preset;
+  // Highlight the active preset button
+  ['today','yesterday','week','month','last30','last90'].forEach(function(p){
+    var btn = el('dpo_'+p);
+    if (btn) {
+      if (p === preset) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  var now   = new Date();
+  var today = todayStr();
+  var from, to;
+
+  if (preset === 'today') {
+    from = to = today;
+    el('dsrPeriodLabel').textContent = 'Today';
+  } else if (preset === 'yesterday') {
+    var y = new Date(now); y.setDate(y.getDate()-1);
+    from = to = y.toISOString().split('T')[0];
+    el('dsrPeriodLabel').textContent = 'Yesterday';
+  } else if (preset === 'week') {
+    var dow = now.getDay(); // 0=Sun
+    var mon = new Date(now); mon.setDate(now.getDate() - (dow===0?6:dow-1));
+    from = mon.toISOString().split('T')[0]; to = today;
+    el('dsrPeriodLabel').textContent = 'This Week';
+  } else if (preset === 'month') {
+    from = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+    to   = today;
+    el('dsrPeriodLabel').textContent = 'This Month';
+  } else if (preset === 'last30') {
+    var d30 = new Date(now); d30.setDate(d30.getDate()-29);
+    from = d30.toISOString().split('T')[0]; to = today;
+    el('dsrPeriodLabel').textContent = 'Last 30 Days';
+  } else if (preset === 'last90') {
+    var d90 = new Date(now); d90.setDate(d90.getDate()-89);
+    from = d90.toISOString().split('T')[0]; to = today;
+    el('dsrPeriodLabel').textContent = 'Last 90 Days';
+  }
+
+  _dsrFromDate = from;
+  _dsrToDate   = to;
+
+  // Set hidden inputs so existing loadDSR / dsrLoadTrend still work
+  var dsrDateEl = el('dsrDate');
+  if (dsrDateEl) dsrDateEl.value = to; // for single-day KPI cards
+
+  // Close menu
+  var m = el('dsrPeriodMenu');
+  if (m) m.style.display = 'none';
+
+  _dsrRefresh();
+}
+
+// Apply custom date range
+function dsrApplyCustom() {
+  var from = gv('dsrCustomFrom');
+  var to   = gv('dsrCustomTo');
+  if (!from || !to) { toast('Select both From and To dates.','err'); return; }
+  if (from > to)    { toast('From date must be before To date.','err'); return; }
+
+  _dsrPeriod   = 'custom';
+  _dsrFromDate = from;
+  _dsrToDate   = to;
+
+  // Deactivate preset buttons
+  ['today','yesterday','week','month','last30','last90'].forEach(function(p){
+    var btn = el('dpo_'+p);
+    if (btn) btn.classList.remove('active');
+  });
+
+  // Format label
+  var fp = from.split('-'), tp = to.split('-');
+  el('dsrPeriodLabel').textContent = fp[2]+'/'+fp[1] + ' – ' + tp[2]+'/'+tp[1];
+
+  var dsrDateEl = el('dsrDate');
+  if (dsrDateEl) dsrDateEl.value = to;
+
+  var m = el('dsrPeriodMenu');
+  if (m) m.style.display = 'none';
+
+  _dsrRefresh();
+}
+
+// Init branch pills in the top bar
+function dsrInitBranchPills() {
+  var container = el('dsrBranchPills2');
+  if (!container) return;
+  // If already built, skip
+  if (container.children.length > 0) return;
+
+  // "All" pill
+  var allPill = document.createElement('button');
+  allPill.className = 'dsr-bp active';
+  allPill.id        = 'dsr-pill-ALL';
+  allPill.style.cssText = 'border-color:#C8922A;background:rgba(200,146,42,0.15);color:#C8922A';
+  allPill.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#C8922A;display:inline-block"></span>All';
+  allPill.onclick   = function(){ dsrToggleBranch('ALL'); };
+  container.appendChild(allPill);
+
+  // Individual branch pills
+  BRANCHES.forEach(function(b, i){
+    _dsrActiveBranches[b] = true; // start with all active
+    var col  = DSR_PILL_COLORS[i % DSR_PILL_COLORS.length];
+    var pill = document.createElement('button');
+    pill.className = 'dsr-bp active';
+    pill.id        = 'dsr-pill-'+b;
+    pill.style.cssText = 'border-color:'+col+';background:rgba('+_hexRgb(col)+',0.12);color:'+col;
+    pill.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:'+col+';display:inline-block"></span>'+b;
+    pill.onclick   = function(){ dsrToggleBranch(b); };
+    container.appendChild(pill);
+  });
+}
+
+// Toggle a branch pill
+function dsrToggleBranch(b) {
+  var BCOLORS = DSR_PILL_COLORS;
+
+  if (b === 'ALL') {
+    // Turn all ON
+    BRANCHES.forEach(function(br){ _dsrActiveBranches[br] = true; });
+    BRANCHES.forEach(function(br, i){
+      var col  = BCOLORS[i%BCOLORS.length];
+      var pill = el('dsr-pill-'+br);
+      if (pill) {
+        pill.classList.add('active');
+        pill.style.cssText = 'border-color:'+col+';background:rgba('+_hexRgb(col)+',0.12);color:'+col;
+      }
+    });
+    var allPill = el('dsr-pill-ALL');
+    if (allPill) {
+      allPill.classList.add('active');
+      allPill.style.cssText = 'border-color:#C8922A;background:rgba(200,146,42,0.15);color:#C8922A';
+    }
+  } else {
+    // Toggle individual branch
+    _dsrActiveBranches[b] = !_dsrActiveBranches[b];
+    var idx = BRANCHES.indexOf(b);
+    var col = BCOLORS[idx % BCOLORS.length];
+    var pill = el('dsr-pill-'+b);
+    if (_dsrActiveBranches[b]) {
+      if (pill) {
+        pill.classList.add('active');
+        pill.style.cssText = 'border-color:'+col+';background:rgba('+_hexRgb(col)+',0.12);color:'+col;
+      }
+    } else {
+      if (pill) {
+        pill.classList.remove('active');
+        pill.style.cssText = '';  // reset to default inactive style
+      }
+    }
+    // Update "All" pill state
+    var allActive = BRANCHES.every(function(br){ return _dsrActiveBranches[br]; });
+    var allPill = el('dsr-pill-ALL');
+    if (allPill) {
+      if (allActive) {
+        allPill.classList.add('active');
+        allPill.style.cssText = 'border-color:#C8922A;background:rgba(200,146,42,0.15);color:#C8922A';
+      } else {
+        allPill.classList.remove('active');
+        allPill.style.cssText = '';
+      }
+    }
+    // Update hidden dsrBranch input
+    var activeBrs = BRANCHES.filter(function(br){ return _dsrActiveBranches[br]; });
+    var dsrBEl = el('dsrBranch');
+    if (dsrBEl) dsrBEl.value = activeBrs.length === 1 ? activeBrs[0] : '';
+  }
+  _dsrRefresh();
+}
+
+function _hexRgb(hex) {
+  var r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return r+','+g+','+b;
+}
+
+// Master refresh — called when period or branch changes
+function _dsrRefresh() {
+  // Determine active branches for filtering
+  var activeBrs = BRANCHES.filter(function(b){ return _dsrActiveBranches[b] !== false; });
+
+  // KPI cards: use the TO date for single-day KPI (or from=to for single day)
+  var toDate  = _dsrToDate   || todayStr();
+  var fromDate= _dsrFromDate || toDate;
+
+  // If multi-day: load KPIs for the TO date, trend for the whole period
+  var dsrDateEl = el('dsrDate');
+  if (dsrDateEl) dsrDateEl.value = toDate;
+
+  // Update header + hero labels
+  var hb = el('dsrHeaderBranch');
+  if (hb) hb.textContent = activeBrs.length === BRANCHES.length ? 'All Branches' :
+    activeBrs.length === 1 ? activeBrs[0] : activeBrs.length + ' Branches';
+
+  var hs = el('dsrHeaderSub');
+  if (hs) hs.textContent = fromDate === toDate ? _dsrFmtDate(toDate) : _dsrFmtDate(fromDate)+' – '+_dsrFmtDate(toDate);
+
+  var td = el('dsrTitleDate');
+  if (td) td.textContent = fromDate === toDate ? _dsrFmtDate(toDate) :
+    _dsrFmtDate(fromDate) + ' – ' + _dsrFmtDate(toDate);
+
+  var sub = el('dsrSubtitle');
+  if (sub) sub.textContent = 'Delphine Enterprise Limited · ' +
+    (activeBrs.length===BRANCHES.length?'All Branches':activeBrs.join(', '));
+
+  // Update trend chart period (days between from and to)
+  var daysDiff = Math.max(1, Math.round(
+    (new Date(toDate) - new Date(fromDate)) / 86400000) + 1);
+  _dsrTrendDays = daysDiff;
+
+  // Load the trend chart with the custom range
+  dsrLoadTrendRange(fromDate, toDate, activeBrs);
+
+  // Load KPI cards for the TO date (single day)
+  loadDSR();
+}
+
+// Extended dsrLoadTrend that accepts explicit from/to + branch filter
+function dsrLoadTrendRange(from, to, activeBranches) {
+  db.collection('reports')
+    .where('approvalStatus','==','approved')
+    .where('date','>=',from)
+    .where('date','<=',to)
+    .get().then(function(snap) {
+      var byDate = {}, branchSet = {};
+      snap.forEach(function(d){
+        var r = d.data();
+        var b = r.branch||'Unknown';
+        // Filter to active branches only
+        if (activeBranches && activeBranches.length && activeBranches.indexOf(b) < 0) return;
+        if (!byDate[r.date]) byDate[r.date]={};
+        branchSet[b] = true;
+        byDate[r.date][b] = (byDate[r.date][b]||0) + (r.grandTotal||0);
+      });
+
+      // Build date labels
+      var labels=[], cur=new Date(from+'T00:00:00');
+      var end=new Date(to+'T00:00:00');
+      while (cur<=end) {
+        labels.push(cur.toISOString().split('T')[0]);
+        cur.setDate(cur.getDate()+1);
+      }
+
+      var branches = activeBranches && activeBranches.length
+        ? activeBranches : Object.keys(branchSet).sort();
+      if (!branches.length) branches = BRANCHES.slice();
+      var BCOLORS = DSR_PILL_COLORS;
+      var days    = labels.length;
+
+      var xLabels = labels.map(function(d){
+        var p=d.split('-'); return p[2]+'/'+p[1];
+      });
+
+      var datasets = branches.map(function(b,i){
+        return {
+          label: b,
+          data:  labels.map(function(dt){ return Math.round((byDate[dt]&&byDate[dt][b])||0); }),
+          backgroundColor: BCOLORS[i%BCOLORS.length]+'cc',
+          borderColor:     BCOLORS[i%BCOLORS.length],
+          borderWidth: 0, borderRadius: 4, borderSkipped: false
+        };
+      });
+
+      var canvas = el('dsrTrendChart'); if (!canvas) return;
+      if (_dsrTrendChart) { _dsrTrendChart.destroy(); _dsrTrendChart=null; }
+
+      _dsrTrendChart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels: xLabels, datasets: datasets },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{ display:false },
+            tooltip:{
+              backgroundColor:'#1a1a1a', borderColor:'#2a2a2a', borderWidth:1,
+              titleColor:'#888', bodyColor:'#e8e4dc', padding:10,
+              callbacks:{ label:function(ctx){
+                return ' '+ctx.dataset.label+': KSh '+ctx.parsed.y.toLocaleString();
+              }}
+            }
+          },
+          scales:{
+            x:{ stacked:false,
+              grid:{ color:'rgba(255,255,255,0.04)', drawBorder:false },
+              ticks:{ color:'#444', font:{size:10},
+                maxTicksLimit: days<=14?days:days<=30?15:8, maxRotation:45 }
+            },
+            y:{ stacked:false,
+              grid:{ color:'rgba(255,255,255,0.04)', drawBorder:false },
+              border:{ dash:[4,4] },
+              ticks:{ color:'#444', font:{size:10},
+                callback:function(v){ return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v); }
+              }
+            }
+          }
+        }
+      });
+
+      // Legend
+      var leg = el('dsrTrendLegend');
+      if (leg) {
+        leg.innerHTML = branches.map(function(b,i){
+          return '<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="width:10px;height:10px;border-radius:50%;background:'+BCOLORS[i%BCOLORS.length]+';display:inline-block"></span>'
+            +'<span style="font-size:0.65rem;color:#888">'+b+'</span>'
+            +'</div>';
+        }).join('');
+      }
+    }).catch(function(e){ console.warn('DSR trend:', e.message); });
+}
 
 // INIT PO & BILL FORM
 addPOItem();
