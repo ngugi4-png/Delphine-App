@@ -750,7 +750,7 @@ a { color: var(--gold); text-decoration: none; }
         <div class="field"><label>Date</label><input type="date" id="cr_date"></div>
         <div class="field"><label>Shift</label>
           <select id="cr_shift">
-            <option>Morning</option><option>Evening</option>
+            <option>Full Day</option>
           </select>
         </div>
         <div class="field"><label>Staff Name</label><input type="text" id="cr_staff"></div>
@@ -1388,7 +1388,11 @@ function loadDashboard() {
     var sv2=el('dkStaff'); if(sv2) sv2.textContent=s.size;
   });
   // Recent reports
-  db.collection('reports').orderBy('createdAt','desc').limit(5).get().then(function(snap){
+  db.collection('reports').limit(20).get().then(function(snap){
+    var _dd=[]; snap.forEach(function(d){_dd.push(d);}); 
+    _dd.sort(function(a,b){var ta=a.data().createdAt,tb=b.data().createdAt;if(!ta||!tb)return 0;return tb.seconds-ta.seconds;});
+    _dd=_dd.slice(0,5);
+    snap={forEach:function(fn){_dd.forEach(fn);},size:_dd.length,empty:!_dd.length};
     var c=el('dashRecentReports');
     if(!c) return;
     if(snap.empty){c.innerHTML='<div class="empty">No reports yet.</div>';return;}
@@ -1415,7 +1419,11 @@ function loadApprovals() {
   var branch=gv('apprBranchFilter');
   var q=db.collection('reports').where('approvalStatus','==',status);
   if(branch) q=q.where('branch','==',branch);
-  q.orderBy('createdAt','desc').limit(40).get().then(function(snap){
+  q.limit(100).get().then(function(snap){
+    var _docs=[]; snap.forEach(function(d){_docs.push(d);}); 
+    _docs.sort(function(a,b){var ta=a.data().createdAt,tb=b.data().createdAt;
+      if(!ta||!tb)return 0;return tb.seconds-ta.seconds;});
+    snap={forEach:function(fn){_docs.forEach(fn);},size:_docs.length,empty:!_docs.length};
     if(snap.empty){c.innerHTML='<div class="empty">No reports found.</div>';return;}
     var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Shift</th><th>Staff</th>'
       +'<th class="num">Litres</th><th class="num">Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
@@ -1503,7 +1511,7 @@ function dsrTrend(days) {
   var from=start.toISOString().split('T')[0];
   var to=end.toISOString().split('T')[0];
   db.collection('reports').where('date','>=',from).where('date','<=',to)
-    .where('approvalStatus','==','approved').get().then(function(snap){
+    .get().then(function(snap){
       var byDate={};
       snap.forEach(function(d){
         var r=d.data();
@@ -1560,11 +1568,12 @@ function loadBranchSummary() {
   if(!from||!to){el('bsSummary').innerHTML='<div class="empty">Select a date range.</div>';return;}
   el('bsSummary').innerHTML='<div class="empty">Loading…</div>';
   db.collection('reports').where('date','>=',from).where('date','<=',to)
-    .where('approvalStatus','==','approved').get().then(function(snap){
+    .get().then(function(snap){
       var byBranch={};
       BRANCHES.forEach(function(b){byBranch[b]={revenue:0,litres:0,deliveries:0,days:{}};});
       snap.forEach(function(d){
         var r=d.data(); var b=r.branch;
+        if(r.approvalStatus!=='approved') return;
         if(!byBranch[b]) byBranch[b]={revenue:0,litres:0,deliveries:0,days:{}};
         byBranch[b].revenue    += r.grandTotal||0;
         byBranch[b].litres     += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
@@ -1601,7 +1610,7 @@ function exportBranchSummaryCSV() {
   var from=gv('bsFrom'),to=gv('bsTo');
   if(!from||!to){toast('Select date range first','err');return;}
   db.collection('reports').where('date','>=',from).where('date','<=',to)
-    .where('approvalStatus','==','approved').get().then(function(snap){
+    .get().then(function(snap){
       var rows=[['Branch','Date','Revenue','Litres Sold','Delivery Litres']];
       snap.forEach(function(d){
         var r=d.data();
@@ -1635,8 +1644,11 @@ function loadPL() {
   var eq=db.collection('expenses').where('date','>=',from).where('date','<=',to);
   if(branch){ rq=rq.where('branch','==',branch); eq=eq.where('branch','==',branch); }
   Promise.all([rq.get(),eq.get()]).then(function(results){
-    var rSnap=results[0],eSnap=results[1];
-    var revenue=0,litres=0; rSnap.forEach(function(d){var r=d.data();revenue+=r.grandTotal||0;litres+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;});
+  var rSnap=results[0],eSnap=results[1];
+    var revenue=0,litres=0; rSnap.forEach(function(d){var r=d.data();
+      if(r.approvalStatus!=='approved')return;
+      if(branch&&r.branch!==branch)return;
+      revenue+=r.grandTotal||0;litres+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;});
     var expenses=0; eSnap.forEach(function(d){expenses+=d.data().amount||0;});
     var profit=revenue-expenses;
     c.innerHTML='<div class="g4" style="margin-bottom:16px">'
@@ -1709,13 +1721,13 @@ function savePrice(branch) {
 function loadStock() {
   var c=el('stockContent'); if(!c) return;
   c.innerHTML='<div class="empty">Loading…</div>';
-  db.collection('reports').where('approvalStatus','==','approved')
-    .orderBy('date','desc').limit(60).get().then(function(snap){
+  db.collection('reports').limit(200).get().then(function(snap){
       var byBranch={};
       BRANCHES.forEach(function(b){byBranch[b]={petrol:0,deliveries:0};});
       snap.forEach(function(d){
         var r=d.data(); var b=r.branch;
         if(!byBranch[b]) return;
+        if(r.approvalStatus!=='approved') return;
         byBranch[b].petrol     -= (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
         byBranch[b].deliveries += (r.delivery&&r.delivery.litres)||0;
       });
@@ -1771,12 +1783,13 @@ function initExport() {
 function exportCSV() {
   var from=gv('expFrom'),to=gv('expTo'),branch=gv('expBranch');
   if(!from||!to){toast('Select date range','err');return;}
-  var q=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
-  if(branch) q=q.where('branch','==',branch);
-  q.orderBy('date').get().then(function(snap){
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to);
+  q.get().then(function(snap){
+    var _rows=[]; snap.forEach(function(d){_rows.push(d.data());});
+    _rows=_rows.filter(function(r){return r.approvalStatus==='approved'&&(!branch||r.branch===branch);});
+    _rows.sort(function(a,b){return a.date.localeCompare(b.date);});
     var rows=[['Date','Branch','Shift','Staff','Metre Open','Metre Close','Litres Sold','Display Open','Display Close','Grand Total','Deposit','Variance']];
-    snap.forEach(function(d){
-      var r=d.data();
+    _rows.forEach(function(r){
       rows.push([r.date,r.branch,r.shift||'',r.staffName,
         (r.pump&&r.pump.metre&&r.pump.metre.opening)||0,
         (r.pump&&r.pump.metre&&r.pump.metre.closing)||0,
@@ -1802,7 +1815,7 @@ function downloadCSV(rows, filename) {
 // VENDORS & BILLS
 // ═══════════════════════════════════════════════════════════════
 function loadVendors() {
-  db.collection('vendors').orderBy('name').get().then(function(snap){
+  db.collection('vendors').get().then(function(snap){
     var c=el('vendorList');
     if(!snap.empty){
       var vs=el('billVendor');
@@ -1820,14 +1833,18 @@ function loadVendors() {
     // init bill date
     var bd=el('billDate'); if(bd&&!bd.value) bd.valueAsDate=new Date();
     // load bills
-    db.collection('bills').orderBy('date','desc').limit(20).get().then(function(bSnap){
+    db.collection('bills').limit(30).get().then(function(bSnap){
       var bc=el('billList');
       if(!bc) return;
       if(bSnap.empty){bc.innerHTML='<div class="empty">No bills.</div>';return;}
-      var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Description</th><th class="num">Amount</th></tr></thead><tbody>';
-      bSnap.forEach(function(d){
-        var b=d.data();
-        h+='<tr><td>'+b.date+'</td><td>'+b.branch+'</td><td>'+b.description+'</td><td class="num">'+fmt(b.amount)+'</td></tr>';
+      var _bd=[]; bSnap.forEach(function(d){_bd.push({id:d.id,data:d.data()});}); 
+      _bd.sort(function(a,b){return (b.data.date||'').localeCompare(a.data.date||'');});
+      var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Description</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead><tbody>';
+      _bd.forEach(function(item){
+        var b=item.data;
+        h+='<tr><td>'+b.date+'</td><td>'+b.branch+'</td><td>'+b.description+'</td>'
+          +'<td class="num">'+(b.qty||1)+'</td><td class="num">'+fmt(b.unitPrice||b.amount||0)+'</td>'
+          +'<td class="num">'+fmt(b.amount)+'</td></tr>';
       });
       bc.innerHTML=h+'</tbody></table>';
     });
@@ -1843,12 +1860,21 @@ function deleteVendor(id){
   if(!confirm('Remove vendor?'))return;
   db.collection('vendors').doc(id).delete().then(function(){toast('Removed','ok');loadVendors();});
 }
+function billCalc() {
+  var qty=parseFloat(gv('billQty'))||0, up=parseFloat(gv('billUnitPrice'))||0;
+  var total=qty*up;
+  var ba=el('billAmt'); if(ba) ba.value=total.toFixed(2);
+}
 function saveBill() {
-  var vid=gv('billVendor'),date=gv('billDate'),branch=gv('billBranch'),desc=gv('billDesc'),amt=parseFloat(gv('billAmt'));
-  if(!date||!branch||!desc||!amt){toast('Fill all fields','err');return;}
-  db.collection('bills').add({vendorId:vid,date:date,branch:branch,description:desc,amount:amt,
+  var vid=gv('billVendor'),date=gv('billDate'),branch=gv('billBranch'),
+      desc=gv('billDesc'),qty=parseFloat(gv('billQty'))||1,
+      up=parseFloat(gv('billUnitPrice'))||0,amt=parseFloat(gv('billAmt'))||0;
+  if(!date||!branch||!desc){toast('Fill all fields','err');return;}
+  if(!amt&&!up){toast('Enter quantity and unit price','err');return;}
+  db.collection('bills').add({vendorId:vid,date:date,branch:branch,description:desc,
+    qty:qty,unitPrice:up,amount:amt||qty*up,
     createdAt:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){toast('Bill saved','ok');sv('billDesc','');sv('billAmt','');loadVendors();});
+    .then(function(){toast('Bill saved','ok');sv('billDesc','');sv('billQty','1');sv('billUnitPrice','');sv('billAmt','');loadVendors();});
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1982,7 +2008,7 @@ function loadExpenses() {
   var d=el('expDate'); if(d&&!d.value) d.valueAsDate=new Date();
   var bs=el('expBranchSel');
   if(bs&&bs.options.length<1){ BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bs.appendChild(o);}); }
-  db.collection('expenses').orderBy('date','desc').limit(40).get().then(function(snap){
+  db.collection('expenses').limit(60).get().then(function(snap){
     if(snap.empty){c.innerHTML='<div class="empty">No expenses.</div>';return;}
     var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Category</th><th>Notes</th><th class="num">Amount</th><th></th></tr></thead><tbody>';
     snap.forEach(function(d){
@@ -2009,7 +2035,7 @@ function deleteExpense(id){ db.collection('expenses').doc(id).delete().then(func
 function loadDebts() {
   var c=el('debtList'); if(!c) return;
   var d=el('debtDue'); if(d&&!d.value) d.valueAsDate=new Date(Date.now()+30*86400000);
-  db.collection('debts').orderBy('createdAt','desc').limit(30).get().then(function(snap){
+  db.collection('debts').limit(40).get().then(function(snap){
     if(snap.empty){c.innerHTML='<div class="empty">No debts recorded.</div>';return;}
     var html='<table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Due</th><th class="num">Amount</th><th>Notes</th><th></th></tr></thead><tbody>';
     snap.forEach(function(d){
@@ -2166,12 +2192,13 @@ function loadTrends() {
   var end=new Date(), start=new Date();
   start.setDate(start.getDate()-(days-1));
   var from=start.toISOString().split('T')[0], to=todayStr();
-  var q=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
-  if(branch) q=q.where('branch','==',branch);
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to);
   q.get().then(function(snap){
     var byDate={rev:{},vol:{}};
     snap.forEach(function(d){
       var r=d.data();
+      if(r.approvalStatus!=='approved') return;
+      if(branch&&r.branch!==branch) return;
       byDate.rev[r.date]=(byDate.rev[r.date]||0)+(r.grandTotal||0);
       byDate.vol[r.date]=(byDate.vol[r.date]||0)+((r.pump&&r.pump.metre&&r.pump.metre.sold)||0);
     });
@@ -2207,9 +2234,9 @@ function loadPredictions() {
   var end=new Date(), start=new Date();
   start.setDate(start.getDate()-(days-1));
   db.collection('reports').where('date','>=',start.toISOString().split('T')[0])
-    .where('approvalStatus','==','approved').get().then(function(snap){
+    .get().then(function(snap){
       var total=0,count=0;
-      snap.forEach(function(d){total+=d.data().grandTotal||0;count++;});
+      snap.forEach(function(d){var r=d.data();if(r.approvalStatus!=='approved')return;total+=r.grandTotal||0;count++;});
       var avgDay=count>0?total/days:0;
       var forecast=avgDay*30;
       c.innerHTML='<div class="g2">'
@@ -2229,7 +2256,7 @@ function initReportForm() {
   var c=el('reportForm');
   c.innerHTML='<div class="card"><div class="card-title">Daily Report — '+currentProfile.branch+'</div>'
     +'<div class="field"><label>Date</label><input type="date" id="rfDate" value="'+todayStr()+'"></div>'
-    +'<div class="field"><label>Shift</label><select id="rfShift"><option>Morning</option><option>Evening</option></select></div>'
+    +'<div class="field"><label>Shift</label><select id="rfShift"><option>Full Day</option></select></div>'
     +'<div class="rg-label">Pump Readings</div>'
     +'<div class="g2">'
     +'<div class="field"><label>Metre Opening (L)</label><input type="number" id="rfMO" step="0.01" readonly style="background:var(--s2);color:var(--text3)"></div>'
@@ -2275,7 +2302,10 @@ function loadPrevReadings() {
   if(!currentProfile||!currentProfile.branch) return;
   db.collection('reports').where('branch','==',currentProfile.branch)
     .where('staffUid','==',currentProfile.uid)
-    .orderBy('createdAt','desc').limit(1).get().then(function(snap){
+    .limit(20).get().then(function(snap){
+      var _pr=[]; snap.forEach(function(d){_pr.push(d);});
+      _pr.sort(function(a,b){var ta=a.data().createdAt,tb=b.data().createdAt;if(!ta||!tb)return 0;return tb.seconds-ta.seconds;});
+      snap={docs:_pr,empty:!_pr.length};
       if(snap.empty) return;
       var r=snap.docs[0].data();
       var mo=el('rfMO'),doEl=el('rfDO');
