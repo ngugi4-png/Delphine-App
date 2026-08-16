@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Delphine — Clear Cache</title>
+<style>
+body{font-family:sans-serif;background:#0d0d0d;color:#e8e4dc;display:flex;align-items:center;
+justify-content:center;min-height:100vh;margin:0}
+.box{background:#111;border:1px solid #2a2a2a;border-radius:12px;padding:40px;max-width:440px;text-align:center}
+h2{color:#C8922A;margin-bottom:12px}p{color:#888;font-size:0.85rem;margin-bottom:24px}
+button{background:#C8922A;border:none;border-radius:8px;padding:12px 28px;color:#000;
+font-size:0.9rem;font-weight:700;cursor:pointer;margin:6px}
+.status{margin-top:20px;font-size:0.8rem;color:#4a9e6a;min-height:20px}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>⛽ Delphine</h2>
+  <p>Click the button below to clear all cached files and service workers, then reload the app fresh.</p>
+  <button onclick="clearAll()">🗑 Clear Cache &amp; Reload</button>
+  <div class="status" id="status"></div>
+</div>
+<script>
+async function clearAll() {
+  var s = document.getElementById('status');
+  s.textContent = 'Unregistering service workers…';
+  
+  // Kill all service workers
+  if ('serviceWorker' in navigator) {
+    var regs = await navigator.serviceWorker.getRegistrations();
+    for (var r of regs) { await r.unregister(); }
+    s.textContent = 'Cleared ' + regs.length + ' service worker(s)…';
+  }
+  
+  // Clear all caches
+  if ('caches' in window) {
+    var keys = await caches.keys();
+    for (var k of keys) { await caches.delete(k); }
+    s.textContent += ' Cleared ' + keys.length + ' cache(s)…';
+  }
+  
+  // Clear localStorage and sessionStorage
+  try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
+  
+  s.textContent = '✓ Done! Redirecting to app…';
+  setTimeout(function(){ window.location.href = '/'; }, 1500);
+}
+</script>
+</body>
+</html>
