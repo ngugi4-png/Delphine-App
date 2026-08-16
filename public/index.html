@@ -427,6 +427,15 @@ a { color: var(--gold); text-decoration: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
 .fade-in { animation: fadeIn 0.2s ease; }
+
+/* Bill line items */
+.bill-line input[type=number] { text-align:right; }
+.bill-line select { font-size:0.78rem; }
+@media(max-width:700px){
+  .bill-line { grid-template-columns:1fr 1fr !important; }
+  .bill-line > :nth-child(1) { grid-column:1/-1; }
+  .bill-line > :nth-child(5) { grid-column:2; justify-self:end; }
+}
 </style>
 </head>
 <body>
@@ -725,12 +734,31 @@ a { color: var(--gold); text-decoration: none; }
       <div>
         <div class="card">
           <div class="card-title">Record Bill</div>
-          <div class="field"><label>Vendor</label><select id="billVendor"></select></div>
-          <div class="field"><label>Date</label><input type="date" id="billDate"></div>
-          <div class="field"><label>Branch</label><select id="billBranch"></select></div>
-          <div class="field"><label>Description</label><input type="text" id="billDesc"></div>
-          <div class="field"><label>Amount (KSh)</label><input type="number" id="billAmt"></div>
-          <button class="btn btn-gold btn-sm" onclick="saveBill()">Save Bill</button>
+
+          <!-- Bill header -->
+          <div class="g2">
+            <div class="field"><label>Vendor</label><select id="billVendor"></select></div>
+            <div class="field"><label>Date</label><input type="date" id="billDate"></div>
+          </div>
+          <div class="field"><label>Invoice / Reference No.</label><input type="text" id="billRef" placeholder="Optional"></div>
+          <div class="field"><label>Notes</label><input type="text" id="billNote" placeholder="Optional"></div>
+
+          <!-- Line items -->
+          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">Line Items</div>
+
+          <div id="billLines">
+            <!-- Line rows inserted here by JS -->
+          </div>
+
+          <button class="btn btn-ghost btn-sm" onclick="addBillLine()" style="margin-bottom:14px">+ Add Line Item</button>
+
+          <!-- Bill total -->
+          <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;padding:10px 0;border-top:1px solid var(--border);margin-bottom:12px">
+            <span style="font-size:0.72rem;color:var(--text3)">Bill Total:</span>
+            <span id="billTotal" style="font-size:1.1rem;font-weight:700;color:var(--gold);font-family:var(--mono)">KSh 0</span>
+          </div>
+
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveBill()">Save Bill</button>
         </div>
         <div class="card">
           <div class="card-title">Recent Bills</div>
@@ -1862,8 +1890,11 @@ function loadVendors() {
       });
       if(c) c.innerHTML=html;
     } else { if(c) c.innerHTML='<div class="empty">No vendors.</div>'; }
-    // init bill date
+    // init bill date + first line item
     var bd=el('billDate'); if(bd&&!bd.value) bd.valueAsDate=new Date();
+    if(document.getElementById('billLines')&&!document.getElementById('billLines').children.length){
+      _billLineCount=0; addBillLine();
+    }
     // load bills
     db.collection('bills').limit(30).get().then(function(bSnap){
       var bc=el('billList');
@@ -1871,13 +1902,30 @@ function loadVendors() {
       if(bSnap.empty){bc.innerHTML='<div class="empty">No bills.</div>';return;}
       var _bd=[]; bSnap.forEach(function(d){_bd.push({id:d.id,data:d.data()});}); 
       _bd.sort(function(a,b){return (b.data.date||'').localeCompare(a.data.date||'');});
-      var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Description</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead><tbody>';
+      var h='<div>';
       _bd.forEach(function(item){
         var b=item.data;
-        h+='<tr><td>'+b.date+'</td><td>'+b.branch+'</td><td>'+b.description+'</td>'
-          +'<td class="num">'+(b.qty||1)+'</td><td class="num">'+fmt(b.unitPrice||b.amount||0)+'</td>'
-          +'<td class="num">'+fmt(b.amount)+'</td></tr>';
+        var lines=b.lineItems||[{description:b.description,branch:b.branch,qty:b.qty||1,unitPrice:b.unitPrice||b.amount,amount:b.amount}];
+        h+='<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden">'
+          +'<div style="background:var(--s2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+          +'<div><span style="font-weight:600;font-size:0.78rem">'+b.date+'</span>'
+          +(b.reference?' <span style="font-size:0.62rem;color:var(--text3)">Ref: '+b.reference+'</span>':'')
+          +'</div>'
+          +'<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'+fmt(b.totalAmount||b.amount)+'</span>'
+          +'</div>'
+          +'<table class="tbl" style="margin:0"><thead><tr>'
+          +'<th>Description</th><th>Branch</th><th class="num">Qty</th>'
+          +'<th class="num">Unit Price</th><th class="num">Total</th>'
+          +'</tr></thead><tbody>';
+        lines.forEach(function(l){
+          h+='<tr><td>'+l.description+'</td><td>'+(l.branch||'—')+'</td>'
+            +'<td class="num">'+(l.qty||1)+'</td>'
+            +'<td class="num">'+fmt(l.unitPrice||0)+'</td>'
+            +'<td class="num">'+fmt(l.amount||0)+'</td></tr>';
+        });
+        h+='</tbody></table></div>';
       });
+      h+='</div>';
       bc.innerHTML=h+'</tbody></table>';
     });
   }
@@ -1893,26 +1941,119 @@ function deleteVendor(id){
   if(!confirm('Remove vendor?'))return;
   db.collection('vendors').doc(id).delete().then(function(){toast('Removed','ok');loadVendors();});
 }
-function billCalc() {
-  var qty=parseFloat(gv('billQty'))||0, up=parseFloat(gv('billUnitPrice'))||0;
-  var total=qty*up;
-  var ba=el('billAmt'); if(ba) ba.value=total.toFixed(2);
-}
-function saveBill() {
-  var vid=gv('billVendor'),date=gv('billDate'),branch=gv('billBranch'),
-      desc=gv('billDesc'),qty=parseFloat(gv('billQty'))||1,
-      up=parseFloat(gv('billUnitPrice'))||0,amt=parseFloat(gv('billAmt'))||0;
-  if(!date||!branch||!desc){toast('Fill all fields','err');return;}
-  if(!amt&&!up){toast('Enter quantity and unit price','err');return;}
-  db.collection('bills').add({vendorId:vid,date:date,branch:branch,description:desc,
-    qty:qty,unitPrice:up,amount:amt||qty*up,
-    createdAt:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){toast('Bill saved','ok');sv('billDesc','');sv('billQty','1');sv('billUnitPrice','');sv('billAmt','');loadVendors();});
+function _billLineHtml(i) {
+  // Build one line item row
+  var branchOpts = BRANCHES.map(function(b){
+    return '<option value="'+b+'">'+b+'</option>';
+  }).join('');
+  return '<div class="bill-line" id="billLine_'+i+'" style="'
+    +'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:10px;'
+    +'padding-bottom:10px;border-bottom:1px solid var(--border)">'
+    // Description
+    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Description / Product</label>'
+    +'<input type="text" id="blDesc_'+i+'" placeholder="e.g. Petrol PMS" oninput="billCalc()"></div>'
+    // Branch
+    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Branch</label>'
+    +'<select id="blBranch_'+i+'"><option value="">All</option>'+branchOpts+'</select></div>'
+    // Qty
+    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Qty</label>'
+    +'<input type="number" id="blQty_'+i+'" value="1" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
+    // Unit price
+    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit Price (KSh)</label>'
+    +'<input type="number" id="blPrice_'+i+'" value="0" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
+    // Remove button
+    +'<button type="button" onclick="removeBillLine('+i+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">✕</button>'
+    +'</div>';
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CREATE REPORT (admin manual entry)
-// ═══════════════════════════════════════════════════════════════
+var _billLineCount = 0;
+
+function addBillLine() {
+  _billLineCount++;
+  var c = document.getElementById('billLines');
+  if (!c) return;
+  var div = document.createElement('div');
+  div.innerHTML = _billLineHtml(_billLineCount);
+  c.appendChild(div.firstChild);
+}
+
+function removeBillLine(i) {
+  var row = document.getElementById('billLine_'+i);
+  if (row) row.remove();
+  billCalc();
+}
+
+function billCalc() {
+  var total = 0;
+  var c = document.getElementById('billLines');
+  if (!c) return;
+  c.querySelectorAll('.bill-line').forEach(function(row) {
+    var id = row.id.replace('billLine_','');
+    var qty   = parseFloat((document.getElementById('blQty_'+id)||{}).value||0) || 0;
+    var price = parseFloat((document.getElementById('blPrice_'+id)||{}).value||0) || 0;
+    total += qty * price;
+  });
+  var bt = document.getElementById('billTotal');
+  if (bt) bt.textContent = 'KSh ' + total.toLocaleString('en-KE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function saveBill() {
+  var vendor   = document.getElementById('billVendor') ? document.getElementById('billVendor').value : '';
+  var date     = document.getElementById('billDate')   ? document.getElementById('billDate').value   : '';
+  var ref      = document.getElementById('billRef')    ? document.getElementById('billRef').value    : '';
+  var note     = document.getElementById('billNote')   ? document.getElementById('billNote').value   : '';
+
+  if (!date) { toast('Select a date', 'err'); return; }
+
+  // Collect line items
+  var lineItems = [];
+  var billTotal = 0;
+  var c = document.getElementById('billLines');
+  if (!c || !c.querySelectorAll('.bill-line').length) {
+    toast('Add at least one line item', 'err'); return;
+  }
+
+  c.querySelectorAll('.bill-line').forEach(function(row) {
+    var id     = row.id.replace('billLine_','');
+    var desc   = (document.getElementById('blDesc_'+id)||{}).value   || '';
+    var branch = (document.getElementById('blBranch_'+id)||{}).value || '';
+    var qty    = parseFloat((document.getElementById('blQty_'+id)||{}).value)   || 0;
+    var price  = parseFloat((document.getElementById('blPrice_'+id)||{}).value) || 0;
+    var amount = qty * price;
+    if (!desc || qty === 0) return; // skip empty rows
+    lineItems.push({ description: desc, branch: branch, qty: qty, unitPrice: price, amount: amount });
+    billTotal += amount;
+  });
+
+  if (!lineItems.length) { toast('Fill in at least one line item with description and qty', 'err'); return; }
+
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  db.collection('bills').add({
+    vendorId:   vendor,
+    date:       date,
+    reference:  ref,
+    notes:      note,
+    lineItems:  lineItems,
+    totalAmount: billTotal,
+    // Keep backward-compat fields
+    branch:     lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ') || 'Multiple',
+    description: lineItems.map(function(l){return l.description;}).join(', '),
+    amount:     billTotal,
+    createdAt:  now
+  }).then(function() {
+    toast('Bill saved — KSh ' + billTotal.toLocaleString(), 'ok');
+    // Reset form
+    document.getElementById('billRef').value  = '';
+    document.getElementById('billNote').value = '';
+    document.getElementById('billLines').innerHTML = '';
+    _billLineCount = 0;
+    document.getElementById('billTotal').textContent = 'KSh 0';
+    loadVendors();
+  })
+    .catch(function(e) { toast('Error: ' + e.message, 'err'); });
+}
+
+
 function initCreateReport() {
   var d=el('cr_date'); if(d&&!d.value) d.valueAsDate=new Date();
   var b=el('cr_branch');
