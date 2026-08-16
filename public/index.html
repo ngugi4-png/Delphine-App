@@ -1016,6 +1016,11 @@ firebase.initializeApp({
 var db   = firebase.firestore();
 var auth = firebase.auth();
 
+// Enable long-polling for networks that block WebSockets
+try {
+  db.settings({ experimentalForceLongPolling: true, merge: true });
+} catch(e) {}
+
 
 // Global Firestore error display
 function _dbErr(fn, e) {
@@ -1243,10 +1248,25 @@ function doSignIn() {
   var timer = setTimeout(function(){
     busy('btnSI', false);
     toast('Connection timeout — check internet and try again.','err');
-  }, 15000);
+  }, 30000);
   auth.signInWithEmailAndPassword(email, pass)
     .then(function(){ clearTimeout(timer); })
-    .catch(function(e){ clearTimeout(timer); busy('btnSI',false); toast(friendlyErr(e.code),'err'); });
+    .catch(function(e){
+      clearTimeout(timer);
+      busy('btnSI', false);
+      // Retry once on network error
+      if (e.code === 'auth/network-request-failed') {
+        toast('Network error — retrying…', 'err');
+        setTimeout(function(){
+          busy('btnSI', true);
+          auth.signInWithEmailAndPassword(email, pass)
+            .then(function(){})
+            .catch(function(e2){ busy('btnSI',false); toast(friendlyErr(e2.code),'err'); });
+        }, 2000);
+      } else {
+        toast(friendlyErr(e.code), 'err');
+      }
+    });
 }
 
 auth.onAuthStateChanged(function(user) {
@@ -1260,7 +1280,7 @@ auth.onAuthStateChanged(function(user) {
     busy('btnSI',false);
     toast('Database timeout. Check connection.','err');
     showOnly('sAuth');
-  }, 12000);
+  }, 30000);
   db.collection('users').doc(user.uid).get()
     .then(function(snap) {
       clearTimeout(timer);
