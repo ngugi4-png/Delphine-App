@@ -988,6 +988,24 @@ firebase.initializeApp({
 var db   = firebase.firestore();
 var auth = firebase.auth();
 
+
+// Global Firestore error display
+function _dbErr(fn, e) {
+  console.error('[Delphine Firestore] '+fn+':', e.message||e);
+  // Show error in any "Loading..." container
+  document.querySelectorAll('[id$="List"],[id$="Content"],[id$="Result"],[id$="Summary"]').forEach(function(c){
+    if(c.innerHTML && c.innerHTML.includes('Loading')) {
+      c.innerHTML = '<div class="empty" style="color:var(--red)">⚠ Error loading data: '+((e.message||'').slice(0,60)||'check console')+'</div>';
+    }
+  });
+}
+
+// Safe Firestore query wrapper — adds error handling automatically
+function safeGet(ref, onSuccess, label) {
+  ref.get().then(onSuccess).catch(function(e){
+    _dbErr(label||'query', e);
+  });
+}
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
@@ -1296,7 +1314,8 @@ function loadPricesCache() {
   BRANCHES.forEach(function(b){
     db.collection('invPrices').doc(b).get().then(function(s){
       if (s.exists) PRICES[b] = s.data();
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
   });
 }
 
@@ -1371,9 +1390,10 @@ function loadDashboard() {
     var revenue=0, litres=0, pending=0;
     snap.forEach(function(d){
       var r=d.data();
+      if(r.approvalStatus==='pending') pending++;
+      if(r.approvalStatus!=='approved') return;
       revenue += r.grandTotal||0;
       litres  += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
-      if (r.approvalStatus==='pending') pending++;
     });
     sv('dkRevenue', fmt(revenue));
     sv('dkLitres',  fmtL(litres));
@@ -1383,10 +1403,12 @@ function loadDashboard() {
     if(rv) rv.textContent=fmt(revenue);
     if(lv) lv.textContent=fmtL(litres);
     if(pv) pv.textContent=pending;
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
   db.collection('users').where('status','==','approved').get().then(function(s){
     var sv2=el('dkStaff'); if(sv2) sv2.textContent=s.size;
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
   // Recent reports
   db.collection('reports').limit(20).get().then(function(snap){
     var _dd=[]; snap.forEach(function(d){_dd.push(d);}); 
@@ -1406,7 +1428,8 @@ function loadDashboard() {
     });
     html+='</tbody></table>';
     c.innerHTML=html;
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1443,7 +1466,8 @@ function loadApprovals() {
     });
     html+='</tbody></table>';
     c.innerHTML=html;
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 function setStatus(id, status) {
@@ -1472,13 +1496,15 @@ function initDSR() {
 function loadDSR() {
   var date=gv('dsrDate')||todayStr();
   var branch=gv('dsrBranch');
-  var q=db.collection('reports').where('date','==',date).where('approvalStatus','==','approved');
+  var q=db.collection('reports').where('date','==',date);
   if(branch) q=q.where('branch','==',branch);
   q.get().then(function(snap){
     var revenue=0,litres=0,variance=0;
     var shiftsHtml='';
     snap.forEach(function(d){
       var r=d.data();
+      if(r.approvalStatus!=='approved') return;
+      if(branch&&r.branch!==branch) return;
       revenue  += r.grandTotal||0;
       litres   += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
       variance += (r.reconciliation&&r.reconciliation.variance)||0;
@@ -1502,7 +1528,8 @@ function loadDSR() {
         +'<th class="num">Closing (L)</th><th class="num">Sold (L)</th><th class="num">Total</th><th class="num">Variance</th>'
         +'</tr></thead><tbody>'+shiftsHtml+'</tbody></table>';}
     }
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 function dsrTrend(days) {
@@ -1546,7 +1573,8 @@ function dsrTrend(days) {
         var b=el('dsrTrend'+n+'btn');
         if(b){ b.className='btn btn-'+(days==n?'gold':'ghost')+' btn-xs'; }
       });
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1603,7 +1631,8 @@ function loadBranchSummary() {
         +'<td class="num">'+fmtL(totalLit)+'</td><td></td><td></td><td></td></tr>';
       html+='</tbody></table>';
       el('bsSummary').innerHTML=html;
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 function exportBranchSummaryCSV() {
@@ -1619,7 +1648,8 @@ function exportBranchSummaryCSV() {
           (r.delivery&&r.delivery.litres)||0]);
       });
       downloadCSV(rows,'branch-summary-'+from+'-'+to+'.csv');
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1739,7 +1769,8 @@ function loadStock() {
       });
       html+='</tbody></table>';
       c.innerHTML=html;
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1749,8 +1780,7 @@ function loadAudit() {
   var staff=gv('auditStaffFilter');
   var c=el('auditList'); if(!c) return;
   c.innerHTML='<div class="empty">Loading…</div>';
-  var q=db.collection('reports').orderBy('createdAt','desc').limit(50);
-  q.get().then(function(snap){
+  db.collection('reports').limit(60).get().then(function(snap){
     var rows=[];
     snap.forEach(function(d){
       var r=d.data();
@@ -1765,7 +1795,8 @@ function loadAudit() {
     });
     html+='</tbody></table>';
     c.innerHTML=html;
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1800,7 +1831,8 @@ function exportCSV() {
         (r.reconciliation&&r.reconciliation.variance)||0]);
     });
     downloadCSV(rows,'reports-'+from+'-'+to+'.csv');
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 function downloadCSV(rows, filename) {
@@ -1848,7 +1880,8 @@ function loadVendors() {
       });
       bc.innerHTML=h+'</tbody></table>';
     });
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function saveVendor() {
   var n=gv('vendorName').trim(),c=gv('vendorContact').trim();
@@ -2018,7 +2051,8 @@ function loadExpenses() {
         +'<td><button class="btn btn-red btn-xs" onclick="deleteExpense(\''+d.id+'\')">🗑</button></td></tr>';
     });
     c.innerHTML=html+'</tbody></table>';
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function addExpense() {
   var date=gv('expDate'),branch=gv('expBranchSel'),cat=gv('expCat'),amt=parseFloat(gv('expAmt')),note=gv('expNote');
@@ -2045,7 +2079,8 @@ function loadDebts() {
         +'<td><button class="btn btn-red btn-xs" onclick="deleteDebt(\''+d.id+'\')">🗑</button></td></tr>';
     });
     c.innerHTML=html+'</tbody></table>';
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function addDebt() {
   var name=gv('debtName').trim(),type=gv('debtType'),amt=parseFloat(gv('debtAmt')),due=gv('debtDue'),note=gv('debtNote');
@@ -2074,7 +2109,8 @@ function loadStaffLists() {
     var af=el('auditStaffFilter');
     if(af){ while(af.options.length>1)af.remove(1);
       approved.forEach(function(u){var o=document.createElement('option');o.value=u.uid;o.textContent=u.name;af.appendChild(o);}); }
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function renderUsers(id, users, actions) {
   var c=el(id); if(!c) return;
@@ -2130,7 +2166,8 @@ function loadBankAccts() {
         +' <span class="u-email">'+a.account+' · '+a.branch+'</span></div>'
         +'<button class="btn btn-red btn-xs" onclick="deleteBankAcct('+i+')">🗑</button></div>';
     }).join('');
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function saveBankAcct() {
   var bank=gv('bankName').trim(),acct=gv('bankAcct').trim(),branch=gv('bankBranch');
@@ -2139,14 +2176,16 @@ function saveBankAcct() {
     var accts=s.exists?(s.data().accounts||[]):[];
     accts.push({bank:bank,account:acct,branch:branch});
     db.collection('settings').doc('bankAccounts').set({accounts:accts}).then(function(){toast('Saved','ok');loadBankAccts();});
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function deleteBankAcct(i){
   db.collection('settings').doc('bankAccounts').get().then(function(s){
     var accts=s.exists?(s.data().accounts||[]):[];
     accts.splice(i,1);
     db.collection('settings').doc('bankAccounts').set({accounts:accts}).then(function(){toast('Deleted','ok');loadBankAccts();});
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2157,7 +2196,8 @@ function loadEmailSettings() {
     if(!s.exists) return;
     var d=s.data();
     sv('ejsService',d.serviceId||''); sv('ejsTemplate',d.templateId||''); sv('ejsKey',d.publicKey||'');
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 function saveEmailSettings() {
   var data={serviceId:gv('ejsService').trim(),templateId:gv('ejsTemplate').trim(),publicKey:gv('ejsKey').trim()};
@@ -2178,7 +2218,8 @@ function startWipe() {
       var batch=db.batch();
       snap.forEach(function(d){batch.delete(d.ref);});
       batch.commit().then(function(){done+=snap.size;wipeNext(i+1);});
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
   }
   wipeNext(0);
 }
@@ -2224,7 +2265,8 @@ function loadTrends() {
     if(vc){if(_volChart){_volChart.destroy();} _volChart=new Chart(vc.getContext('2d'),{type:'line',
       data:{labels:labels,datasets:[{label:'Litres',data:volData,borderColor:'#4ecdc4',backgroundColor:'rgba(78,205,196,0.1)',
         fill:true,tension:0.4,pointRadius:2}]},options:opts});}
-  });
+  }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 function loadPredictions() {
@@ -2243,7 +2285,8 @@ function loadPredictions() {
         +'<div class="stat-tile"><div class="st-label">Avg Daily Revenue</div><div class="st-val">'+fmt(avgDay)+'</div><div class="st-sub">Last 30 days</div></div>'
         +'<div class="stat-tile"><div class="st-label">30-Day Forecast</div><div class="st-val" style="color:var(--green)">'+fmt(forecast)+'</div><div class="st-sub">Based on recent trend</div></div>'
         +'</div>';
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2311,7 +2354,8 @@ function loadPrevReadings() {
       var mo=el('rfMO'),doEl=el('rfDO');
       if(mo) mo.value=(r.pump&&r.pump.metre&&r.pump.metre.closing)||0;
       if(doEl) doEl.value=(r.pump&&r.pump.display&&r.pump.display.closing)||0;
-    });
+    }
+    .catch(function(e){ _dbErr('query', e); }));
 }
 
 function scanMetre(fieldId) {
