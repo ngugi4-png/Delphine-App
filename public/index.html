@@ -1,0 +1,2416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#C8922A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Delphine">
+<title>Delphine — Station Manager</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase 9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- Tesseract OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --gold:    #C8922A;
+  --gold2:   #e0a83a;
+  --gold3:   rgba(200,146,42,0.12);
+  --gold4:   rgba(200,146,42,0.06);
+  --bg:      #0d0d0d;
+  --s1:      #111;
+  --s2:      #161616;
+  --s3:      #1e1e1e;
+  --border:  #242424;
+  --border2: #2e2e2e;
+  --text:    #e8e4dc;
+  --text2:   #a09880;
+  --text3:   #5a5248;
+  --green:   #4a9e6a;
+  --green2:  rgba(74,158,106,0.12);
+  --red:     #c0392b;
+  --red2:    rgba(192,57,43,0.12);
+  --blue:    #2a6aad;
+  --amber:   #e8a020;
+  --ui:      'Space Grotesk', system-ui, sans-serif;
+  --mono:    'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESET + BASE
+═══════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: var(--ui);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+input, select, textarea, button { font-family: var(--ui); }
+input[type=number] { font-family: var(--mono); }
+a { color: var(--gold); text-decoration: none; }
+
+/* ═══════════════════════════════════════════════════
+   SCREENS — show/hide via .active
+═══════════════════════════════════════════════════ */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ═══════════════════════════════════════════════════
+   AUTH SCREEN
+═══════════════════════════════════════════════════ */
+#sAuth.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px 32px;
+}
+.auth-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.auth-logo-mark {
+  width: 56px; height: 56px;
+  background: var(--gold);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+  font-size: 1.5rem; font-weight: 900; color: #000;
+  letter-spacing: -1px;
+}
+.auth-logo-name {
+  font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 4px; color: var(--text2);
+  text-transform: uppercase;
+}
+.auth-title {
+  font-size: 1.1rem; font-weight: 700;
+  color: var(--text); margin-bottom: 6px;
+  text-align: center;
+}
+.auth-sub {
+  font-size: 0.72rem; color: var(--text3);
+  text-align: center; margin-bottom: 28px;
+}
+
+/* ═══════════════════════════════════════════════════
+   FORM FIELDS
+═══════════════════════════════════════════════════ */
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 0.65rem; font-weight: 600;
+  color: var(--text2); margin-bottom: 5px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field input:focus, .field select:focus { border-color: var(--gold); }
+.field select { cursor: pointer; }
+.field textarea { resize: vertical; min-height: 72px; }
+.field input[readonly] { background: var(--s2); color: var(--text3); cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 18px;
+  border: none; border-radius: 6px;
+  font-family: var(--ui); font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: 0.88; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-gold   { background: var(--gold);  color: #000; }
+.btn-ghost  { background: transparent; border: 1px solid var(--border2); color: var(--text2); }
+.btn-red    { background: var(--red);   color: #fff; }
+.btn-green  { background: var(--green); color: #fff; }
+.btn-blue   { background: var(--blue);  color: #fff; }
+.btn-sm     { padding: 6px 12px; font-size: 0.7rem; }
+.btn-xs     { padding: 4px 9px;  font-size: 0.62rem; }
+.btn-full   { width: 100%; }
+.btn-icon   { padding: 7px; }
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════ */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--s1); border: 1px solid var(--border2);
+  border-left: 3px solid var(--green);
+  padding: 10px 18px; border-radius: 8px;
+  font-size: 0.75rem; color: var(--text);
+  z-index: 9999; opacity: 0;
+  transition: opacity 0.2s; pointer-events: none;
+  white-space: nowrap; max-width: 90vw;
+}
+#toast.show { opacity: 1; }
+#toast.err  { border-left-color: var(--red); }
+#toast.ok   { border-left-color: var(--green); }
+
+/* ═══════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════ */
+#modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 500;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+#modal.open { display: flex; }
+.modal-box {
+  background: var(--s1); border: 1px solid var(--border2);
+  border-radius: 12px; padding: 28px;
+  width: 100%; max-width: 460px;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-title {
+  font-size: 0.95rem; font-weight: 700;
+  color: var(--text); margin-bottom: 20px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.modal-foot {
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════
+   ADMIN LAYOUT
+═══════════════════════════════════════════════════ */
+#sAdmin.active { display: flex; flex-direction: column; min-height: 100vh; }
+
+.adm-header {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 24px; height: 52px;
+  background: rgba(13,13,13,0.96);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.adm-logo {
+  width: 32px; height: 32px; background: var(--gold); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 0.8rem; color: #000; flex-shrink: 0;
+}
+.adm-title {
+  font-size: 0.75rem; font-weight: 700; color: var(--text);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.adm-spacer { flex: 1; }
+.adm-hbtn {
+  padding: 6px 12px; border: 1px solid var(--border2);
+  border-radius: 6px; background: transparent;
+  color: var(--text2); font-size: 0.65rem; font-weight: 600;
+  cursor: pointer; letter-spacing: 0.5px;
+}
+.adm-hbtn:hover { color: var(--text); border-color: var(--gold); }
+
+/* Main tab bar */
+.adm-tabs {
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.adm-tab {
+  padding: 12px 18px; border: none; background: transparent;
+  color: var(--text3); font-size: 0.72rem; font-weight: 500;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color 0.15s; white-space: nowrap;
+  margin-bottom: -1px;
+}
+.adm-tab:hover { color: var(--text2); }
+.adm-tab.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
+
+/* Sub-nav */
+.adm-sub-nav {
+  display: none;
+  padding: 0 20px; gap: 2px;
+  border-bottom: 1px solid var(--border);
+  background: var(--s2);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.adm-sub-btn {
+  padding: 8px 14px; border: none; background: transparent;
+  color: var(--text3); font-size: 0.6rem; font-weight: 500;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  letter-spacing: 1px; text-transform: uppercase;
+  transition: color 0.15s; white-space: nowrap;
+  margin-bottom: -1px;
+}
+.adm-sub-btn:hover { color: var(--text2); }
+.adm-sub-btn.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 700; }
+
+/* Panels — controlled entirely by JS inline styles */
+.adm-panel { display: none; padding: 24px; }
+
+/* ═══════════════════════════════════════════════════
+   CARDS + GRID
+═══════════════════════════════════════════════════ */
+.card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 8px; padding: 20px; margin-bottom: 16px;
+}
+.card-title {
+  font-size: 0.7rem; font-weight: 700; color: var(--text2);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 16px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.g2  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.g3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.g4  { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.g12 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+.g21 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+@media(max-width:900px){ .g4{grid-template-columns:1fr 1fr;} .g3{grid-template-columns:1fr;} .g12,.g21{grid-template-columns:1fr;} }
+@media(max-width:600px){ .g2,.g4{grid-template-columns:1fr;} }
+
+/* ═══════════════════════════════════════════════════
+   TABLES
+═══════════════════════════════════════════════════ */
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.tbl th {
+  padding: 9px 12px; text-align: left;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  background: var(--s2);
+}
+.tbl td {
+  padding: 9px 12px; color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: var(--s2); }
+.tbl td.num { font-family: var(--mono); text-align: right; }
+.tbl th.num { text-align: right; }
+
+/* ═══════════════════════════════════════════════════
+   STAT TILES
+═══════════════════════════════════════════════════ */
+.stat-tile {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 18px 20px;
+}
+.st-label { font-size: 0.58rem; font-weight: 700; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+.st-val   { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--gold); line-height: 1; margin-bottom: 4px; }
+.st-sub   { font-size: 0.62rem; color: var(--text3); }
+
+/* ═══════════════════════════════════════════════════
+   STAFF REPORT SCREEN
+═══════════════════════════════════════════════════ */
+#sReport.active {
+  display: flex; flex-direction: column; min-height: 100vh;
+}
+.app-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px; height: 52px;
+  background: rgba(13,13,13,0.96);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+}
+.app-content { flex: 1; padding: 16px; max-width: 640px; margin: 0 auto; width: 100%; }
+
+/* Report form section labels */
+.rg-label {
+  font-size: 0.6rem; font-weight: 700; color: var(--gold);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin: 20px 0 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════
+   MISC UTILITIES
+═══════════════════════════════════════════════════ */
+.empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 0.75rem; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.5px;
+}
+.badge-green { background: var(--green2); color: var(--green); }
+.badge-red   { background: var(--red2);   color: var(--red); }
+.badge-gold  { background: var(--gold3);  color: var(--gold); }
+.badge-blue  { background: rgba(42,106,173,0.15); color: var(--blue); }
+.computed {
+  background: var(--green2); border: 1px solid rgba(74,158,106,0.25);
+  border-radius: 6px; padding: 9px 12px;
+  color: var(--green); font-family: var(--mono); font-size: 0.82rem; font-weight: 700;
+}
+.row-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+.num { font-family: var(--mono); }
+.info-note { font-size: 0.62rem; color: var(--text3); margin-top: 4px; }
+.u-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.u-row:last-child { border-bottom: none; }
+.u-name { font-weight: 600; font-size: 0.82rem; }
+.u-email { font-size: 0.65rem; color: var(--text3); }
+.branch-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  background: var(--gold3); color: var(--gold);
+  font-size: 0.6rem; font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════
+   WEATHER WIDGET
+═══════════════════════════════════════════════════ */
+.weather-card {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px;
+}
+.weather-card:hover { border-color: var(--gold); }
+.wc-branch { font-size: 0.58rem; font-weight: 700; color: var(--gold); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+.wc-temp   { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; line-height: 1; }
+.wc-cond   { font-size: 0.68rem; color: var(--text2); margin-top: 4px; }
+.wc-details { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.wc-det    { font-size: 0.6rem; color: var(--text3); }
+.wc-sub    { font-size: 0.55rem; color: var(--text3); margin-top: 6px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* Animations */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+.fade-in { animation: fadeIn 0.2s ease; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════════════════ -->
+<div id="sAuth" class="screen active">
+  <div class="auth-card fade-in">
+    <div class="auth-logo">
+      <div class="auth-logo-mark">D</div>
+      <div class="auth-logo-name">Delphine</div>
+    </div>
+    <div class="auth-title">Welcome back</div>
+    <div class="auth-sub">Delphine Enterprise Limited · Station Manager</div>
+    <div class="field"><label>Email</label><input type="email" id="siEmail" placeholder="your@email.com" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input type="password" id="siPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doSignIn()"></div>
+    <button class="btn btn-gold btn-full" id="btnSI" onclick="doSignIn()" style="margin-top:8px">Sign In</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PENDING SCREEN
+═══════════════════════════════════════════════ -->
+<div id="sPending" class="screen">
+  <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+    <div class="auth-card" style="text-align:center">
+      <div style="font-size:2rem;margin-bottom:16px">⏳</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--amber);margin-bottom:8px">Account Pending</div>
+      <div style="font-size:0.75rem;color:var(--text3);margin-bottom:20px">Your account is awaiting admin approval.</div>
+      <button class="btn btn-ghost btn-sm" onclick="auth.signOut()">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     REJECTED SCREEN
+═══════════════════════════════════════════════ -->
+<div id="sRejected" class="screen">
+  <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+    <div class="auth-card" style="text-align:center">
+      <div style="font-size:2rem;margin-bottom:16px">❌</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--red);margin-bottom:8px">Access Denied</div>
+      <div style="font-size:0.75rem;color:var(--text3);margin-bottom:20px">Contact your admin.</div>
+      <button class="btn btn-ghost btn-sm" onclick="auth.signOut()">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     STAFF REPORT SCREEN
+═══════════════════════════════════════════════ -->
+<div id="sReport" class="screen">
+  <div class="app-header">
+    <div class="adm-logo">D</div>
+    <div style="font-size:0.78rem;font-weight:600;color:var(--text)">Delphine</div>
+    <div id="staffBranchLabel" class="branch-pill" style="margin-left:4px"></div>
+    <div style="flex:1"></div>
+    <span id="staffNameLabel" style="font-size:0.65rem;color:var(--text3)"></span>
+    <button class="btn btn-ghost btn-sm" onclick="auth.signOut()">Sign Out</button>
+  </div>
+  <div class="app-content">
+    <div id="reportForm"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     ADMIN SCREEN
+═══════════════════════════════════════════════ -->
+<div id="sAdmin" class="screen">
+
+  <!-- Header -->
+  <div class="adm-header">
+    <div class="adm-logo">D</div>
+    <div class="adm-title">Delphine — Admin</div>
+    <div style="flex:1"></div>
+    <button class="adm-hbtn" onclick="toggleTheme()" id="themeBtn">☾ Light</button>
+    <button class="adm-hbtn" onclick="auth.signOut()">Sign Out</button>
+  </div>
+
+  <!-- Main tab bar -->
+  <div class="adm-tabs">
+    <button class="adm-tab" id="mainTab_dash"      onclick="mainTab(this,'mDash')">Dashboard</button>
+    <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
+    <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
+    <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
+    <button class="adm-tab" id="mainTab_finance"   onclick="mainTab(this,'mFinance')">Finance</button>
+    <button class="adm-tab" id="mainTab_settings"  onclick="mainTab(this,'mSettings')">Settings</button>
+    <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
+  </div>
+
+  <!-- Sub-navs -->
+  <div id="subNav_mDash" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDash','mDash')">Dashboard</button>
+  </div>
+  <div id="subNav_mReports" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPL','mReports')">P&amp;L</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabStock','mReports')">Stock</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAudit','mReports')">Audit</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabExport','mReports')">Export</button>
+  </div>
+  <div id="subNav_mOps" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabInv','mOps')">Inventory</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
+  </div>
+  <div id="subNav_mSummary" class="adm-sub-nav"></div>
+  <div id="subNav_mFinance" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabExpenses','mFinance')">Expenses</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDebts','mFinance')">Debts</button>
+  </div>
+  <div id="subNav_mSettings" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabStaff','mSettings')">Staff</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabBranches','mSettings')">Branches</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDangerZone','mSettings')">Danger Zone</button>
+  </div>
+  <div id="subNav_mAnalytics" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabTrends','mAnalytics')">Trends</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPredictions','mAnalytics')">Predictions</button>
+  </div>
+
+  <!-- ── PANELS ─────────────────────────────────── -->
+
+  <!-- DASHBOARD -->
+  <div id="tabDash" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↺ Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadWeather()">☁ Weather</button>
+      </div>
+    </div>
+    <!-- KPI tiles -->
+    <div class="g4" id="dashKpis" style="margin-bottom:20px">
+      <div class="stat-tile"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">—</div><div class="st-sub">All branches</div></div>
+      <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">—</div><div class="st-sub">Petrol today</div></div>
+      <div class="stat-tile"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">—</div><div class="st-sub">Awaiting approval</div></div>
+      <div class="stat-tile"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">—</div><div class="st-sub">Approved accounts</div></div>
+    </div>
+    <!-- Weather -->
+    <div class="card">
+      <div class="card-title">☁ Branch Weather</div>
+      <div id="weatherCards" class="g3">
+        <div class="empty">Loading weather…</div>
+      </div>
+    </div>
+    <!-- Recent approvals -->
+    <div class="card">
+      <div class="card-title">Recent Reports</div>
+      <div id="dashRecentReports"><div class="empty">No reports yet.</div></div>
+    </div>
+  </div>
+
+  <!-- APPROVALS -->
+  <div id="tabAppr" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Approvals</h2>
+      <div style="display:flex;gap:8px">
+        <select id="apprBranchFilter" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="">All Branches</option>
+        </select>
+        <select id="apprStatusFilter" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="">All</option>
+        </select>
+      </div>
+    </div>
+    <div id="apprList"><div class="empty">Loading…</div></div>
+  </div>
+
+  <!-- DAILY SALES -->
+  <div id="tabSales" class="adm-panel" style="padding:0">
+    <div style="padding:24px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <h2 style="font-size:1rem;font-weight:700">Daily Sales Report</h2>
+        <input type="date" id="dsrDate" onchange="loadDSR()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <select id="dsrBranch" onchange="loadDSR()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="">All Branches</option>
+        </select>
+      </div>
+      <!-- KPIs -->
+      <div class="g4" style="margin-bottom:20px">
+        <div class="stat-tile"><div class="st-label">Revenue</div><div class="st-val num" id="dsrRevenue">—</div></div>
+        <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val num" id="dsrLitres">—</div></div>
+        <div class="stat-tile"><div class="st-label">Transactions</div><div class="st-val" id="dsrTxns">—</div></div>
+        <div class="stat-tile"><div class="st-label">Cash Variance</div><div class="st-val num" id="dsrVariance">—</div></div>
+      </div>
+      <!-- Trend chart -->
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Daily Sales — Last 30 Days</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-xs" onclick="dsrTrend(7)">7D</button>
+            <button class="btn btn-gold btn-xs"  id="dsrTrend30btn" onclick="dsrTrend(30)">30D</button>
+            <button class="btn btn-ghost btn-xs" onclick="dsrTrend(90)">90D</button>
+          </div>
+        </div>
+        <div style="position:relative;height:200px;margin-top:12px">
+          <canvas id="dsrChart"></canvas>
+        </div>
+      </div>
+      <!-- Per-shift breakdown -->
+      <div class="card">
+        <div class="card-title">Shift Breakdown</div>
+        <div id="dsrShifts"><div class="empty">Select a date above.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P&L -->
+  <div id="tabPL" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Profit &amp; Loss</h2>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <input type="date" id="plFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+      <input type="date" id="plTo"   style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+      <select id="plBranch" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <option value="">All Branches</option>
+      </select>
+      <button class="btn btn-gold btn-sm" onclick="loadPL()">Generate</button>
+    </div>
+    <div id="plResult"><div class="empty">Select a date range and click Generate.</div></div>
+  </div>
+
+  <!-- STOCK -->
+  <div id="tabStock" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Stock Movement</h2>
+    <div id="stockContent"><div class="empty">Loading…</div></div>
+  </div>
+
+  <!-- AUDIT -->
+  <div id="tabAudit" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Audit Log</h2>
+    <div class="field" style="max-width:200px">
+      <label>Filter by Staff</label>
+      <select id="auditStaffFilter" onchange="loadAudit()">
+        <option value="">All Staff</option>
+      </select>
+    </div>
+    <div id="auditList"><div class="empty">Loading…</div></div>
+  </div>
+
+  <!-- EXPORT -->
+  <div id="tabExport" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Export Data</h2>
+    <div class="card">
+      <div class="card-title">Date Range Export</div>
+      <div class="g3">
+        <div class="field"><label>From</label><input type="date" id="expFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="expTo"></div>
+        <div class="field"><label>Branch</label>
+          <select id="expBranch">
+            <option value="">All</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-btns">
+        <button class="btn btn-gold btn-sm" onclick="exportCSV()">Export CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportBranchSummaryCSV()">Branch Summary CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY -->
+  <div id="tabInv" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Inventory</h2>
+    <div id="invContent"><div class="empty">Loading…</div></div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Price Settings</div>
+      <div id="priceSettings"></div>
+    </div>
+  </div>
+
+  <!-- VENDORS & BILLS -->
+  <div id="tabVend" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Vendors &amp; Bills</h2>
+    <div class="g12">
+      <div>
+        <div class="card">
+          <div class="card-title">Add Vendor</div>
+          <div class="field"><label>Vendor Name</label><input type="text" id="vendorName"></div>
+          <div class="field"><label>Contact</label><input type="text" id="vendorContact"></div>
+          <button class="btn btn-gold btn-sm" onclick="saveVendor()">Save Vendor</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Vendors</div>
+          <div id="vendorList"><div class="empty">No vendors.</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Bill</div>
+          <div class="field"><label>Vendor</label><select id="billVendor"></select></div>
+          <div class="field"><label>Date</label><input type="date" id="billDate"></div>
+          <div class="field"><label>Branch</label><select id="billBranch"></select></div>
+          <div class="field"><label>Description</label><input type="text" id="billDesc"></div>
+          <div class="field"><label>Amount (KSh)</label><input type="number" id="billAmt"></div>
+          <button class="btn btn-gold btn-sm" onclick="saveBill()">Save Bill</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Recent Bills</div>
+          <div id="billList"><div class="empty">No bills.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE REPORT -->
+  <div id="tabCreateReport" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Create Report</h2>
+    <div class="card" style="max-width:640px">
+      <div class="card-title">Manual Report Entry</div>
+      <div class="g2">
+        <div class="field"><label>Branch</label><select id="cr_branch"></select></div>
+        <div class="field"><label>Date</label><input type="date" id="cr_date"></div>
+        <div class="field"><label>Shift</label>
+          <select id="cr_shift">
+            <option>Morning</option><option>Evening</option>
+          </select>
+        </div>
+        <div class="field"><label>Staff Name</label><input type="text" id="cr_staff"></div>
+      </div>
+      <div class="rg-label">Pump Readings</div>
+      <div class="g2">
+        <div class="field"><label>Metre Opening (L)</label><input type="number" id="cr_mo" step="0.01"></div>
+        <div class="field"><label>Metre Closing (L)</label><input type="number" id="cr_mc" step="0.01"></div>
+        <div class="field"><label>Display Opening (KSh)</label><input type="number" id="cr_do" step="0.01"></div>
+        <div class="field"><label>Display Closing (KSh)</label><input type="number" id="cr_dc" step="0.01" oninput="crCalc()"></div>
+      </div>
+      <div class="rg-label">Other Products</div>
+      <div class="g4">
+        <div class="field"><label>2T Oil (pcs)</label><input type="number" id="cr_p2t" value="0" step="1" oninput="crCalc()"></div>
+        <div class="field"><label>2T-Kupima (L)</label><input type="number" id="cr_p2tk" value="0" step="0.01" oninput="crCalc()"></div>
+        <div class="field"><label>Used Oil (L)</label><input type="number" id="cr_puoil" value="0" step="0.01" oninput="crCalc()"></div>
+        <div class="field"><label>Shell Adv (pcs)</label><input type="number" id="cr_pshell" value="0" step="1" oninput="crCalc()"></div>
+      </div>
+      <div class="rg-label">Cash</div>
+      <div class="g2">
+        <div class="field"><label>Cash Deposited (KSh)</label><input type="number" id="cr_deposit" value="0" step="0.01" oninput="crCalc()"></div>
+        <div class="field"><label>Expenses (KSh)</label><input type="number" id="cr_expenses" value="0" step="0.01" oninput="crCalc()"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="cr_notes" rows="2"></textarea></div>
+      <div id="cr_summary" style="margin:12px 0;padding:12px;background:var(--s2);border-radius:6px;font-size:0.72rem;color:var(--text2);display:none"></div>
+      <button class="btn btn-gold" onclick="saveAdminReport()">Save Report</button>
+    </div>
+  </div>
+
+  <!-- IMPORT -->
+  <div id="tabImport" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Import Historical Data</h2>
+    <div class="card" style="max-width:600px">
+      <div class="card-title">CSV Import</div>
+      <div class="field"><label>Branch</label><select id="importBranch"></select></div>
+      <div class="field"><label>CSV File</label><input type="file" id="importFile" accept=".csv"></div>
+      <div class="row-btns">
+        <button class="btn btn-gold btn-sm" onclick="previewImport()">Preview</button>
+        <button class="btn btn-green btn-sm" id="btnImportAll" style="display:none" onclick="runImport()">Import All</button>
+      </div>
+      <div id="importPreview" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- BRANCH SUMMARY -->
+  <div id="tabBranchSummary" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Branch Summary</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="date" id="bsFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <input type="date" id="bsTo"   style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <button class="btn btn-gold btn-sm" onclick="loadBranchSummary()">Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportBranchSummaryCSV()">Export CSV</button>
+      </div>
+    </div>
+    <div id="bsSummary"><div class="empty">Select a date range and click Load.</div></div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div id="tabExpenses" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Expenses</h2>
+    <div class="g21">
+      <div>
+        <div id="expenseList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Add Expense</div>
+          <div class="field"><label>Date</label><input type="date" id="expDate"></div>
+          <div class="field"><label>Branch</label><select id="expBranchSel"></select></div>
+          <div class="field"><label>Category</label>
+            <select id="expCat">
+              <option>Fuel</option><option>Maintenance</option><option>Salaries</option>
+              <option>Utilities</option><option>Supplies</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Amount (KSh)</label><input type="number" id="expAmt" step="0.01"></div>
+          <div class="field"><label>Notes</label><input type="text" id="expNote"></div>
+          <button class="btn btn-gold btn-sm" onclick="addExpense()">Save Expense</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEBTS -->
+  <div id="tabDebts" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Debts &amp; Loans</h2>
+    <div class="g21">
+      <div>
+        <div id="debtList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Add Debt</div>
+          <div class="field"><label>Debtor/Creditor</label><input type="text" id="debtName"></div>
+          <div class="field"><label>Type</label>
+            <select id="debtType">
+              <option value="owed_to_us">Owed to Us</option>
+              <option value="we_owe">We Owe</option>
+            </select>
+          </div>
+          <div class="field"><label>Amount (KSh)</label><input type="number" id="debtAmt" step="0.01"></div>
+          <div class="field"><label>Due Date</label><input type="date" id="debtDue"></div>
+          <div class="field"><label>Notes</label><input type="text" id="debtNote"></div>
+          <button class="btn btn-gold btn-sm" onclick="addDebt()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAFF SETTINGS -->
+  <div id="tabStaff" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Staff Management</h2>
+    <div style="margin-bottom:16px">
+      <div style="font-size:0.68rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Pending Approval</div>
+      <div id="aPending"><div class="empty">None.</div></div>
+    </div>
+    <div>
+      <div style="font-size:0.68rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Approved Staff</div>
+      <div id="aApproved"><div class="empty">None.</div></div>
+    </div>
+  </div>
+
+  <!-- BRANCHES SETTINGS -->
+  <div id="tabBranches" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Branch Settings</h2>
+    <div class="card" style="max-width:480px">
+      <div class="card-title">Fuel Prices</div>
+      <div id="branchPrices"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- BANK ACCOUNTS -->
+  <div id="tabBankAccts" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Bank Accounts</h2>
+    <div class="card" style="max-width:480px">
+      <div class="card-title">Add Account</div>
+      <div class="field"><label>Bank Name</label><input type="text" id="bankName"></div>
+      <div class="field"><label>Account Number</label><input type="text" id="bankAcct"></div>
+      <div class="field"><label>Branch</label><select id="bankBranch"></select></div>
+      <button class="btn btn-gold btn-sm" onclick="saveBankAcct()">Save</button>
+      <div class="card-title" style="margin-top:16px">Saved Accounts</div>
+      <div id="bankList"><div class="empty">None.</div></div>
+    </div>
+  </div>
+
+  <!-- EMAIL SETTINGS -->
+  <div id="tabEmailSettings" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Email Settings</h2>
+    <div class="card" style="max-width:480px">
+      <div class="card-title">EmailJS Configuration</div>
+      <div class="field"><label>Service ID</label><input type="text" id="ejsService"></div>
+      <div class="field"><label>Template ID</label><input type="text" id="ejsTemplate"></div>
+      <div class="field"><label>Public Key</label><input type="text" id="ejsKey"></div>
+      <button class="btn btn-gold btn-sm" onclick="saveEmailSettings()">Save</button>
+    </div>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div id="tabDangerZone" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;color:var(--red);margin-bottom:20px">⚠ Danger Zone</h2>
+    <div class="card" style="border-left-color:var(--red);max-width:480px">
+      <div class="card-title">Delete All Data</div>
+      <p style="font-size:0.72rem;color:var(--text3);margin-bottom:16px">This permanently deletes all reports, inventory, and settings. Cannot be undone.</p>
+      <div class="field"><label>Type "DELETE EVERYTHING" to confirm</label><input type="text" id="wipeConfirm"></div>
+      <button class="btn btn-red btn-sm" onclick="startWipe()">Wipe All Data</button>
+    </div>
+  </div>
+
+  <!-- TRENDS -->
+  <div id="tabTrends" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Sales Trends</h2>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <select id="trendBranch" onchange="loadTrends()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <option value="">All Branches</option>
+      </select>
+      <select id="trendPeriod" onchange="loadTrends()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <option value="30">Last 30 Days</option>
+        <option value="90">Last 90 Days</option>
+        <option value="180">Last 6 Months</option>
+        <option value="365">Last Year</option>
+      </select>
+    </div>
+    <div class="card">
+      <div class="card-title">Revenue Trend</div>
+      <div style="position:relative;height:220px"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Volume Trend (Litres)</div>
+      <div style="position:relative;height:180px"><canvas id="volChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- PREDICTIONS -->
+  <div id="tabPredictions" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Predictions</h2>
+    <div class="card">
+      <div class="card-title">Monthly Revenue Forecast</div>
+      <div id="predContent"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+</div><!-- /sAdmin -->
+
+<!-- ═══════════════════════════════════════════════
+     MODAL
+═══════════════════════════════════════════════ -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">—</div>
+    <div id="modalContent"></div>
+    <div class="modal-foot" id="modalFoot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TOAST
+═══════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:            "AIzaSyAZ2gkGqM4THSe2m4zxJWrfCkaWVN6zLSI",
+  authDomain:        "delphine-b4214.firebaseapp.com",
+  projectId:         "delphine-b4214",
+  storageBucket:     "delphine-b4214.firebasestorage.app",
+  messagingSenderId: "571722955845",
+  appId:             "1:571722955845:web:c7e5e0fcbe6074d947f72c"
+});
+var db   = firebase.firestore();
+var auth = firebase.auth();
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+var ADMIN_EMAIL = "ngugi4@gmail.com";
+var BRANCHES    = ["Kahuti","Karega","Kanyenyaini"];
+var PRODUCTS    = [
+  {key:"petrol", name:"Petrol (PMS)",  unit:"L"},
+  {key:"p2t",    name:"2T Motor Oil",  unit:"pcs"},
+  {key:"p2tk",   name:"2T-Kupima",     unit:"L"},
+  {key:"puoil",  name:"Used Oil",      unit:"L"},
+  {key:"pshell", name:"Shell Advance", unit:"pcs"}
+];
+var PRICES = {};  // {branch: {petrol:210, p2t:250, ...}}
+
+var currentUser    = null;
+var currentProfile = null;
+var _dsrChart      = null;
+var _trendChart    = null;
+var _volChart      = null;
+var _importRows    = [];
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function el(id)  { return document.getElementById(id); }
+function gv(id)  { var e=el(id); return e?e.value:''; }
+function sv(id,v){ var e=el(id); if(e) e.value=v; }
+
+function fmt(n)  { return 'KSh '+(+n||0).toLocaleString('en-KE',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtL(n) { return (+n||0).toFixed(1)+' L'; }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function toast(msg, type) {
+  var t = el('toast');
+  t.textContent = msg;
+  t.className   = 'show '+(type||'ok');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.className=''; }, 3200);
+}
+
+function busy(id, on) {
+  var b = el(id); if (!b) return;
+  b.disabled = on;
+  b.dataset.o = b.dataset.o || b.textContent;
+  b.textContent = on ? 'Please wait…' : b.dataset.o;
+}
+
+function openModal(title, content, foot) {
+  el('modalTitle').textContent   = title;
+  el('modalContent').innerHTML   = content;
+  el('modalFoot').innerHTML      = (foot||'') + '<button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button>';
+  el('modal').classList.add('open');
+}
+
+function closeModal() { el('modal').classList.remove('open'); }
+
+function friendlyErr(code) {
+  var m = {
+    'auth/wrong-password':    'Wrong password.',
+    'auth/user-not-found':    'No account with that email.',
+    'auth/invalid-email':     'Invalid email address.',
+    'auth/too-many-requests': 'Too many attempts. Try later.',
+    'auth/network-request-failed': 'Network error. Check connection.'
+  };
+  return m[code] || (code||'Unknown error');
+}
+
+function showOnly(id) {
+  ['sAuth','sPending','sRejected','sReport','sAdmin'].forEach(function(s){
+    var e=el(s);
+    if(e) e.classList.toggle('active', s===id);
+  });
+  window.scrollTo(0,0);
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  el('themeBtn').textContent = document.body.classList.contains('light') ? '☽ Dark' : '☾ Light';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── MENU ROUTING ───────────────────────────────────────────────
+// Simple, direct, no CSS dependency — uses style.display only
+// ═══════════════════════════════════════════════════════════════
+
+// Map panel IDs to their main tab ID
+var PANEL_TO_TAB = {
+  tabDash:         'mDash',
+  tabAppr:         'mReports',
+  tabSales:        'mReports',
+  tabPL:           'mReports',
+  tabStock:        'mReports',
+  tabAudit:        'mReports',
+  tabExport:       'mReports',
+  tabInv:          'mOps',
+  tabVend:         'mOps',
+  tabCreateReport: 'mOps',
+  tabImport:       'mOps',
+  tabBranchSummary:'mSummary',
+  tabExpenses:     'mFinance',
+  tabDebts:        'mFinance',
+  tabStaff:        'mSettings',
+  tabBranches:     'mSettings',
+  tabBankAccts:    'mSettings',
+  tabEmailSettings:'mSettings',
+  tabDangerZone:   'mSettings',
+  tabTrends:       'mAnalytics',
+  tabPredictions:  'mAnalytics'
+};
+
+var TAB_TO_MAIN = {
+  mDash:'mainTab_dash', mReports:'mainTab_reports', mOps:'mainTab_ops',
+  mSummary:'mainTab_summary', mFinance:'mainTab_finance',
+  mSettings:'mainTab_settings', mAnalytics:'mainTab_analytics'
+};
+
+function hideAllPanels() {
+  document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
+}
+function hideAllSubNavs() {
+  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+}
+function deactivateAllTabs() {
+  document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+}
+
+// Main tab click
+function mainTab(btn, navId) {
+  deactivateAllTabs();
+  btn.classList.add('active');
+  hideAllSubNavs();
+  hideAllPanels();
+
+  if (navId === 'mSummary') {
+    showPanel('tabBranchSummary');
+    return;
+  }
+  if (navId === 'mDash') {
+    showPanel('tabDash');
+    return;
+  }
+  var sn = el('subNav_'+navId);
+  if (sn) {
+    sn.style.display = 'flex';
+    var first = sn.querySelector('.adm-sub-btn');
+    if (first) first.click();
+  }
+}
+
+// Sub-nav button click — the single place that shows a panel
+function openPanel(btn, panelId, navId) {
+  // Deactivate sub-buttons in this nav
+  var sn = el('subNav_'+navId);
+  if (sn) sn.querySelectorAll('.adm-sub-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+
+  // Show panel
+  hideAllPanels();
+  showPanel(panelId);
+}
+
+function showPanel(panelId) {
+  var p = el(panelId);
+  if (!p) return;
+  p.style.display = 'block';
+  if (panelId === 'tabSales') p.style.display = 'block';
+  // Run init
+  panelInit(panelId);
+}
+
+// Panel init — runs once per panel open
+function panelInit(panelId) {
+  switch(panelId) {
+    case 'tabDash':         loadDashboard();     break;
+    case 'tabAppr':         loadApprovals();     break;
+    case 'tabSales':        initDSR();           break;
+    case 'tabPL':           initPL();            break;
+    case 'tabStock':        loadStock();         break;
+    case 'tabAudit':        loadAudit();         break;
+    case 'tabExport':       initExport();        break;
+    case 'tabInv':          loadInventory();     break;
+    case 'tabVend':         loadVendors();       break;
+    case 'tabCreateReport': initCreateReport();  break;
+    case 'tabImport':       initImport();        break;
+    case 'tabBranchSummary':initBSDatePicker();  break;
+    case 'tabExpenses':     loadExpenses();      break;
+    case 'tabDebts':        loadDebts();         break;
+    case 'tabStaff':        loadStaffLists();    break;
+    case 'tabBranches':     loadBranchPrices();  break;
+    case 'tabBankAccts':    loadBankAccts();     break;
+    case 'tabEmailSettings':loadEmailSettings(); break;
+    case 'tabDangerZone':   break;
+    case 'tabTrends':       loadTrends();        break;
+    case 'tabPredictions':  loadPredictions();   break;
+    default: break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+function doSignIn() {
+  var email = gv('siEmail').trim();
+  var pass  = gv('siPass');
+  if (!email || !pass) { toast('Enter email and password.','err'); return; }
+  busy('btnSI', true);
+  var timer = setTimeout(function(){
+    busy('btnSI', false);
+    toast('Connection timeout — check internet and try again.','err');
+  }, 15000);
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(function(){ clearTimeout(timer); })
+    .catch(function(e){ clearTimeout(timer); busy('btnSI',false); toast(friendlyErr(e.code),'err'); });
+}
+
+auth.onAuthStateChanged(function(user) {
+  if (!user) {
+    currentUser = null; currentProfile = null;
+    showOnly('sAuth'); busy('btnSI',false);
+    return;
+  }
+  currentUser = user;
+  var timer = setTimeout(function(){
+    busy('btnSI',false);
+    toast('Database timeout. Check connection.','err');
+    showOnly('sAuth');
+  }, 12000);
+  db.collection('users').doc(user.uid).get()
+    .then(function(snap) {
+      clearTimeout(timer);
+      if (!snap.exists) {
+        if (user.email === ADMIN_EMAIL) {
+          // Auto-create admin profile
+          var prof = {name:'Admin',email:user.email,role:'admin',status:'approved',branch:'',
+                      createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+          db.collection('users').doc(user.uid).set(prof).then(function(){
+            currentProfile = prof;
+            showOnly('sAdmin');
+            loadAdminInit();
+          });
+        } else {
+          auth.signOut();
+        }
+        return;
+      }
+      currentProfile = snap.data();
+      currentProfile.uid = user.uid;
+      if (currentProfile.role === 'admin') {
+        showOnly('sAdmin');
+        loadAdminInit();
+      } else if (currentProfile.status === 'pending') {
+        showOnly('sPending');
+      } else if (currentProfile.status === 'approved') {
+        showOnly('sReport');
+        initReportForm();
+      } else {
+        showOnly('sRejected');
+      }
+    })
+    .catch(function(err){
+      clearTimeout(timer);
+      busy('btnSI',false);
+      toast('Error: '+err.message,'err');
+      showOnly('sAuth');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN INIT
+// ═══════════════════════════════════════════════════════════════
+function loadAdminInit() {
+  // Populate branch dropdowns
+  populateBranchDropdowns();
+  loadPricesCache();
+  // Show dashboard by default
+  hideAllSubNavs();
+  hideAllPanels();
+  var dn = el('subNav_mDash');
+  if (dn) dn.style.display = 'flex';
+  document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+  var dashTab = el('mainTab_dash');
+  if (dashTab) dashTab.classList.add('active');
+  showPanel('tabDash');
+}
+
+function populateBranchDropdowns() {
+  var selects = ['apprBranchFilter','dsrBranch','plBranch','expBranch',
+                 'billBranch','cr_branch','importBranch','trendBranch',
+                 'bankBranch','expBranchSel'];
+  selects.forEach(function(id){
+    var s = el(id); if (!s) return;
+    // Keep first option, add branches
+    while (s.options.length > 1) s.remove(1);
+    BRANCHES.forEach(function(b){
+      var o = document.createElement('option');
+      o.value = b; o.textContent = b;
+      s.appendChild(o);
+    });
+  });
+  // Bill branch — no "All" option
+  var bb = el('billBranch');
+  if (bb) { bb.options[0] && bb.remove(0); }
+}
+
+function loadPricesCache() {
+  BRANCHES.forEach(function(b){
+    db.collection('invPrices').doc(b).get().then(function(s){
+      if (s.exists) PRICES[b] = s.data();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEATHER
+// ═══════════════════════════════════════════════════════════════
+var BRANCH_COORDS = {
+  Kahuti:      {lat:-0.6167,lon:37.0667,town:"Kahuti, Murang'a"},
+  Karega:      {lat:-0.7000,lon:37.0333,town:"Karega, Murang'a"},
+  Kanyenyaini: {lat:-0.6833,lon:37.0500,town:"Kanyenyaini, Murang'a"}
+};
+var _wxCache = {};
+
+function wxDesc(code) {
+  var m={0:["Clear sky","☀️"],1:["Mainly clear","🌤"],2:["Partly cloudy","⛅"],3:["Overcast","☁️"],
+    45:["Foggy","🌫"],51:["Drizzle","🌦"],61:["Rain","🌧"],63:["Rain","🌧"],65:["Heavy rain","🌧"],
+    80:["Showers","🌦"],81:["Showers","🌧"],95:["Thunderstorm","⛈"]};
+  return m[code]||["Unknown","🌡"];
+}
+function windDir(deg) { return ["N","NE","E","SE","S","SW","W","NW"][Math.round(deg/45)%8]; }
+
+function loadWeather() {
+  var c = el('weatherCards'); if(!c) return;
+  c.innerHTML = '<div class="empty">Loading weather…</div>';
+  Promise.all(BRANCHES.map(function(b){
+    var now = Date.now();
+    if (_wxCache[b] && now - _wxCache[b].ts < 300000) return Promise.resolve({branch:b,data:_wxCache[b].data});
+    var coords = BRANCH_COORDS[b] || {lat:-0.68,lon:37.05};
+    return fetch('https://api.open-meteo.com/v1/forecast?latitude='+coords.lat+'&longitude='+coords.lon
+      +'&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,precipitation'
+      +'&wind_speed_unit=kmh&timezone=Africa%2FNairobi')
+      .then(function(r){return r.json();})
+      .then(function(d){ _wxCache[b]={data:d,ts:Date.now()}; return {branch:b,data:d}; })
+      .catch(function(){ return {branch:b,error:true}; });
+  })).then(function(results){
+    c.innerHTML='';
+    c.style.display='grid';
+    c.style.gridTemplateColumns='repeat(3,1fr)';
+    c.style.gap='12px';
+    results.forEach(function(res){
+      var div=document.createElement('div');
+      div.className='weather-card';
+      if(res.error||!res.data||!res.data.current){
+        div.innerHTML='<div class="wc-branch">'+res.branch+'</div><div class="wc-cond" style="color:var(--red)">Unavailable</div>';
+      } else {
+        var cur=res.data.current;
+        var temp=Math.round(cur.temperature_2m);
+        var desc=wxDesc(cur.weather_code);
+        var col=temp>=28?'var(--red)':temp>=22?'var(--amber)':temp>=16?'var(--green)':'var(--blue)';
+        var coords=BRANCH_COORDS[res.branch]||{town:res.branch};
+        div.innerHTML='<div class="wc-branch">'+res.branch+'</div>'
+          +'<div class="wc-temp" style="color:'+col+'">'+temp+'°C <span style="font-size:1rem">'+desc[1]+'</span></div>'
+          +'<div class="wc-cond">'+desc[0]+'</div>'
+          +'<div class="wc-details">'
+          +'<span class="wc-det">💧 '+cur.relative_humidity_2m+'%</span>'
+          +'<span class="wc-det">💨 '+Math.round(cur.wind_speed_10m)+' km/h '+windDir(cur.wind_direction_10m)+'</span>'
+          +'</div>'
+          +'<div class="wc-sub">'+coords.town+' · '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'</div>';
+      }
+      c.appendChild(div);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function loadDashboard() {
+  loadWeather();
+  var today = todayStr();
+  db.collection('reports').where('date','==',today).get().then(function(snap){
+    var revenue=0, litres=0, pending=0;
+    snap.forEach(function(d){
+      var r=d.data();
+      revenue += r.grandTotal||0;
+      litres  += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      if (r.approvalStatus==='pending') pending++;
+    });
+    sv('dkRevenue', fmt(revenue));
+    sv('dkLitres',  fmtL(litres));
+    sv('dkPending', pending);
+    // Set innerHTML for stat vals
+    var rv=el('dkRevenue'), lv=el('dkLitres'), pv=el('dkPending');
+    if(rv) rv.textContent=fmt(revenue);
+    if(lv) lv.textContent=fmtL(litres);
+    if(pv) pv.textContent=pending;
+  });
+  db.collection('users').where('status','==','approved').get().then(function(s){
+    var sv2=el('dkStaff'); if(sv2) sv2.textContent=s.size;
+  });
+  // Recent reports
+  db.collection('reports').orderBy('createdAt','desc').limit(5).get().then(function(snap){
+    var c=el('dashRecentReports');
+    if(!c) return;
+    if(snap.empty){c.innerHTML='<div class="empty">No reports yet.</div>';return;}
+    var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Staff</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>';
+    snap.forEach(function(d){
+      var r=d.data();
+      var statusColor=r.approvalStatus==='approved'?'badge-green':r.approvalStatus==='rejected'?'badge-red':'badge-gold';
+      html+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.staffName+'</td>'
+        +'<td><span class="badge '+statusColor+'">'+r.approvalStatus+'</span></td>'
+        +'<td class="num">'+fmt(r.grandTotal)+'</td></tr>';
+    });
+    html+='</tbody></table>';
+    c.innerHTML=html;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// APPROVALS
+// ═══════════════════════════════════════════════════════════════
+function loadApprovals() {
+  var c=el('apprList'); if(!c) return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  var status=gv('apprStatusFilter')||'pending';
+  var branch=gv('apprBranchFilter');
+  var q=db.collection('reports').where('approvalStatus','==',status);
+  if(branch) q=q.where('branch','==',branch);
+  q.orderBy('createdAt','desc').limit(40).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No reports found.</div>';return;}
+    var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Shift</th><th>Staff</th>'
+      +'<th class="num">Litres</th><th class="num">Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+    snap.forEach(function(d){
+      var r=d.data(); var id=d.id;
+      var sc=r.approvalStatus==='approved'?'badge-green':r.approvalStatus==='rejected'?'badge-red':'badge-gold';
+      html+='<tr>'
+        +'<td>'+r.date+'</td><td>'+r.branch+'</td><td>'+(r.shift||'-')+'</td><td>'+r.staffName+'</td>'
+        +'<td class="num">'+((r.pump&&r.pump.metre&&r.pump.metre.sold)||0).toFixed(1)+'</td>'
+        +'<td class="num">'+fmt(r.grandTotal)+'</td>'
+        +'<td><span class="badge '+sc+'">'+r.approvalStatus+'</span></td>'
+        +'<td style="display:flex;gap:4px">'
+        +(r.approvalStatus!=='approved'?'<button class="btn btn-green btn-xs" onclick="setStatus(\''+id+'\',\'approved\')">✓ Approve</button>':'')
+        +(r.approvalStatus!=='rejected'?'<button class="btn btn-red btn-xs" onclick="setStatus(\''+id+'\',\'rejected\')">✗ Reject</button>':'')
+        +'<button class="btn btn-ghost btn-xs" onclick="deleteReport(\''+id+'\')">🗑</button>'
+        +'</td></tr>';
+    });
+    html+='</tbody></table>';
+    c.innerHTML=html;
+  });
+}
+
+function setStatus(id, status) {
+  db.collection('reports').doc(id).update({approvalStatus:status,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){ toast('Report '+status,'ok'); loadApprovals(); });
+}
+function deleteReport(id) {
+  if(!confirm('Delete this report?')) return;
+  db.collection('reports').doc(id).delete().then(function(){ toast('Deleted','ok'); loadApprovals(); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DAILY SALES REPORT (DSR)
+// ═══════════════════════════════════════════════════════════════
+function initDSR() {
+  var d=el('dsrDate'); if(d&&!d.value) d.valueAsDate=new Date();
+  // Populate branch select
+  var bs=el('dsrBranch');
+  if(bs&&bs.options.length<2){
+    BRANCHES.forEach(function(b){ var o=document.createElement('option');o.value=b;o.textContent=b;bs.appendChild(o); });
+  }
+  loadDSR();
+  dsrTrend(30);
+}
+
+function loadDSR() {
+  var date=gv('dsrDate')||todayStr();
+  var branch=gv('dsrBranch');
+  var q=db.collection('reports').where('date','==',date).where('approvalStatus','==','approved');
+  if(branch) q=q.where('branch','==',branch);
+  q.get().then(function(snap){
+    var revenue=0,litres=0,variance=0;
+    var shiftsHtml='';
+    snap.forEach(function(d){
+      var r=d.data();
+      revenue  += r.grandTotal||0;
+      litres   += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      variance += (r.reconciliation&&r.reconciliation.variance)||0;
+      shiftsHtml+='<tr>'
+        +'<td>'+r.branch+'</td><td>'+(r.shift||'—')+'</td><td>'+r.staffName+'</td>'
+        +'<td class="num">'+((r.pump&&r.pump.metre&&r.pump.metre.closing)||0).toFixed(1)+'</td>'
+        +'<td class="num">'+((r.pump&&r.pump.metre&&r.pump.metre.sold)||0).toFixed(1)+'</td>'
+        +'<td class="num">'+fmt(r.grandTotal)+'</td>'
+        +'<td class="num" style="color:'+(variance<0?'var(--red)':'var(--green)')+'">'+fmt(variance)+'</td>'
+        +'</tr>';
+    });
+    var re=el('dsrRevenue'),li=el('dsrLitres'),tx=el('dsrTxns'),vr=el('dsrVariance');
+    if(re) re.textContent=fmt(revenue);
+    if(li) li.textContent=fmtL(litres);
+    if(tx) tx.textContent=snap.size+' shifts';
+    if(vr){ vr.textContent=fmt(variance); vr.style.color=variance<0?'var(--red)':'var(--green)'; }
+    var sc=el('dsrShifts');
+    if(sc){
+      if(!shiftsHtml){sc.innerHTML='<div class="empty">No approved reports for this date.</div>';}
+      else{sc.innerHTML='<table class="tbl"><thead><tr><th>Branch</th><th>Shift</th><th>Staff</th>'
+        +'<th class="num">Closing (L)</th><th class="num">Sold (L)</th><th class="num">Total</th><th class="num">Variance</th>'
+        +'</tr></thead><tbody>'+shiftsHtml+'</tbody></table>';}
+    }
+  });
+}
+
+function dsrTrend(days) {
+  var end=new Date(), start=new Date();
+  start.setDate(start.getDate()-(days-1));
+  var from=start.toISOString().split('T')[0];
+  var to=end.toISOString().split('T')[0];
+  db.collection('reports').where('date','>=',from).where('date','<=',to)
+    .where('approvalStatus','==','approved').get().then(function(snap){
+      var byDate={};
+      snap.forEach(function(d){
+        var r=d.data();
+        byDate[r.date]=(byDate[r.date]||0)+(r.grandTotal||0);
+      });
+      var labels=[],data=[];
+      var cur=new Date(from+'T00:00:00');
+      while(cur<=end){
+        var ds=cur.toISOString().split('T')[0];
+        labels.push(ds.slice(5));
+        data.push(Math.round(byDate[ds]||0));
+        cur.setDate(cur.getDate()+1);
+      }
+      var canvas=el('dsrChart'); if(!canvas) return;
+      if(_dsrChart){_dsrChart.destroy();_dsrChart=null;}
+      _dsrChart=new Chart(canvas.getContext('2d'),{
+        type:'bar',
+        data:{labels:labels,datasets:[{label:'Revenue',data:data,
+          backgroundColor:'rgba(200,146,42,0.7)',borderColor:'#C8922A',borderWidth:0,borderRadius:3}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{
+            backgroundColor:'#1a1a1a',borderColor:'#2a2a2a',borderWidth:1,
+            callbacks:{label:function(c){return ' '+fmt(c.parsed.y);}}}},
+          scales:{
+            x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10},maxTicksLimit:days<=30?15:8,maxRotation:45}},
+            y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10},callback:function(v){return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v);}}}
+          }
+        }
+      });
+      // Update button styles
+      ['7','30','90'].forEach(function(n){
+        var b=el('dsrTrend'+n+'btn');
+        if(b){ b.className='btn btn-'+(days==n?'gold':'ghost')+' btn-xs'; }
+      });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BRANCH SUMMARY
+// ═══════════════════════════════════════════════════════════════
+function initBSDatePicker() {
+  var now=new Date();
+  var y=now.getFullYear(), m=now.getMonth()+1;
+  var from=y+'-'+String(m).padStart(2,'0')+'-01';
+  var to=todayStr();
+  var f=el('bsFrom'),t=el('bsTo');
+  if(f&&!f.value) f.value=from;
+  if(t&&!t.value) t.value=to;
+  loadBranchSummary();
+}
+
+function loadBranchSummary() {
+  var from=gv('bsFrom'), to=gv('bsTo');
+  if(!from||!to){el('bsSummary').innerHTML='<div class="empty">Select a date range.</div>';return;}
+  el('bsSummary').innerHTML='<div class="empty">Loading…</div>';
+  db.collection('reports').where('date','>=',from).where('date','<=',to)
+    .where('approvalStatus','==','approved').get().then(function(snap){
+      var byBranch={};
+      BRANCHES.forEach(function(b){byBranch[b]={revenue:0,litres:0,deliveries:0,days:{}};});
+      snap.forEach(function(d){
+        var r=d.data(); var b=r.branch;
+        if(!byBranch[b]) byBranch[b]={revenue:0,litres:0,deliveries:0,days:{}};
+        byBranch[b].revenue    += r.grandTotal||0;
+        byBranch[b].litres     += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+        byBranch[b].deliveries += (r.delivery&&r.delivery.litres)||0;
+        byBranch[b].days[r.date]=true;
+      });
+      var totalRev=0,totalLit=0;
+      BRANCHES.forEach(function(b){ totalRev+=byBranch[b].revenue; totalLit+=byBranch[b].litres; });
+      var html='<table class="tbl"><thead><tr><th>Branch</th><th class="num">Revenue</th><th class="num">% Share</th>'
+        +'<th class="num">Litres Sold</th><th class="num">Deliveries (L)</th><th class="num">Active Days</th><th class="num">Avg/Day</th></tr></thead><tbody>';
+      BRANCHES.forEach(function(b){
+        var br=byBranch[b];
+        var pct=totalRev>0?((br.revenue/totalRev)*100).toFixed(1):0;
+        var days=Object.keys(br.days).length;
+        html+='<tr>'
+          +'<td><span class="branch-pill">'+b+'</span></td>'
+          +'<td class="num">'+fmt(br.revenue)+'</td>'
+          +'<td class="num">'+pct+'%</td>'
+          +'<td class="num">'+fmtL(br.litres)+'</td>'
+          +'<td class="num">'+fmtL(br.deliveries)+'</td>'
+          +'<td class="num">'+days+'</td>'
+          +'<td class="num">'+fmt(days>0?br.revenue/days:0)+'</td>'
+          +'</tr>';
+      });
+      html+='<tr style="font-weight:700;border-top:2px solid var(--border)">'
+        +'<td>TOTAL</td><td class="num">'+fmt(totalRev)+'</td><td class="num">100%</td>'
+        +'<td class="num">'+fmtL(totalLit)+'</td><td></td><td></td><td></td></tr>';
+      html+='</tbody></table>';
+      el('bsSummary').innerHTML=html;
+    });
+}
+
+function exportBranchSummaryCSV() {
+  var from=gv('bsFrom'),to=gv('bsTo');
+  if(!from||!to){toast('Select date range first','err');return;}
+  db.collection('reports').where('date','>=',from).where('date','<=',to)
+    .where('approvalStatus','==','approved').get().then(function(snap){
+      var rows=[['Branch','Date','Revenue','Litres Sold','Delivery Litres']];
+      snap.forEach(function(d){
+        var r=d.data();
+        rows.push([r.branch,r.date,r.grandTotal||0,
+          (r.pump&&r.pump.metre&&r.pump.metre.sold)||0,
+          (r.delivery&&r.delivery.litres)||0]);
+      });
+      downloadCSV(rows,'branch-summary-'+from+'-'+to+'.csv');
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P&L
+// ═══════════════════════════════════════════════════════════════
+function initPL() {
+  var now=new Date();
+  var f=el('plFrom'),t=el('plTo');
+  if(f&&!f.value) f.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  if(t&&!t.value) t.value=todayStr();
+  var pb=el('plBranch');
+  if(pb&&pb.options.length<2){
+    BRANCHES.forEach(function(b){ var o=document.createElement('option');o.value=b;o.textContent=b;pb.appendChild(o); });
+  }
+}
+
+function loadPL() {
+  var from=gv('plFrom'),to=gv('plTo'),branch=gv('plBranch');
+  if(!from||!to){toast('Select date range','err');return;}
+  var c=el('plResult'); c.innerHTML='<div class="empty">Loading…</div>';
+  var rq=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
+  var eq=db.collection('expenses').where('date','>=',from).where('date','<=',to);
+  if(branch){ rq=rq.where('branch','==',branch); eq=eq.where('branch','==',branch); }
+  Promise.all([rq.get(),eq.get()]).then(function(results){
+    var rSnap=results[0],eSnap=results[1];
+    var revenue=0,litres=0; rSnap.forEach(function(d){var r=d.data();revenue+=r.grandTotal||0;litres+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;});
+    var expenses=0; eSnap.forEach(function(d){expenses+=d.data().amount||0;});
+    var profit=revenue-expenses;
+    c.innerHTML='<div class="g4" style="margin-bottom:16px">'
+      +'<div class="stat-tile"><div class="st-label">Revenue</div><div class="st-val">'+fmt(revenue)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Expenses</div><div class="st-val" style="color:var(--red)">'+fmt(expenses)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Net Profit</div><div class="st-val" style="color:'+(profit>=0?'var(--green)':'var(--red)')+'">'+fmt(profit)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val">'+fmtL(litres)+'</div></div>'
+      +'</div>'
+      +'<p style="font-size:0.65rem;color:var(--text3)">Period: '+from+' to '+to+(branch?' · '+branch:'')+'</p>';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INVENTORY
+// ═══════════════════════════════════════════════════════════════
+function loadInventory() {
+  var c=el('invContent'); if(!c) return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  Promise.all(BRANCHES.map(function(b){ return db.collection('inventory').doc(b).get(); })).then(function(snaps){
+    var html='<table class="tbl"><thead><tr><th>Branch</th>';
+    PRODUCTS.forEach(function(p){html+='<th class="num">'+p.name+'</th>';});
+    html+='</tr></thead><tbody>';
+    snaps.forEach(function(s,i){
+      var inv=s.exists?s.data():{};
+      html+='<tr><td><span class="branch-pill">'+BRANCHES[i]+'</span></td>';
+      PRODUCTS.forEach(function(p){html+='<td class="num">'+(inv[p.key]||0).toFixed(p.unit==='pcs'?0:1)+' '+p.unit+'</td>';});
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    c.innerHTML=html;
+  });
+  loadBranchPrices();
+}
+
+function loadBranchPrices() {
+  var c=el('priceSettings'); if(!c) return;
+  c.innerHTML='';
+  BRANCHES.forEach(function(b){
+    var pr=PRICES[b]||{};
+    var div=document.createElement('div');
+    div.style.cssText='margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)';
+    div.innerHTML='<div style="font-size:0.7rem;font-weight:700;color:var(--text2);margin-bottom:8px">'+b+'</div>'
+      +'<div class="g3"><div class="field"><label>Petrol (KSh/L)</label>'
+      +'<input type="number" id="price_'+b+'_petrol" value="'+(pr.petrolSell||0)+'" step="0.01"></div>'
+      +'<div class="field"><label>2T Oil (KSh/pc)</label>'
+      +'<input type="number" id="price_'+b+'_p2t" value="'+(pr.p2tSell||0)+'" step="0.01"></div>'
+      +'<div class="field"><label>Shell Adv (KSh/pc)</label>'
+      +'<input type="number" id="price_'+b+'_pshell" value="'+(pr.pshellSell||0)+'" step="0.01"></div></div>'
+      +'<button class="btn btn-gold btn-xs" onclick="savePrice(\''+b+'\')">Save '+b+' Prices</button>';
+    c.appendChild(div);
+  });
+}
+
+function savePrice(branch) {
+  var data={
+    petrolSell: parseFloat(gv('price_'+branch+'_petrol'))||0,
+    p2tSell:    parseFloat(gv('price_'+branch+'_p2t'))||0,
+    pshellSell: parseFloat(gv('price_'+branch+'_pshell'))||0,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  db.collection('invPrices').doc(branch).set(data,{merge:true}).then(function(){
+    PRICES[branch]=data;
+    toast('Prices saved for '+branch,'ok');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STOCK
+// ═══════════════════════════════════════════════════════════════
+function loadStock() {
+  var c=el('stockContent'); if(!c) return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  db.collection('reports').where('approvalStatus','==','approved')
+    .orderBy('date','desc').limit(60).get().then(function(snap){
+      var byBranch={};
+      BRANCHES.forEach(function(b){byBranch[b]={petrol:0,deliveries:0};});
+      snap.forEach(function(d){
+        var r=d.data(); var b=r.branch;
+        if(!byBranch[b]) return;
+        byBranch[b].petrol     -= (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+        byBranch[b].deliveries += (r.delivery&&r.delivery.litres)||0;
+      });
+      var html='<table class="tbl"><thead><tr><th>Branch</th><th class="num">Net Petrol Movement (L)</th><th class="num">Total Deliveries (L)</th></tr></thead><tbody>';
+      BRANCHES.forEach(function(b){
+        html+='<tr><td><span class="branch-pill">'+b+'</span></td>'
+          +'<td class="num" style="color:'+(byBranch[b].petrol>=0?'var(--green)':'var(--red)')+'">'+byBranch[b].petrol.toFixed(1)+'</td>'
+          +'<td class="num">'+byBranch[b].deliveries.toFixed(1)+'</td></tr>';
+      });
+      html+='</tbody></table>';
+      c.innerHTML=html;
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIT
+// ═══════════════════════════════════════════════════════════════
+function loadAudit() {
+  var staff=gv('auditStaffFilter');
+  var c=el('auditList'); if(!c) return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  var q=db.collection('reports').orderBy('createdAt','desc').limit(50);
+  q.get().then(function(snap){
+    var rows=[];
+    snap.forEach(function(d){
+      var r=d.data();
+      if(staff&&r.staffUid!==staff) return;
+      rows.push(r);
+    });
+    if(!rows.length){c.innerHTML='<div class="empty">No records.</div>';return;}
+    var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Staff</th><th>Submitted</th><th class="num">Total</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var sub=r.createdAt&&r.createdAt.toDate?r.createdAt.toDate().toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}):'—';
+      html+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.staffName+'</td><td>'+sub+'</td><td class="num">'+fmt(r.grandTotal)+'</td></tr>';
+    });
+    html+='</tbody></table>';
+    c.innerHTML=html;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════
+function initExport() {
+  var now=new Date();
+  var f=el('expFrom'),t=el('expTo');
+  if(f&&!f.value) f.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  if(t&&!t.value) t.value=todayStr();
+  var eb=el('expBranch');
+  if(eb&&eb.options.length<2){ BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;eb.appendChild(o);}); }
+}
+
+function exportCSV() {
+  var from=gv('expFrom'),to=gv('expTo'),branch=gv('expBranch');
+  if(!from||!to){toast('Select date range','err');return;}
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
+  if(branch) q=q.where('branch','==',branch);
+  q.orderBy('date').get().then(function(snap){
+    var rows=[['Date','Branch','Shift','Staff','Metre Open','Metre Close','Litres Sold','Display Open','Display Close','Grand Total','Deposit','Variance']];
+    snap.forEach(function(d){
+      var r=d.data();
+      rows.push([r.date,r.branch,r.shift||'',r.staffName,
+        (r.pump&&r.pump.metre&&r.pump.metre.opening)||0,
+        (r.pump&&r.pump.metre&&r.pump.metre.closing)||0,
+        (r.pump&&r.pump.metre&&r.pump.metre.sold)||0,
+        (r.pump&&r.pump.display&&r.pump.display.opening)||0,
+        (r.pump&&r.pump.display&&r.pump.display.closing)||0,
+        r.grandTotal||0, r.totalDeposit||0,
+        (r.reconciliation&&r.reconciliation.variance)||0]);
+    });
+    downloadCSV(rows,'reports-'+from+'-'+to+'.csv');
+  });
+}
+
+function downloadCSV(rows, filename) {
+  var csv=rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=filename; a.click();
+  toast('Downloaded: '+filename,'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VENDORS & BILLS
+// ═══════════════════════════════════════════════════════════════
+function loadVendors() {
+  db.collection('vendors').orderBy('name').get().then(function(snap){
+    var c=el('vendorList');
+    if(!snap.empty){
+      var vs=el('billVendor');
+      if(vs){ while(vs.options.length>0)vs.remove(0); }
+      var html='';
+      snap.forEach(function(d){
+        var v=d.data();
+        html+='<div class="u-row"><div class="u-info" style="flex:1"><span class="u-name">'+v.name+'</span>'
+          +' <span class="u-email">'+v.contact+'</span></div>'
+          +'<button class="btn btn-red btn-xs" onclick="deleteVendor(\''+d.id+'\')">Remove</button></div>';
+        if(vs){var o=document.createElement('option');o.value=d.id;o.textContent=v.name;vs.appendChild(o);}
+      });
+      if(c) c.innerHTML=html;
+    } else { if(c) c.innerHTML='<div class="empty">No vendors.</div>'; }
+    // init bill date
+    var bd=el('billDate'); if(bd&&!bd.value) bd.valueAsDate=new Date();
+    // load bills
+    db.collection('bills').orderBy('date','desc').limit(20).get().then(function(bSnap){
+      var bc=el('billList');
+      if(!bc) return;
+      if(bSnap.empty){bc.innerHTML='<div class="empty">No bills.</div>';return;}
+      var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Description</th><th class="num">Amount</th></tr></thead><tbody>';
+      bSnap.forEach(function(d){
+        var b=d.data();
+        h+='<tr><td>'+b.date+'</td><td>'+b.branch+'</td><td>'+b.description+'</td><td class="num">'+fmt(b.amount)+'</td></tr>';
+      });
+      bc.innerHTML=h+'</tbody></table>';
+    });
+  });
+}
+function saveVendor() {
+  var n=gv('vendorName').trim(),c=gv('vendorContact').trim();
+  if(!n){toast('Enter vendor name','err');return;}
+  db.collection('vendors').add({name:n,contact:c,createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){toast('Vendor saved','ok');sv('vendorName','');sv('vendorContact','');loadVendors();});
+}
+function deleteVendor(id){
+  if(!confirm('Remove vendor?'))return;
+  db.collection('vendors').doc(id).delete().then(function(){toast('Removed','ok');loadVendors();});
+}
+function saveBill() {
+  var vid=gv('billVendor'),date=gv('billDate'),branch=gv('billBranch'),desc=gv('billDesc'),amt=parseFloat(gv('billAmt'));
+  if(!date||!branch||!desc||!amt){toast('Fill all fields','err');return;}
+  db.collection('bills').add({vendorId:vid,date:date,branch:branch,description:desc,amount:amt,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){toast('Bill saved','ok');sv('billDesc','');sv('billAmt','');loadVendors();});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CREATE REPORT (admin manual entry)
+// ═══════════════════════════════════════════════════════════════
+function initCreateReport() {
+  var d=el('cr_date'); if(d&&!d.value) d.valueAsDate=new Date();
+  var b=el('cr_branch');
+  if(b&&b.options.length<1){ BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);}); }
+}
+function crCalc() {
+  var dc=parseFloat(gv('cr_dc'))||0, dos=parseFloat(gv('cr_do'))||0;
+  var displaySales=Math.max(0,dc-dos);
+  var branch=gv('cr_branch'), pr=PRICES[branch]||{};
+  var p2t=parseFloat(gv('cr_p2t'))||0, p2tk=parseFloat(gv('cr_p2tk'))||0;
+  var puoil=parseFloat(gv('cr_puoil'))||0, pshell=parseFloat(gv('cr_pshell'))||0;
+  var otherTotal=(p2t*(pr.p2tSell||0))+(p2tk*480)+(puoil*200)+(pshell*(pr.pshellSell||0));
+  var grand=displaySales+otherTotal;
+  var dep=parseFloat(gv('cr_deposit'))||0, exp=parseFloat(gv('cr_expenses'))||0;
+  var priceL=pr.petrolSell||0, litres=priceL>0?displaySales/priceL:0;
+  var sumDiv=el('cr_summary');
+  if(sumDiv){
+    sumDiv.style.display='block';
+    sumDiv.innerHTML='<strong>Display Sales:</strong> '+fmt(displaySales)+' &nbsp;|&nbsp; <strong>Litres:</strong> '+litres.toFixed(1)+' L'
+      +' &nbsp;|&nbsp; <strong>Grand Total:</strong> '+fmt(grand);
+  }
+}
+function saveAdminReport() {
+  var branch=gv('cr_branch'),date=gv('cr_date'),shift=gv('cr_shift'),staff=gv('cr_staff').trim();
+  if(!branch||!date||!staff){toast('Fill required fields','err');return;}
+  var mo=parseFloat(gv('cr_mo'))||0, mc=parseFloat(gv('cr_mc'))||0;
+  var dos=parseFloat(gv('cr_do'))||0, dc=parseFloat(gv('cr_dc'))||0;
+  var displaySales=Math.max(0,dc-dos);
+  var pr=PRICES[branch]||{};
+  var priceL=pr.petrolSell||0, litres=priceL>0?displaySales/priceL:mc-mo;
+  var p2t=parseFloat(gv('cr_p2t'))||0, p2tk=parseFloat(gv('cr_p2tk'))||0;
+  var puoil=parseFloat(gv('cr_puoil'))||0, pshell=parseFloat(gv('cr_pshell'))||0;
+  var otherTotal=(p2t*(pr.p2tSell||0))+(p2tk*480)+(puoil*200)+(pshell*(pr.pshellSell||0));
+  var grand=displaySales+otherTotal;
+  var dep=parseFloat(gv('cr_deposit'))||0, exp=parseFloat(gv('cr_expenses'))||0;
+  var variance=grand-dep-exp;
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  db.collection('reports').add({
+    branch:branch, date:date, shift:shift, staffName:staff, staffUid:'admin',
+    pump:{metre:{opening:mo,closing:mc,sold:litres,pricePerLitre:priceL,value:displaySales},
+          display:{opening:dos,closing:dc,sold:displaySales}},
+    products:{p2t:{qty:p2t,total:p2t*(pr.p2tSell||0)},p2tk:{qty:p2tk,total:p2tk*480},
+              puoil:{qty:puoil,total:puoil*200},pshell:{qty:pshell,total:pshell*(pr.pshellSell||0)}},
+    grandTotal:grand, totalDeposit:dep,
+    reconciliation:{expenses:exp,variance:variance},
+    delivery:{litres:0},
+    notes:gv('cr_notes'),
+    approvalStatus:'approved', source:'admin', createdAt:now, updatedAt:now
+  }).then(function(){toast('Report saved','ok');});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IMPORT
+// ═══════════════════════════════════════════════════════════════
+function initImport() {
+  var b=el('importBranch');
+  if(b&&b.options.length<1){ BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);}); }
+}
+function previewImport() {
+  var f=el('importFile'); if(!f||!f.files[0]){toast('Select a CSV file','err');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var lines=e.target.result.split('\n').filter(function(l){return l.trim();});
+    var headers=lines[0].split(',').map(function(h){return h.trim().replace(/"/g,'');});
+    _importRows=[];
+    for(var i=1;i<lines.length;i++){
+      var vals=lines[i].split(',').map(function(v){return v.trim().replace(/"/g,'');});
+      var row={};
+      headers.forEach(function(h,j){row[h]=vals[j]||'';});
+      _importRows.push(row);
+    }
+    var c=el('importPreview');
+    var html='<p style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">'+_importRows.length+' rows found.</p>';
+    html+='<table class="tbl"><thead><tr>'+headers.slice(0,6).map(function(h){return '<th>'+h+'</th>';}).join('')+'<th>…</th></tr></thead><tbody>';
+    _importRows.slice(0,5).forEach(function(r){
+      html+='<tr>'+headers.slice(0,6).map(function(h){return '<td>'+r[h]+'</td>';}).join('')+'<td>…</td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table>';
+    var btn=el('btnImportAll'); if(btn) btn.style.display='inline-flex';
+  };
+  reader.readAsText(f.files[0]);
+}
+function runImport() {
+  var branch=gv('importBranch');
+  if(!branch||!_importRows.length){toast('Select branch and preview first','err');return;}
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  var batch=db.batch();
+  var count=0;
+  _importRows.forEach(function(r){
+    var dateStr=(r['Date']||'').trim();
+    if(!dateStr) return;
+    // Try to parse date
+    var d=new Date(dateStr);
+    if(isNaN(d)) return;
+    var date=d.toISOString().split('T')[0];
+    var ref=db.collection('reports').doc();
+    var mo=parseFloat(r['Liters Reading']||r['Metre Open']||0);
+    var mc=parseFloat(r['Closing Liter Reading']||r['Metre Close']||0);
+    var dos=parseFloat(r['Price Reading']||r['Display Open']||0);
+    var dc=parseFloat(r['Closing Price Reading']||r['Display Close']||0);
+    var displaySales=Math.max(0,dc-dos);
+    var litres=parseFloat(r['Liters Sold']||r['Litres Sold']||mc-mo);
+    var grand=parseFloat(r['Total Sales Amount']||r['Grand Total']||displaySales);
+    batch.set(ref,{
+      branch:branch,date:date,shift:'Day',staffName:'Import',staffUid:'import',
+      pump:{metre:{opening:mo,closing:mc,sold:litres,pricePerLitre:parseFloat(r['Sales Rate']||0),value:displaySales},
+            display:{opening:dos,closing:dc,sold:displaySales}},
+      grandTotal:grand,totalDeposit:0,
+      reconciliation:{variance:0,expenses:0},
+      delivery:{litres:parseFloat(r['Petrol Delivery']||0)},
+      products:{p2t:{qty:parseFloat(r['2T QTY']||0)},p2tk:{qty:parseFloat(r['2T Kupima']||0)},
+                puoil:{qty:parseFloat(r['Used Oil QTY']||0)},pshell:{qty:parseFloat(r['Shell Advance QTY']||0)}},
+      approvalStatus:'approved',source:'import',createdAt:now,updatedAt:now
+    });
+    count++;
+    if(count%450===0){ batch.commit(); batch=db.batch(); }
+  });
+  batch.commit().then(function(){ toast('Imported '+count+' reports','ok'); _importRows=[]; el('importPreview').innerHTML=''; var b=el('btnImportAll');if(b)b.style.display='none'; });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPENSES
+// ═══════════════════════════════════════════════════════════════
+function loadExpenses() {
+  var c=el('expenseList'); if(!c) return;
+  var d=el('expDate'); if(d&&!d.value) d.valueAsDate=new Date();
+  var bs=el('expBranchSel');
+  if(bs&&bs.options.length<1){ BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bs.appendChild(o);}); }
+  db.collection('expenses').orderBy('date','desc').limit(40).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No expenses.</div>';return;}
+    var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Category</th><th>Notes</th><th class="num">Amount</th><th></th></tr></thead><tbody>';
+    snap.forEach(function(d){
+      var e=d.data();
+      html+='<tr><td>'+e.date+'</td><td>'+e.branch+'</td><td>'+e.category+'</td><td>'+e.notes+'</td>'
+        +'<td class="num">'+fmt(e.amount)+'</td>'
+        +'<td><button class="btn btn-red btn-xs" onclick="deleteExpense(\''+d.id+'\')">🗑</button></td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table>';
+  });
+}
+function addExpense() {
+  var date=gv('expDate'),branch=gv('expBranchSel'),cat=gv('expCat'),amt=parseFloat(gv('expAmt')),note=gv('expNote');
+  if(!date||!branch||!amt){toast('Fill required fields','err');return;}
+  db.collection('expenses').add({date:date,branch:branch,category:cat,amount:amt,notes:note,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){toast('Expense saved','ok');sv('expAmt','');sv('expNote','');loadExpenses();});
+}
+function deleteExpense(id){ db.collection('expenses').doc(id).delete().then(function(){toast('Deleted','ok');loadExpenses();}); }
+
+// ═══════════════════════════════════════════════════════════════
+// DEBTS
+// ═══════════════════════════════════════════════════════════════
+function loadDebts() {
+  var c=el('debtList'); if(!c) return;
+  var d=el('debtDue'); if(d&&!d.value) d.valueAsDate=new Date(Date.now()+30*86400000);
+  db.collection('debts').orderBy('createdAt','desc').limit(30).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No debts recorded.</div>';return;}
+    var html='<table class="tbl"><thead><tr><th>Name</th><th>Type</th><th>Due</th><th class="num">Amount</th><th>Notes</th><th></th></tr></thead><tbody>';
+    snap.forEach(function(d){
+      var e=d.data();
+      var typeLabel=e.type==='owed_to_us'?'<span class="badge badge-green">Owed to us</span>':'<span class="badge badge-red">We owe</span>';
+      html+='<tr><td>'+e.name+'</td><td>'+typeLabel+'</td><td>'+e.dueDate+'</td><td class="num">'+fmt(e.amount)+'</td><td>'+e.notes+'</td>'
+        +'<td><button class="btn btn-red btn-xs" onclick="deleteDebt(\''+d.id+'\')">🗑</button></td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table>';
+  });
+}
+function addDebt() {
+  var name=gv('debtName').trim(),type=gv('debtType'),amt=parseFloat(gv('debtAmt')),due=gv('debtDue'),note=gv('debtNote');
+  if(!name||!amt||!due){toast('Fill required fields','err');return;}
+  db.collection('debts').add({name:name,type:type,amount:amt,dueDate:due,notes:note,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){toast('Debt saved','ok');sv('debtName','');sv('debtAmt','');loadDebts();});
+}
+function deleteDebt(id){ db.collection('debts').doc(id).delete().then(function(){toast('Deleted','ok');loadDebts();}); }
+
+// ═══════════════════════════════════════════════════════════════
+// STAFF MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+function loadStaffLists() {
+  db.collection('users').get().then(function(snap){
+    var pending=[],approved=[];
+    snap.forEach(function(d){
+      var u=d.data(); u.uid=d.id;
+      if(u.role==='admin') return;
+      if(u.status==='pending') pending.push(u);
+      else if(u.status==='approved') approved.push(u);
+    });
+    renderUsers('aPending', pending, true);
+    renderUsers('aApproved', approved, false);
+    // Populate audit staff filter
+    var af=el('auditStaffFilter');
+    if(af){ while(af.options.length>1)af.remove(1);
+      approved.forEach(function(u){var o=document.createElement('option');o.value=u.uid;o.textContent=u.name;af.appendChild(o);}); }
+  });
+}
+function renderUsers(id, users, actions) {
+  var c=el(id); if(!c) return;
+  if(!users.length){c.innerHTML='<div class="empty">None.</div>';return;}
+  var rows='';
+  users.forEach(function(u){
+    var ph=u.phone||u.whatsapp||'';
+    var phTag=ph?'<span class="badge badge-green" style="margin-left:6px">📱 '+ph+'</span>'
+                :'<span class="badge badge-red" style="margin-left:6px">No WhatsApp</span>';
+    var appBtns=actions?
+      '<button class="btn btn-green btn-xs" onclick="approveUser(\''+u.uid+'\')">Approve</button>'
+      +'<button class="btn btn-red btn-xs" onclick="rejectUser(\''+u.uid+'\')">Reject</button>':'';
+    rows+='<div class="u-row"><div class="u-info" style="flex:1">'
+      +'<span class="u-name">'+u.name+'</span>'
+      +'<span class="branch-pill" style="margin:0 6px">'+u.branch+'</span>'
+      +'<span class="u-email">'+u.email+'</span>'
+      +phTag+'</div>'
+      +'<div style="display:flex;gap:6px">'+appBtns
+      +'<button class="btn btn-blue btn-xs" onclick="setWhatsApp(\''+u.uid+'\',\''+u.name.replace(/'/g,'')+'\',\''+ph+'\')">📱</button>'
+      +'</div></div>';
+  });
+  c.innerHTML=rows;
+}
+function approveUser(uid){ db.collection('users').doc(uid).update({status:'approved'}).then(function(){toast('Approved','ok');loadStaffLists();}); }
+function rejectUser(uid){  db.collection('users').doc(uid).update({status:'rejected'}).then(function(){toast('Rejected','ok');loadStaffLists();}); }
+function setWhatsApp(uid,name,cur) {
+  openModal('WhatsApp — '+name,
+    '<div class="field"><label>WhatsApp Number (with country code)</label>'
+    +'<input type="tel" id="waInput" placeholder="+254712345678" value="'+cur+'">'
+    +'<div class="info-note">Format: +254712345678</div></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveWhatsApp(\''+uid+'\')">Save</button>');
+}
+function saveWhatsApp(uid) {
+  var ph=(gv('waInput')||'').trim();
+  if(!ph){toast('Enter number','err');return;}
+  if(!ph.startsWith('+')) ph='+'+ph;
+  db.collection('users').doc(uid).update({phone:ph,whatsapp:ph})
+    .then(function(){toast('Saved','ok');closeModal();loadStaffLists();});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BANK ACCOUNTS
+// ═══════════════════════════════════════════════════════════════
+function loadBankAccts() {
+  var b=el('bankBranch');
+  if(b&&b.options.length<2){ BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);}); }
+  db.collection('settings').doc('bankAccounts').get().then(function(s){
+    var accts=s.exists?(s.data().accounts||[]):[];
+    var c=el('bankList');
+    if(!accts.length){c.innerHTML='<div class="empty">None.</div>';return;}
+    c.innerHTML=accts.map(function(a,i){
+      return '<div class="u-row"><div class="u-info" style="flex:1"><span class="u-name">'+a.bank+'</span>'
+        +' <span class="u-email">'+a.account+' · '+a.branch+'</span></div>'
+        +'<button class="btn btn-red btn-xs" onclick="deleteBankAcct('+i+')">🗑</button></div>';
+    }).join('');
+  });
+}
+function saveBankAcct() {
+  var bank=gv('bankName').trim(),acct=gv('bankAcct').trim(),branch=gv('bankBranch');
+  if(!bank||!acct||!branch){toast('Fill all fields','err');return;}
+  db.collection('settings').doc('bankAccounts').get().then(function(s){
+    var accts=s.exists?(s.data().accounts||[]):[];
+    accts.push({bank:bank,account:acct,branch:branch});
+    db.collection('settings').doc('bankAccounts').set({accounts:accts}).then(function(){toast('Saved','ok');loadBankAccts();});
+  });
+}
+function deleteBankAcct(i){
+  db.collection('settings').doc('bankAccounts').get().then(function(s){
+    var accts=s.exists?(s.data().accounts||[]):[];
+    accts.splice(i,1);
+    db.collection('settings').doc('bankAccounts').set({accounts:accts}).then(function(){toast('Deleted','ok');loadBankAccts();});
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EMAIL SETTINGS
+// ═══════════════════════════════════════════════════════════════
+function loadEmailSettings() {
+  db.collection('settings').doc('email').get().then(function(s){
+    if(!s.exists) return;
+    var d=s.data();
+    sv('ejsService',d.serviceId||''); sv('ejsTemplate',d.templateId||''); sv('ejsKey',d.publicKey||'');
+  });
+}
+function saveEmailSettings() {
+  var data={serviceId:gv('ejsService').trim(),templateId:gv('ejsTemplate').trim(),publicKey:gv('ejsKey').trim()};
+  db.collection('settings').doc('email').set(data).then(function(){toast('Email settings saved','ok');});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DANGER ZONE — WIPE
+// ═══════════════════════════════════════════════════════════════
+function startWipe() {
+  if(gv('wipeConfirm')!=='DELETE EVERYTHING'){toast('Type exactly: DELETE EVERYTHING','err');return;}
+  if(!confirm('This deletes ALL data permanently. Continue?')) return;
+  var cols=['reports','inventory','invPrices','invAdjustments','expenses','debts','bills','vendors','settings','notifications'];
+  var done=0;
+  function wipeNext(i){
+    if(i>=cols.length){toast('All data wiped. Signing out.','ok');setTimeout(function(){auth.signOut();},1500);return;}
+    db.collection(cols[i]).get().then(function(snap){
+      var batch=db.batch();
+      snap.forEach(function(d){batch.delete(d.ref);});
+      batch.commit().then(function(){done+=snap.size;wipeNext(i+1);});
+    });
+  }
+  wipeNext(0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════════════════════════════════
+function loadTrends() {
+  var days=parseInt(gv('trendPeriod'))||30;
+  var branch=gv('trendBranch');
+  var end=new Date(), start=new Date();
+  start.setDate(start.getDate()-(days-1));
+  var from=start.toISOString().split('T')[0], to=todayStr();
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
+  if(branch) q=q.where('branch','==',branch);
+  q.get().then(function(snap){
+    var byDate={rev:{},vol:{}};
+    snap.forEach(function(d){
+      var r=d.data();
+      byDate.rev[r.date]=(byDate.rev[r.date]||0)+(r.grandTotal||0);
+      byDate.vol[r.date]=(byDate.vol[r.date]||0)+((r.pump&&r.pump.metre&&r.pump.metre.sold)||0);
+    });
+    var labels=[],revData=[],volData=[];
+    var cur=new Date(from+'T00:00:00');
+    while(cur<=end){
+      var ds=cur.toISOString().split('T')[0];
+      labels.push(ds.slice(5));
+      revData.push(Math.round(byDate.rev[ds]||0));
+      volData.push(parseFloat((byDate.vol[ds]||0).toFixed(1)));
+      cur.setDate(cur.getDate()+1);
+    }
+    var opts={responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1a1a',borderColor:'#2a2a2a',borderWidth:1}},
+      scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10},maxTicksLimit:12,maxRotation:45}},
+              y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10}}}}};
+    // Revenue chart
+    var tc=el('trendChart');
+    if(tc){if(_trendChart){_trendChart.destroy();} _trendChart=new Chart(tc.getContext('2d'),{type:'bar',
+      data:{labels:labels,datasets:[{label:'Revenue',data:revData,backgroundColor:'rgba(200,146,42,0.7)',borderRadius:2}]},options:opts});}
+    // Volume chart
+    var vc=el('volChart');
+    if(vc){if(_volChart){_volChart.destroy();} _volChart=new Chart(vc.getContext('2d'),{type:'line',
+      data:{labels:labels,datasets:[{label:'Litres',data:volData,borderColor:'#4ecdc4',backgroundColor:'rgba(78,205,196,0.1)',
+        fill:true,tension:0.4,pointRadius:2}]},options:opts});}
+  });
+}
+
+function loadPredictions() {
+  var c=el('predContent'); if(!c) return;
+  // Simple: average daily revenue * 30 days
+  var days=30;
+  var end=new Date(), start=new Date();
+  start.setDate(start.getDate()-(days-1));
+  db.collection('reports').where('date','>=',start.toISOString().split('T')[0])
+    .where('approvalStatus','==','approved').get().then(function(snap){
+      var total=0,count=0;
+      snap.forEach(function(d){total+=d.data().grandTotal||0;count++;});
+      var avgDay=count>0?total/days:0;
+      var forecast=avgDay*30;
+      c.innerHTML='<div class="g2">'
+        +'<div class="stat-tile"><div class="st-label">Avg Daily Revenue</div><div class="st-val">'+fmt(avgDay)+'</div><div class="st-sub">Last 30 days</div></div>'
+        +'<div class="stat-tile"><div class="st-label">30-Day Forecast</div><div class="st-val" style="color:var(--green)">'+fmt(forecast)+'</div><div class="st-sub">Based on recent trend</div></div>'
+        +'</div>';
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAFF REPORT FORM
+// ═══════════════════════════════════════════════════════════════
+function initReportForm() {
+  if(!currentProfile) return;
+  el('staffNameLabel').textContent   = currentProfile.name;
+  el('staffBranchLabel').textContent = currentProfile.branch||'';
+  var c=el('reportForm');
+  c.innerHTML='<div class="card"><div class="card-title">Daily Report — '+currentProfile.branch+'</div>'
+    +'<div class="field"><label>Date</label><input type="date" id="rfDate" value="'+todayStr()+'"></div>'
+    +'<div class="field"><label>Shift</label><select id="rfShift"><option>Morning</option><option>Evening</option></select></div>'
+    +'<div class="rg-label">Pump Readings</div>'
+    +'<div class="g2">'
+    +'<div class="field"><label>Metre Opening (L)</label><input type="number" id="rfMO" step="0.01" readonly style="background:var(--s2);color:var(--text3)"></div>'
+    +'<div class="field"><label>Metre Closing (L) — <span style="color:var(--gold)">Scan photo</span></label>'
+    +'<div id="rfMCzone" style="border:2px dashed var(--gold);border-radius:8px;padding:12px;text-align:center;cursor:pointer;margin-bottom:6px" onclick="scanMetre(\'rfMC\')">'
+    +'<div style="font-size:0.72rem;color:var(--gold)">📷 Tap to scan metre photo</div>'
+    +'<div style="font-size:0.6rem;color:var(--text3);margin-top:2px">AI reads the number automatically</div>'
+    +'<div id="rfMCpreview" style="display:none;margin-top:8px"><img id="rfMCimg" style="max-height:80px;border-radius:4px"></div></div>'
+    +'<input type="number" id="rfMC" placeholder="Auto-detected" step="0.01" readonly style="background:var(--s2);font-weight:700;color:var(--green)" oninput="rfCalc()">'
+    +'<div id="rfMCstatus" style="font-size:0.6rem;margin-top:3px;color:var(--text3)"></div></div>'
+    +'</div>'
+    +'<div class="g2">'
+    +'<div class="field"><label>Display Opening (KSh)</label><input type="number" id="rfDO" step="0.01" readonly style="background:var(--s2);color:var(--text3)"></div>'
+    +'<div class="field"><label>Display Closing (KSh)</label>'
+    +'<div id="rfDCzone" style="border:2px dashed var(--border2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;margin-bottom:6px" onclick="scanMetre(\'rfDC\')">'
+    +'<div style="font-size:0.72rem;color:var(--gold)">📷 Scan display photo</div>'
+    +'<div id="rfDCpreview" style="display:none;margin-top:8px"><img id="rfDCimg" style="max-height:80px;border-radius:4px"></div></div>'
+    +'<input type="number" id="rfDC" placeholder="Auto-detected" step="0.01" readonly style="background:var(--s2);font-weight:700;color:var(--green)" oninput="rfCalc()">'
+    +'<div id="rfDCstatus" style="font-size:0.6rem;margin-top:3px;color:var(--text3)"></div></div>'
+    +'</div>'
+    +'<div class="rg-label">Other Products</div>'
+    +'<div class="g4">'
+    +'<div class="field"><label>2T Oil (pcs)</label><input type="number" id="rfP2T" value="0" step="1" oninput="rfCalc()"></div>'
+    +'<div class="field"><label>2T-Kupima (L)</label><input type="number" id="rfP2TK" value="0" step="0.01" oninput="rfCalc()"></div>'
+    +'<div class="field"><label>Used Oil (L)</label><input type="number" id="rfPUOIL" value="0" step="0.01" oninput="rfCalc()"></div>'
+    +'<div class="field"><label>Shell Adv (pcs)</label><input type="number" id="rfPSHELL" value="0" step="1" oninput="rfCalc()"></div>'
+    +'</div>'
+    +'<div class="rg-label">Cash</div>'
+    +'<div class="g2">'
+    +'<div class="field"><label>Cash Deposit (KSh)</label><input type="number" id="rfDeposit" value="0" step="0.01" oninput="rfCalc()"></div>'
+    +'<div class="field"><label>Expenses (KSh)</label><input type="number" id="rfExpenses" value="0" step="0.01" oninput="rfCalc()"></div>'
+    +'</div>'
+    +'<div class="field"><label>Petrol Delivery (L, if any)</label><input type="number" id="rfDelivery" value="0" step="0.01"></div>'
+    +'<div class="field"><label>Notes</label><textarea id="rfNotes" rows="2"></textarea></div>'
+    +'<div id="rfSummary" style="display:none;padding:12px;background:var(--s2);border-radius:6px;font-size:0.72rem;color:var(--text2);margin-bottom:12px"></div>'
+    +'<button class="btn btn-gold btn-full" id="btnSubmit" onclick="submitReport()">Submit Report</button>'
+    +'</div>';
+  // Load previous readings
+  loadPrevReadings();
+}
+
+function loadPrevReadings() {
+  if(!currentProfile||!currentProfile.branch) return;
+  db.collection('reports').where('branch','==',currentProfile.branch)
+    .where('staffUid','==',currentProfile.uid)
+    .orderBy('createdAt','desc').limit(1).get().then(function(snap){
+      if(snap.empty) return;
+      var r=snap.docs[0].data();
+      var mo=el('rfMO'),doEl=el('rfDO');
+      if(mo) mo.value=(r.pump&&r.pump.metre&&r.pump.metre.closing)||0;
+      if(doEl) doEl.value=(r.pump&&r.pump.display&&r.pump.display.closing)||0;
+    });
+}
+
+function scanMetre(fieldId) {
+  var inp=document.createElement('input');
+  inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+  document.body.appendChild(inp);
+  inp.onchange=function(ev){
+    var file=ev.target.files[0];
+    document.body.removeChild(inp);
+    if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(e){
+      // Show preview
+      var prevDiv=el(fieldId+'preview')||el('rf'+fieldId.replace('rf','')+'preview');
+      var prevImg=el(fieldId+'img')||el('rf'+fieldId.replace('rf','')+'img');
+      // Simplified: find the preview elements in the report form
+      var allPrevDivs=document.querySelectorAll('[id$="preview"]');
+      var allPrevImgs=document.querySelectorAll('[id$="img"]');
+      // Show status
+      var statusEl=el(fieldId+'status')||document.getElementById(fieldId.replace('rfMC','rfMCstatus').replace('rfDC','rfDCstatus'));
+      if(statusEl) statusEl.textContent='⏳ Scanning with AI…';
+      runOCR(file,fieldId,statusEl,e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+}
+
+function runOCR(file,fieldId,statusEl,dataUrl) {
+  var b64=dataUrl.split(',')[1];
+  var mime=dataUrl.split(';')[0].replace('data:','');
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:64,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+        {type:'text',text:'This is a petrol pump metre or display. Extract ONLY the number shown. Reply with just the number, nothing else.'}
+      ]}]})
+  }).then(function(r){return r.json();}).then(function(d){
+    var raw=(d.content&&d.content[0]&&d.content[0].text)||'';
+    var num=parseFloat(raw.replace(/[^\d.]/g,''));
+    if(!isNaN(num)&&num>0){
+      var field=el(fieldId); if(field){field.value=num.toFixed(2);field.removeAttribute('readonly');field.dispatchEvent(new Event('input'));}
+      if(statusEl) statusEl.textContent='✓ Detected: '+num.toFixed(2)+' — verify before submitting';
+      if(statusEl) statusEl.style.color='var(--green)';
+    } else { fallbackOCR(dataUrl,fieldId,statusEl); }
+  }).catch(function(){ fallbackOCR(dataUrl,fieldId,statusEl); });
+}
+
+function fallbackOCR(dataUrl,fieldId,statusEl) {
+  if(statusEl) statusEl.textContent='⏳ Using backup OCR…';
+  if(!window.Tesseract){if(statusEl){statusEl.textContent='⚠ Could not read — enter manually';statusEl.style.color='var(--amber)';}
+    var f=el(fieldId); if(f) f.removeAttribute('readonly'); return;}
+  Tesseract.recognize(dataUrl,'eng',{tessedit_char_whitelist:'0123456789.',tessedit_pageseg_mode:'7'})
+    .then(function(r){
+      var raw=(r.data&&r.data.text)||'';
+      var num=parseFloat(raw.replace(/[^\d.]/g,''));
+      if(!isNaN(num)&&num>0){
+        var f=el(fieldId); if(f){f.value=num.toFixed(2);f.removeAttribute('readonly');f.dispatchEvent(new Event('input'));}
+        if(statusEl){statusEl.textContent='✓ OCR: '+num.toFixed(2);statusEl.style.color='var(--green)';}
+      } else {
+        if(statusEl){statusEl.textContent='⚠ Could not read — enter manually';statusEl.style.color='var(--amber)';}
+        var f=el(fieldId); if(f) f.removeAttribute('readonly');
+      }
+    });
+}
+
+function rfCalc() {
+  var mc=parseFloat(gv('rfMC'))||0, mo=parseFloat(gv('rfMO'))||0;
+  var dc=parseFloat(gv('rfDC'))||0, dos=parseFloat(gv('rfDO'))||0;
+  var displaySales=Math.max(0,dc-dos);
+  var branch=(currentProfile&&currentProfile.branch)||'';
+  var pr=PRICES[branch]||{};
+  var litres=pr.petrolSell>0?displaySales/pr.petrolSell:Math.max(0,mc-mo);
+  var grand=displaySales+(parseFloat(gv('rfP2T'))||0)*(pr.p2tSell||0)
+    +(parseFloat(gv('rfP2TK'))||0)*480+(parseFloat(gv('rfPUOIL'))||0)*200
+    +(parseFloat(gv('rfPSHELL'))||0)*(pr.pshellSell||0);
+  var sd=el('rfSummary');
+  if(sd&&(mc||dc)){
+    sd.style.display='block';
+    sd.innerHTML='<b>Display Sales:</b> '+fmt(displaySales)+' &nbsp;|&nbsp; <b>Litres:</b> '+litres.toFixed(1)+' L &nbsp;|&nbsp; <b>Grand Total:</b> '+fmt(grand);
+  }
+}
+
+function submitReport() {
+  if(!currentProfile){toast('Not logged in','err');return;}
+  var date=gv('rfDate'),shift=gv('rfShift');
+  var mo=parseFloat(gv('rfMO'))||0, mc=parseFloat(gv('rfMC'))||0;
+  var dos=parseFloat(gv('rfDO'))||0, dc=parseFloat(gv('rfDC'))||0;
+  if(!date||(!mc&&!dc)){toast('Enter at least one closing reading','err');return;}
+  busy('btnSubmit',true);
+  var displaySales=Math.max(0,dc-dos);
+  var branch=currentProfile.branch||'';
+  var pr=PRICES[branch]||{};
+  var litres=pr.petrolSell>0?displaySales/pr.petrolSell:Math.max(0,mc-mo);
+  var p2t=parseFloat(gv('rfP2T'))||0, p2tk=parseFloat(gv('rfP2TK'))||0;
+  var puoil=parseFloat(gv('rfPUOIL'))||0, pshell=parseFloat(gv('rfPSHELL'))||0;
+  var grand=displaySales+(p2t*(pr.p2tSell||0))+(p2tk*480)+(puoil*200)+(pshell*(pr.pshellSell||0));
+  var dep=parseFloat(gv('rfDeposit'))||0, exp=parseFloat(gv('rfExpenses'))||0;
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  db.collection('reports').add({
+    branch:branch, staffUid:currentProfile.uid, staffName:currentProfile.name,
+    date:date, shift:shift,
+    pump:{metre:{opening:mo,closing:mc,sold:litres,pricePerLitre:pr.petrolSell||0,value:displaySales},
+          display:{opening:dos,closing:dc,sold:displaySales}},
+    products:{p2t:{qty:p2t,total:p2t*(pr.p2tSell||0)},p2tk:{qty:p2tk,total:p2tk*480},
+              puoil:{qty:puoil,total:puoil*200},pshell:{qty:pshell,total:pshell*(pr.pshellSell||0)}},
+    grandTotal:grand, totalDeposit:dep,
+    reconciliation:{expenses:exp,variance:grand-dep-exp},
+    delivery:{litres:parseFloat(gv('rfDelivery'))||0},
+    notes:gv('rfNotes'),
+    approvalStatus:'pending', source:'staff', createdAt:now, updatedAt:now
+  }).then(function(){
+    busy('btnSubmit',false);
+    toast('Report submitted! Awaiting admin approval.','ok');
+    initReportForm();
+  }).catch(function(e){ busy('btnSubmit',false); toast('Error: '+e.message,'err'); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KILL SERVICE WORKERS (they block Firebase)
+// ═══════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(r){ r.unregister(); });
+  });
+  caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); });
+}
+</script>
+</body>
+</html>
