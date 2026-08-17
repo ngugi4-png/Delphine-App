@@ -1271,40 +1271,45 @@ function doSignIn() {
 
 auth.onAuthStateChanged(function(user) {
   if (!user) {
-    currentUser = null; currentProfile = null;
-    showOnly('sAuth'); busy('btnSI',false);
+    currentUser = null;
+    currentProfile = null;
+    showOnly('sAuth');
+    busy('btnSI', false);
     return;
   }
+
   currentUser = user;
-  var timer = setTimeout(function(){
-    busy('btnSI',false);
-    toast('Database timeout. Check connection.','err');
-    showOnly('sAuth');
-  }, 30000);
+  busy('btnSI', false);
+
+  // ADMIN — bypass Firestore wait, go straight to dashboard
+  if (user.email === ADMIN_EMAIL) {
+    currentProfile = {
+      name: 'Admin', email: user.email,
+      role: 'admin', status: 'approved',
+      branch: '', uid: user.uid
+    };
+    showOnly('sAdmin');
+    loadAdminInit();
+    // Sync profile silently in background
+    db.collection('users').doc(user.uid).get().then(function(snap) {
+      if (!snap.exists) {
+        db.collection('users').doc(user.uid).set({
+          name: 'Admin', email: user.email, role: 'admin',
+          status: 'approved', branch: '',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(function(){});
+      }
+    }).catch(function(){});
+    return;
+  }
+
+  // STAFF — check their profile
   db.collection('users').doc(user.uid).get()
     .then(function(snap) {
-      clearTimeout(timer);
-      if (!snap.exists) {
-        if (user.email === ADMIN_EMAIL) {
-          // Auto-create admin profile
-          var prof = {name:'Admin',email:user.email,role:'admin',status:'approved',branch:'',
-                      createdAt:firebase.firestore.FieldValue.serverTimestamp()};
-          db.collection('users').doc(user.uid).set(prof).then(function(){
-            currentProfile = prof;
-            showOnly('sAdmin');
-            loadAdminInit();
-          });
-        } else {
-          auth.signOut();
-        }
-        return;
-      }
+      if (!snap.exists) { auth.signOut(); return; }
       currentProfile = snap.data();
       currentProfile.uid = user.uid;
-      if (currentProfile.role === 'admin') {
-        showOnly('sAdmin');
-        loadAdminInit();
-      } else if (currentProfile.status === 'pending') {
+      if (currentProfile.status === 'pending') {
         showOnly('sPending');
       } else if (currentProfile.status === 'approved') {
         showOnly('sReport');
@@ -1313,13 +1318,12 @@ auth.onAuthStateChanged(function(user) {
         showOnly('sRejected');
       }
     })
-    .catch(function(err){
-      clearTimeout(timer);
-      busy('btnSI',false);
-      toast('Error: '+err.message,'err');
+    .catch(function(e) {
+      busy('btnSI', false);
+      toast('Connection error — check internet', 'err');
       showOnly('sAuth');
     });
-});
+});;
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN INIT
