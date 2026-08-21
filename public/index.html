@@ -535,12 +535,18 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPL','mReports')">P&amp;L</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabMonthlyClose','mReports')">Monthly Closing</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabHandover','mReports')">Shift Handover</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivRecon','mReports')">Delivery Recon</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabStock','mReports')">Stock</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAudit','mReports')">Audit</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabExport','mReports')">Export</button>
   </div>
   <div id="subNav_mOps" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabInv','mOps')">Inventory</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDipStick','mOps')">Dip Stick</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivery','mOps')">Fuel Delivery</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPumpCal','mOps')">Pump Calibration</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
@@ -549,9 +555,14 @@ a { color: var(--gold); text-decoration: none; }
   <div id="subNav_mFinance" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabExpenses','mFinance')">Expenses</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDebts','mFinance')">Debts</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPriceHistory','mFinance')">Price History</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPayroll','mFinance')">Payroll</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabSupplierPay','mFinance')">Supplier Payments</button>
   </div>
   <div id="subNav_mSettings" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabStaff','mSettings')">Staff</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAttendance','mSettings')">Attendance</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabTargets','mSettings')">Targets</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabBranches','mSettings')">Branches</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
@@ -559,6 +570,8 @@ a { color: var(--gold); text-decoration: none; }
   </div>
   <div id="subNav_mAnalytics" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabTrends','mAnalytics')">Trends</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabComparison','mAnalytics')">Comparison</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabStaffPerf','mAnalytics')">Staff Performance</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPredictions','mAnalytics')">Predictions</button>
   </div>
 
@@ -981,6 +994,330 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
+
+  <!-- ══ DIP STICK ═══════════════════════════════════════════ -->
+  <div id="tabDipStick" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Dip Stick Readings</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadDipStick()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="dipList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Dip Reading</div>
+          <div class="field"><label>Date</label><input type="date" id="dipDate"></div>
+          <div class="field"><label>Branch</label><select id="dipBranch"></select></div>
+          <div class="field"><label>Time</label>
+            <select id="dipTime">
+              <option>Morning (Opening)</option>
+              <option>Evening (Closing)</option>
+              <option>Midday</option>
+            </select>
+          </div>
+          <div class="field"><label>Petrol Reading (cm)</label><input type="number" id="dipPetrolCm" step="0.1" oninput="dipCalc()"></div>
+          <div class="field"><label>Petrol Litres (calculated)</label><input type="number" id="dipPetrolL" step="0.1" readonly style="background:var(--s2);color:var(--green);font-weight:700"></div>
+          <div class="field"><label>Calibration Factor (L/cm)</label><input type="number" id="dipFactor" value="250" step="1" oninput="dipCalc()"></div>
+          <div class="field"><label>Notes</label><input type="text" id="dipNotes" placeholder="Any observations"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveDipReading()">Save Reading</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FUEL DELIVERY ════════════════════════════════════════ -->
+  <div id="tabDelivery" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Fuel Deliveries</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadDeliveries()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="deliveryList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Delivery</div>
+          <div class="field"><label>Date</label><input type="date" id="delDate"></div>
+          <div class="field"><label>Branch</label><select id="delBranch"></select></div>
+          <div class="field"><label>Supplier</label><input type="text" id="delSupplier" placeholder="e.g. Kenya Pipeline"></div>
+          <div class="field"><label>Truck / Vehicle No.</label><input type="text" id="delTruck"></div>
+          <div class="field"><label>Driver Name</label><input type="text" id="delDriver"></div>
+          <div class="field"><label>Expected Litres</label><input type="number" id="delExpected" step="0.1" oninput="delVariance()"></div>
+          <div class="field"><label>Actual Litres Received</label><input type="number" id="delActual" step="0.1" oninput="delVariance()"></div>
+          <div class="field"><label>Variance (L)</label><input type="number" id="delVarShow" readonly style="background:var(--s2);font-weight:700"></div>
+          <div class="field"><label>Price per Litre (KSh)</label><input type="number" id="delPrice" step="0.01"></div>
+          <div class="field"><label>Notes</label><input type="text" id="delNotes"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveDelivery()">Save Delivery</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PUMP CALIBRATION ══════════════════════════════════════ -->
+  <div id="tabPumpCal" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Pump Calibration Log</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadPumpCal()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="pumpCalList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Calibration</div>
+          <div class="field"><label>Date</label><input type="date" id="pcDate"></div>
+          <div class="field"><label>Branch</label><select id="pcBranch"></select></div>
+          <div class="field"><label>Pump No.</label><input type="text" id="pcPump" placeholder="e.g. Pump 1"></div>
+          <div class="field"><label>Technician</label><input type="text" id="pcTech"></div>
+          <div class="field"><label>Before Reading (L)</label><input type="number" id="pcBefore" step="0.01"></div>
+          <div class="field"><label>After Reading (L)</label><input type="number" id="pcAfter" step="0.01"></div>
+          <div class="field"><label>Result</label>
+            <select id="pcResult">
+              <option>Pass</option>
+              <option>Adjusted</option>
+              <option>Fail — pump offline</option>
+            </select>
+          </div>
+          <div class="field"><label>Notes</label><input type="text" id="pcNotes"></div>
+          <div class="field"><label>Next Service Date</label><input type="date" id="pcNext"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="savePumpCal()">Save Record</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MONTHLY CLOSING REPORT ════════════════════════════════ -->
+  <div id="tabMonthlyClose" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Monthly Closing Report</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="mcMonth" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"></select>
+        <select id="mcYear"  style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"></select>
+        <button class="btn btn-gold btn-sm" onclick="loadMonthlyClose()">Generate</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportMonthlyClose()">Export PDF</button>
+      </div>
+    </div>
+    <div id="mcResult"><div class="empty">Select month and year then click Generate.</div></div>
+  </div>
+
+  <!-- ══ SHIFT HANDOVER ════════════════════════════════════════ -->
+  <div id="tabHandover" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Shift Handover</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadHandovers()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="handoverList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Handover</div>
+          <div class="field"><label>Date</label><input type="date" id="hoDate"></div>
+          <div class="field"><label>Branch</label><select id="hoBranch"></select></div>
+          <div class="field"><label>Outgoing Staff</label><input type="text" id="hoOut"></div>
+          <div class="field"><label>Incoming Staff</label><input type="text" id="hoIn"></div>
+          <div class="field"><label>Float Handed Over (KSh)</label><input type="number" id="hoFloat" step="0.01"></div>
+          <div class="field"><label>Metre Reading at Handover (L)</label><input type="number" id="hoMetre" step="0.01"></div>
+          <div class="field"><label>Issues / Notes</label><textarea id="hoNotes" rows="3" placeholder="Any issues, incidents, or observations"></textarea></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveHandover()">Save Handover</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DELIVERY RECONCILIATION ═══════════════════════════════ -->
+  <div id="tabDelivRecon" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Delivery vs Sales Reconciliation</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="date" id="drFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <input type="date" id="drTo"   style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <select id="drBranch" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"><option value="">All Branches</option></select>
+        <button class="btn btn-gold btn-sm" onclick="loadDelivRecon()">Load</button>
+      </div>
+    </div>
+    <div id="drResult"><div class="empty">Select a date range and click Load.</div></div>
+  </div>
+
+  <!-- ══ PRICE HISTORY ═════════════════════════════════════════ -->
+  <div id="tabPriceHistory" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Fuel Price History</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadPriceHistory()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="priceHistList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Price Change</div>
+          <div class="field"><label>Effective Date</label><input type="date" id="phDate"></div>
+          <div class="field"><label>Branch</label><select id="phBranch"></select></div>
+          <div class="field"><label>Old Price (KSh/L)</label><input type="number" id="phOld" step="0.01"></div>
+          <div class="field"><label>New Price (KSh/L)</label><input type="number" id="phNew" step="0.01"></div>
+          <div class="field"><label>Reason</label>
+            <select id="phReason">
+              <option>Government directive</option>
+              <option>Supplier adjustment</option>
+              <option>Market price change</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Notes</label><input type="text" id="phNotes"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="savePriceChange()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAYROLL ════════════════════════════════════════════════ -->
+  <div id="tabPayroll" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Staff Payroll</h2>
+      <div style="display:flex;gap:8px">
+        <select id="payMonth" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"></select>
+        <select id="payYear"  style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"></select>
+        <button class="btn btn-gold btn-sm" onclick="loadPayroll()">Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportPayroll()">Export CSV</button>
+      </div>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="payrollList"><div class="empty">Select month and load.</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Add/Edit Pay Record</div>
+          <div class="field"><label>Staff</label><select id="payStaff"></select></div>
+          <div class="field"><label>Basic Salary (KSh)</label><input type="number" id="payBasic" step="0.01" oninput="payCalc()"></div>
+          <div class="field"><label>Allowances (KSh)</label><input type="number" id="payAllow" value="0" step="0.01" oninput="payCalc()"></div>
+          <div class="field"><label>Deductions (KSh)</label><input type="number" id="payDeduct" value="0" step="0.01" oninput="payCalc()"></div>
+          <div class="field"><label>Net Pay (KSh)</label><input type="number" id="payNet" readonly style="background:var(--s2);font-weight:700;color:var(--green)"></div>
+          <div class="field"><label>Notes</label><input type="text" id="payNotes"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="savePayRecord()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SUPPLIER PAYMENTS ══════════════════════════════════════ -->
+  <div id="tabSupplierPay" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Supplier Payments</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadSupplierPay()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="supplierPayList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record Payment</div>
+          <div class="field"><label>Date</label><input type="date" id="spDate"></div>
+          <div class="field"><label>Vendor</label><select id="spVendor"></select></div>
+          <div class="field"><label>Amount (KSh)</label><input type="number" id="spAmt" step="0.01"></div>
+          <div class="field"><label>Payment Method</label>
+            <select id="spMethod">
+              <option>Bank Transfer</option>
+              <option>Cash</option>
+              <option>M-Pesa</option>
+              <option>Cheque</option>
+            </select>
+          </div>
+          <div class="field"><label>Reference No.</label><input type="text" id="spRef"></div>
+          <div class="field"><label>Notes</label><input type="text" id="spNotes"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveSupplierPay()">Save Payment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ATTENDANCE ════════════════════════════════════════════ -->
+  <div id="tabAttendance" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Staff Attendance</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="date" id="attDate" onchange="loadAttendance()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <select id="attBranch" onchange="loadAttendance()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"><option value="">All Branches</option></select>
+      </div>
+    </div>
+    <div id="attList"><div class="empty">Select a date to load attendance.</div></div>
+    <div class="card" style="margin-top:16px;max-width:500px">
+      <div class="card-title">Record Attendance</div>
+      <div class="g2">
+        <div class="field"><label>Date</label><input type="date" id="attRecDate"></div>
+        <div class="field"><label>Branch</label><select id="attRecBranch"></select></div>
+        <div class="field"><label>Staff</label><select id="attStaff"></select></div>
+        <div class="field"><label>Status</label>
+          <select id="attStatus">
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
+            <option value="late">Late</option>
+            <option value="half">Half Day</option>
+            <option value="leave">On Leave</option>
+          </select>
+        </div>
+        <div class="field"><label>Clock In</label><input type="time" id="attIn"></div>
+        <div class="field"><label>Clock Out</label><input type="time" id="attOut"></div>
+      </div>
+      <div class="field"><label>Notes</label><input type="text" id="attNotes"></div>
+      <button class="btn btn-gold btn-sm" onclick="saveAttendance()">Save</button>
+    </div>
+  </div>
+
+  <!-- ══ TARGETS ════════════════════════════════════════════════ -->
+  <div id="tabTargets" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Monthly Targets</h2>
+    <div class="g21">
+      <div>
+        <div id="targetProgress"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Set Target</div>
+          <div class="field"><label>Branch</label><select id="tgtBranch"></select></div>
+          <div class="field"><label>Month</label><select id="tgtMonth"></select></div>
+          <div class="field"><label>Year</label><select id="tgtYear"></select></div>
+          <div class="field"><label>Revenue Target (KSh)</label><input type="number" id="tgtRevenue" step="1000"></div>
+          <div class="field"><label>Volume Target (Litres)</label><input type="number" id="tgtVolume" step="100"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveTarget()">Save Target</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ WEEK COMPARISON ════════════════════════════════════════ -->
+  <div id="tabComparison" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Week-on-Week Comparison</h2>
+      <select id="cmpBranch" onchange="loadComparison()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"><option value="">All Branches</option></select>
+    </div>
+    <div id="cmpResult"><div class="empty">Loading…</div></div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Revenue Comparison Chart</div>
+      <div style="position:relative;height:220px"><canvas id="cmpChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ══ STAFF PERFORMANCE ══════════════════════════════════════ -->
+  <div id="tabStaffPerf" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Staff Performance</h2>
+      <div style="display:flex;gap:8px">
+        <input type="date" id="sperfFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <input type="date" id="sperfTo"   style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <button class="btn btn-gold btn-sm" onclick="loadStaffPerf()">Load</button>
+      </div>
+    </div>
+    <div id="sperfList"><div class="empty">Select date range and click Load.</div></div>
+  </div>
+
 </div><!-- /sAdmin -->
 
 <!-- ═══════════════════════════════════════════════
@@ -1127,26 +1464,25 @@ function toggleTheme() {
 // Map panel IDs to their main tab ID
 var PANEL_TO_TAB = {
   tabDash:         'mDash',
-  tabAppr:         'mReports',
-  tabSales:        'mReports',
-  tabPL:           'mReports',
-  tabStock:        'mReports',
-  tabAudit:        'mReports',
-  tabExport:       'mReports',
-  tabInv:          'mOps',
-  tabVend:         'mOps',
-  tabCreateReport: 'mOps',
-  tabImport:       'mOps',
+  tabAppr:         'mReports',  tabSales:     'mReports',
+  tabPL:           'mReports',  tabStock:     'mReports',
+  tabAudit:        'mReports',  tabExport:    'mReports',
+  tabMonthlyClose: 'mReports',  tabHandover:  'mReports',
+  tabDelivRecon:   'mReports',
+  tabInv:          'mOps',      tabVend:      'mOps',
+  tabCreateReport: 'mOps',      tabImport:    'mOps',
+  tabDipStick:     'mOps',      tabDelivery:  'mOps',
+  tabPumpCal:      'mOps',
   tabBranchSummary:'mSummary',
-  tabExpenses:     'mFinance',
-  tabDebts:        'mFinance',
-  tabStaff:        'mSettings',
-  tabBranches:     'mSettings',
-  tabBankAccts:    'mSettings',
-  tabEmailSettings:'mSettings',
-  tabDangerZone:   'mSettings',
-  tabTrends:       'mAnalytics',
-  tabPredictions:  'mAnalytics'
+  tabExpenses:     'mFinance',  tabDebts:        'mFinance',
+  tabPriceHistory: 'mFinance',  tabPayroll:      'mFinance',
+  tabSupplierPay:  'mFinance',
+  tabStaff:        'mSettings', tabBranches:     'mSettings',
+  tabBankAccts:    'mSettings', tabEmailSettings:'mSettings',
+  tabDangerZone:   'mSettings', tabAttendance:   'mSettings',
+  tabTargets:      'mSettings',
+  tabTrends:       'mAnalytics', tabPredictions: 'mAnalytics',
+  tabComparison:   'mAnalytics', tabStaffPerf:   'mAnalytics'
 };
 
 var TAB_TO_MAIN = {
@@ -1233,6 +1569,19 @@ function panelInit(panelId) {
     case 'tabDangerZone':   break;
     case 'tabTrends':       loadTrends();        break;
     case 'tabPredictions':  loadPredictions();   break;
+    case 'tabDipStick':     loadDipStick();      break;
+    case 'tabDelivery':     loadDeliveries();    break;
+    case 'tabPumpCal':      loadPumpCal();       break;
+    case 'tabMonthlyClose': initMonthlyClose();  break;
+    case 'tabHandover':     loadHandovers();     break;
+    case 'tabDelivRecon':   initDelivRecon();    break;
+    case 'tabPriceHistory': loadPriceHistory();  break;
+    case 'tabPayroll':      initPayroll();       break;
+    case 'tabSupplierPay':  loadSupplierPay();   break;
+    case 'tabAttendance':   initAttendance();    break;
+    case 'tabTargets':      initTargets();       break;
+    case 'tabComparison':   loadComparison();    break;
+    case 'tabStaffPerf':    loadStaffPerf();     break;
     default: break;
   }
 }
@@ -1437,6 +1786,7 @@ function loadWeather() {
 // ═══════════════════════════════════════════════════════════════
 function loadDashboard() {
   loadWeather();
+  loadDashboardExtras();
   var today = todayStr();
   db.collection('reports').where('date','==',today).get().then(function(snap){
     var revenue=0, litres=0, pending=0;
@@ -2639,6 +2989,711 @@ function submitReport() {
     toast('Report submitted! Awaiting admin approval.','ok');
     initReportForm();
   }).catch(function(e){ busy('btnSubmit',false); toast('Error: '+e.message,'err'); });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// DIP STICK
+// ═══════════════════════════════════════════════════════════════
+function dipCalc() {
+  var cm = parseFloat(document.getElementById('dipPetrolCm').value)||0;
+  var factor = parseFloat(document.getElementById('dipFactor').value)||250;
+  var l = cm * factor;
+  document.getElementById('dipPetrolL').value = l.toFixed(1);
+}
+function saveDipReading() {
+  var date=document.getElementById('dipDate').value;
+  var branch=document.getElementById('dipBranch').value;
+  var time=document.getElementById('dipTime').value;
+  var cm=parseFloat(document.getElementById('dipPetrolCm').value)||0;
+  var litres=parseFloat(document.getElementById('dipPetrolL').value)||0;
+  var factor=parseFloat(document.getElementById('dipFactor').value)||250;
+  var notes=document.getElementById('dipNotes').value;
+  if(!date||!branch||!cm){toast('Fill date, branch and reading','err');return;}
+  db.collection('dipReadings').add({
+    date:date,branch:branch,time:time,cm:cm,litres:litres,factor:factor,notes:notes,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Dip reading saved','ok');
+    document.getElementById('dipPetrolCm').value='';
+    document.getElementById('dipPetrolL').value='';
+    document.getElementById('dipNotes').value='';
+    loadDipStick();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadDipStick() {
+  var b=document.getElementById('dipBranch');
+  if(b&&b.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);});}
+  var d=document.getElementById('dipDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var c=document.getElementById('dipList');if(!c)return;
+  db.collection('dipReadings').limit(60).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No dip readings yet.</div>';return;}
+    var rows=[];snap.forEach(function(d){rows.push({id:d.id,...d.data()});});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Time</th><th class="num">Reading (cm)</th><th class="num">Litres</th><th>Notes</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.time+'</td>'
+        +'<td class="num">'+r.cm+'</td><td class="num">'+r.litres.toFixed(1)+'</td>'
+        +'<td>'+r.notes+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){document.getElementById('dipList').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FUEL DELIVERY
+// ═══════════════════════════════════════════════════════════════
+function delVariance() {
+  var exp=parseFloat(document.getElementById('delExpected').value)||0;
+  var act=parseFloat(document.getElementById('delActual').value)||0;
+  document.getElementById('delVarShow').value=(act-exp).toFixed(1);
+  document.getElementById('delVarShow').style.color=(act-exp)<-50?'var(--red)':'var(--green)';
+}
+function saveDelivery() {
+  var date=document.getElementById('delDate').value;
+  var branch=document.getElementById('delBranch').value;
+  var supplier=document.getElementById('delSupplier').value;
+  var truck=document.getElementById('delTruck').value;
+  var driver=document.getElementById('delDriver').value;
+  var expected=parseFloat(document.getElementById('delExpected').value)||0;
+  var actual=parseFloat(document.getElementById('delActual').value)||0;
+  var price=parseFloat(document.getElementById('delPrice').value)||0;
+  var notes=document.getElementById('delNotes').value;
+  if(!date||!branch||!actual){toast('Fill date, branch and actual litres','err');return;}
+  db.collection('fuelDeliveries').add({
+    date:date,branch:branch,supplier:supplier,truck:truck,driver:driver,
+    expectedLitres:expected,actualLitres:actual,variance:actual-expected,
+    pricePerLitre:price,totalCost:actual*price,notes:notes,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Delivery saved — '+actual.toFixed(1)+'L received','ok');
+    ['delSupplier','delTruck','delDriver','delExpected','delActual','delPrice','delNotes'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('delVarShow').value='';
+    loadDeliveries();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadDeliveries() {
+  var b=document.getElementById('delBranch');
+  if(b&&b.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);});}
+  var d=document.getElementById('delDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var c=document.getElementById('deliveryList');if(!c)return;
+  db.collection('fuelDeliveries').limit(60).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No deliveries recorded.</div>';return;}
+    var rows=[];snap.forEach(function(d){rows.push(d.data());});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Supplier</th><th>Truck</th><th class="num">Expected (L)</th><th class="num">Actual (L)</th><th class="num">Variance</th><th class="num">Total Cost</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var vc=r.variance<-50?'var(--red)':'var(--green)';
+      h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.supplier+'</td><td>'+r.truck+'</td>'
+        +'<td class="num">'+(r.expectedLitres||0).toFixed(1)+'</td>'
+        +'<td class="num">'+(r.actualLitres||0).toFixed(1)+'</td>'
+        +'<td class="num" style="color:'+vc+'">'+(r.variance||0).toFixed(1)+'</td>'
+        +'<td class="num">'+fmt(r.totalCost||0)+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){document.getElementById('deliveryList').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PUMP CALIBRATION
+// ═══════════════════════════════════════════════════════════════
+function savePumpCal() {
+  var date=document.getElementById('pcDate').value;
+  var branch=document.getElementById('pcBranch').value;
+  var pump=document.getElementById('pcPump').value;
+  var tech=document.getElementById('pcTech').value;
+  var before=parseFloat(document.getElementById('pcBefore').value)||0;
+  var after=parseFloat(document.getElementById('pcAfter').value)||0;
+  var result=document.getElementById('pcResult').value;
+  var notes=document.getElementById('pcNotes').value;
+  var next=document.getElementById('pcNext').value;
+  if(!date||!branch||!pump){toast('Fill date, branch and pump number','err');return;}
+  db.collection('pumpCalibrations').add({
+    date:date,branch:branch,pump:pump,technician:tech,
+    beforeReading:before,afterReading:after,result:result,notes:notes,nextServiceDate:next,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){toast('Calibration record saved','ok');loadPumpCal();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadPumpCal() {
+  var b=document.getElementById('pcBranch');
+  if(b&&b.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);});}
+  var d=document.getElementById('pcDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var c=document.getElementById('pumpCalList');if(!c)return;
+  db.collection('pumpCalibrations').limit(40).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No calibration records.</div>';return;}
+    var rows=[];snap.forEach(function(d){rows.push(d.data());});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Pump</th><th>Technician</th><th>Result</th><th>Next Service</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var rc=r.result==='Pass'?'badge-green':r.result.includes('Fail')?'badge-red':'badge-gold';
+      h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.pump+'</td><td>'+r.technician+'</td>'
+        +'<td><span class="badge '+rc+'">'+r.result+'</span></td><td>'+(r.nextServiceDate||'—')+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){document.getElementById('pumpCalList').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONTHLY CLOSING REPORT
+// ═══════════════════════════════════════════════════════════════
+function initMonthlyClose() {
+  var ms=document.getElementById('mcMonth'),ys=document.getElementById('mcYear');
+  if(ms&&ms.options.length<2){
+    var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    months.forEach(function(m,i){var o=document.createElement('option');o.value=String(i+1).padStart(2,'0');o.textContent=m;ms.appendChild(o);});
+    ms.value=String(new Date().getMonth()+1).padStart(2,'0');
+  }
+  if(ys&&ys.options.length<2){
+    var yr=new Date().getFullYear();
+    for(var y=yr;y>=yr-3;y--){var o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o);}
+  }
+}
+function loadMonthlyClose() {
+  var month=document.getElementById('mcMonth').value;
+  var year=document.getElementById('mcYear').value;
+  if(!month||!year)return;
+  var from=year+'-'+month+'-01';
+  var lastDay=new Date(parseInt(year),parseInt(month),0).getDate();
+  var to=year+'-'+month+'-'+String(lastDay).padStart(2,'0');
+  var c=document.getElementById('mcResult');
+  c.innerHTML='<div class="empty">Loading…</div>';
+  Promise.all([
+    db.collection('reports').where('date','>=',from).where('date','<=',to).get(),
+    db.collection('expenses').where('date','>=',from).where('date','<=',to).get(),
+    db.collection('fuelDeliveries').where('date','>=',from).where('date','<=',to).get()
+  ]).then(function(results){
+    var rSnap=results[0],eSnap=results[1],dSnap=results[2];
+    var byBranch={};
+    BRANCHES.forEach(function(b){byBranch[b]={revenue:0,litres:0,deliveries:0,expenses:0,reports:0};});
+    rSnap.forEach(function(d){
+      var r=d.data();if(r.approvalStatus!=='approved')return;
+      if(!byBranch[r.branch])return;
+      byBranch[r.branch].revenue+=(r.grandTotal||0);
+      byBranch[r.branch].litres+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      byBranch[r.branch].reports++;
+    });
+    eSnap.forEach(function(d){var e=d.data();if(byBranch[e.branch])byBranch[e.branch].expenses+=(e.amount||0);});
+    dSnap.forEach(function(d){var del=d.data();if(byBranch[del.branch])byBranch[del.branch].deliveries+=(del.actualLitres||0);});
+    var totalRev=0,totalExp=0,totalLit=0;
+    BRANCHES.forEach(function(b){totalRev+=byBranch[b].revenue;totalExp+=byBranch[b].expenses;totalLit+=byBranch[b].litres;});
+    var monthName=['January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(month)-1];
+    var h='<div class="card"><div class="card-title">'+monthName+' '+year+' — All Branches</div>';
+    h+='<div class="g4" style="margin-bottom:16px">'
+      +'<div class="stat-tile"><div class="st-label">Total Revenue</div><div class="st-val">'+fmt(totalRev)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Total Expenses</div><div class="st-val" style="color:var(--red)">'+fmt(totalExp)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Net Profit</div><div class="st-val" style="color:'+(totalRev-totalExp>=0?'var(--green)':'var(--red)')+'">'+fmt(totalRev-totalExp)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val">'+totalLit.toFixed(0)+'L</div></div>'
+      +'</div>';
+    h+='<table class="tbl"><thead><tr><th>Branch</th><th class="num">Revenue</th><th class="num">Expenses</th><th class="num">Profit</th><th class="num">Litres</th><th class="num">Deliveries (L)</th><th class="num">Reports</th></tr></thead><tbody>';
+    BRANCHES.forEach(function(b){
+      var br=byBranch[b];var profit=br.revenue-br.expenses;
+      h+='<tr><td><span class="branch-pill">'+b+'</span></td>'
+        +'<td class="num">'+fmt(br.revenue)+'</td>'
+        +'<td class="num">'+fmt(br.expenses)+'</td>'
+        +'<td class="num" style="color:'+(profit>=0?'var(--green)':'var(--red)')+'">'+fmt(profit)+'</td>'
+        +'<td class="num">'+br.litres.toFixed(0)+'</td>'
+        +'<td class="num">'+br.deliveries.toFixed(0)+'</td>'
+        +'<td class="num">'+br.reports+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table></div>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+function exportMonthlyClose(){toast('Print this page (Ctrl+P) to save as PDF','ok');}
+
+// ═══════════════════════════════════════════════════════════════
+// SHIFT HANDOVER
+// ═══════════════════════════════════════════════════════════════
+function saveHandover() {
+  var date=document.getElementById('hoDate').value;
+  var branch=document.getElementById('hoBranch').value;
+  var out=document.getElementById('hoOut').value;
+  var inc=document.getElementById('hoIn').value;
+  var float=parseFloat(document.getElementById('hoFloat').value)||0;
+  var metre=parseFloat(document.getElementById('hoMetre').value)||0;
+  var notes=document.getElementById('hoNotes').value;
+  if(!date||!branch||!out||!inc){toast('Fill date, branch and both staff names','err');return;}
+  db.collection('handovers').add({
+    date:date,branch:branch,outgoingStaff:out,incomingStaff:inc,
+    float:float,metreReading:metre,notes:notes,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){toast('Handover saved','ok');loadHandovers();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadHandovers() {
+  var b=document.getElementById('hoBranch');
+  if(b&&b.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);});}
+  var d=document.getElementById('hoDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var c=document.getElementById('handoverList');if(!c)return;
+  db.collection('handovers').limit(40).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No handovers recorded.</div>';return;}
+    var rows=[];snap.forEach(function(d){rows.push(d.data());});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Outgoing</th><th>Incoming</th><th class="num">Float (KSh)</th><th class="num">Metre (L)</th><th>Notes</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.outgoingStaff+'</td><td>'+r.incomingStaff+'</td>'
+        +'<td class="num">'+fmt(r.float)+'</td><td class="num">'+r.metreReading.toFixed(1)+'</td>'
+        +'<td>'+(r.notes||'—')+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){document.getElementById('handoverList').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DELIVERY RECONCILIATION
+// ═══════════════════════════════════════════════════════════════
+function initDelivRecon() {
+  var f=document.getElementById('drFrom'),t=document.getElementById('drTo');
+  if(f&&!f.value){var n=new Date();f.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-01';}
+  if(t&&!t.value)t.value=todayStr();
+  var b=document.getElementById('drBranch');
+  if(b&&b.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);});}
+  loadDelivRecon();
+}
+function loadDelivRecon() {
+  var from=document.getElementById('drFrom').value;
+  var to=document.getElementById('drTo').value;
+  var branch=document.getElementById('drBranch').value;
+  if(!from||!to)return;
+  var c=document.getElementById('drResult');c.innerHTML='<div class="empty">Loading…</div>';
+  Promise.all([
+    db.collection('fuelDeliveries').where('date','>=',from).where('date','<=',to).get(),
+    db.collection('reports').where('date','>=',from).where('date','<=',to).get()
+  ]).then(function(results){
+    var dSnap=results[0],rSnap=results[1];
+    var byBranch={};
+    BRANCHES.forEach(function(b){byBranch[b]={delivered:0,sold:0};});
+    dSnap.forEach(function(d){var r=d.data();if(!branch||r.branch===branch){if(byBranch[r.branch])byBranch[r.branch].delivered+=(r.actualLitres||0);}});
+    rSnap.forEach(function(d){var r=d.data();if(r.approvalStatus!=='approved')return;if(branch&&r.branch!==branch)return;if(byBranch[r.branch])byBranch[r.branch].sold+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;});
+    var h='<table class="tbl"><thead><tr><th>Branch</th><th class="num">Delivered (L)</th><th class="num">Sold (L)</th><th class="num">Difference (L)</th><th class="num">Loss %</th></tr></thead><tbody>';
+    BRANCHES.forEach(function(b){
+      if(branch&&b!==branch)return;
+      var br=byBranch[b];var diff=br.delivered-br.sold;
+      var pct=br.delivered>0?((diff/br.delivered)*100).toFixed(2):0;
+      var col=diff<0?'var(--red)':diff<br.delivered*0.05?'var(--green)':'var(--amber)';
+      h+='<tr><td><span class="branch-pill">'+b+'</span></td>'
+        +'<td class="num">'+br.delivered.toFixed(1)+'</td>'
+        +'<td class="num">'+br.sold.toFixed(1)+'</td>'
+        +'<td class="num" style="color:'+col+'">'+diff.toFixed(1)+'</td>'
+        +'<td class="num" style="color:'+col+'">'+pct+'%</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRICE HISTORY
+// ═══════════════════════════════════════════════════════════════
+function savePriceChange() {
+  var date=document.getElementById('phDate').value;
+  var branch=document.getElementById('phBranch').value;
+  var oldP=parseFloat(document.getElementById('phOld').value)||0;
+  var newP=parseFloat(document.getElementById('phNew').value)||0;
+  var reason=document.getElementById('phReason').value;
+  var notes=document.getElementById('phNotes').value;
+  if(!date||!branch||!newP){toast('Fill date, branch and new price','err');return;}
+  db.collection('priceHistory').add({
+    date:date,branch:branch,oldPrice:oldP,newPrice:newP,reason:reason,notes:notes,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    // Also update the live price
+    db.collection('invPrices').doc(branch).set({petrolSell:newP},{merge:true});
+    PRICES[branch]=PRICES[branch]||{};PRICES[branch].petrolSell=newP;
+    toast('Price change saved — new price: KSh '+newP+'/L','ok');
+    loadPriceHistory();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadPriceHistory() {
+  var b=document.getElementById('phBranch');
+  if(b&&b.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);});}
+  var d=document.getElementById('phDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var c=document.getElementById('priceHistList');if(!c)return;
+  db.collection('priceHistory').limit(60).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No price changes recorded.</div>';return;}
+    var rows=[];snap.forEach(function(d){rows.push(d.data());});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var h='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th class="num">Old Price</th><th class="num">New Price</th><th class="num">Change</th><th>Reason</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var diff=r.newPrice-r.oldPrice;
+      var col=diff>=0?'var(--red)':'var(--green)';
+      h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td>'
+        +'<td class="num">'+fmt(r.oldPrice)+'</td><td class="num">'+fmt(r.newPrice)+'</td>'
+        +'<td class="num" style="color:'+col+'">'+(diff>=0?'+':'')+diff.toFixed(2)+'</td>'
+        +'<td>'+r.reason+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){document.getElementById('priceHistList').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAYROLL
+// ═══════════════════════════════════════════════════════════════
+function initPayroll() {
+  var ms=document.getElementById('payMonth'),ys=document.getElementById('payYear');
+  if(ms&&ms.options.length<2){
+    var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    months.forEach(function(m,i){var o=document.createElement('option');o.value=String(i+1).padStart(2,'0');o.textContent=m;ms.appendChild(o);});
+    ms.value=String(new Date().getMonth()+1).padStart(2,'0');
+  }
+  if(ys&&ys.options.length<2){var yr=new Date().getFullYear();for(var y=yr;y>=yr-3;y--){var o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o);}}
+  // Populate staff select
+  var ss=document.getElementById('payStaff');
+  if(ss&&ss.options.length<2){
+    db.collection('users').get().then(function(snap){
+      snap.forEach(function(d){var u=d.data();if(u.role==='admin')return;var o=document.createElement('option');o.value=d.id;o.textContent=u.name+' ('+u.branch+')';ss.appendChild(o);});
+    });
+  }
+}
+function payCalc() {
+  var basic=parseFloat(document.getElementById('payBasic').value)||0;
+  var allow=parseFloat(document.getElementById('payAllow').value)||0;
+  var deduct=parseFloat(document.getElementById('payDeduct').value)||0;
+  document.getElementById('payNet').value=(basic+allow-deduct).toFixed(2);
+}
+function savePayRecord() {
+  var staffId=document.getElementById('payStaff').value;
+  var staffName=document.getElementById('payStaff').options[document.getElementById('payStaff').selectedIndex]&&document.getElementById('payStaff').options[document.getElementById('payStaff').selectedIndex].text||'';
+  var month=document.getElementById('payMonth').value;
+  var year=document.getElementById('payYear').value;
+  var basic=parseFloat(document.getElementById('payBasic').value)||0;
+  var allow=parseFloat(document.getElementById('payAllow').value)||0;
+  var deduct=parseFloat(document.getElementById('payDeduct').value)||0;
+  var net=basic+allow-deduct;
+  var notes=document.getElementById('payNotes').value;
+  if(!staffId||!basic){toast('Select staff and enter basic salary','err');return;}
+  db.collection('payroll').doc(staffId+'_'+year+'_'+month).set({
+    staffId:staffId,staffName:staffName,month:month,year:year,
+    basicSalary:basic,allowances:allow,deductions:deduct,netPay:net,
+    notes:notes,updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){toast('Pay record saved','ok');loadPayroll();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadPayroll() {
+  var month=document.getElementById('payMonth').value;
+  var year=document.getElementById('payYear').value;
+  if(!month||!year)return;
+  var c=document.getElementById('payrollList');if(!c)return;
+  db.collection('payroll').get().then(function(snap){
+    var rows=[];
+    snap.forEach(function(d){var r=d.data();if(r.month===month&&r.year===String(year))rows.push(r);});
+    if(!rows.length){c.innerHTML='<div class="empty">No pay records for this period.</div>';return;}
+    var total=rows.reduce(function(s,r){return s+r.netPay;},0);
+    var h='<table class="tbl"><thead><tr><th>Staff</th><th class="num">Basic</th><th class="num">Allowances</th><th class="num">Deductions</th><th class="num">Net Pay</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td>'+r.staffName+'</td><td class="num">'+fmt(r.basicSalary)+'</td>'
+        +'<td class="num">'+fmt(r.allowances)+'</td><td class="num">'+fmt(r.deductions)+'</td>'
+        +'<td class="num" style="font-weight:700;color:var(--green)">'+fmt(r.netPay)+'</td></tr>';
+    });
+    h+='<tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="4">TOTAL PAYROLL</td><td class="num" style="color:var(--gold)">'+fmt(total)+'</td></tr>';
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+function exportPayroll() {
+  var month=document.getElementById('payMonth').value;
+  var year=document.getElementById('payYear').value;
+  db.collection('payroll').get().then(function(snap){
+    var rows=[['Staff','Month','Year','Basic','Allowances','Deductions','Net Pay']];
+    snap.forEach(function(d){var r=d.data();if(r.month===month&&r.year===String(year))rows.push([r.staffName,r.month,r.year,r.basicSalary,r.allowances,r.deductions,r.netPay]);});
+    downloadCSV(rows,'payroll-'+year+'-'+month+'.csv');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUPPLIER PAYMENTS
+// ═══════════════════════════════════════════════════════════════
+function loadSupplierPay() {
+  // Populate vendor select
+  var vs=document.getElementById('spVendor');
+  if(vs&&vs.options.length<1){
+    db.collection('vendors').get().then(function(snap){
+      snap.forEach(function(d){var v=d.data();var o=document.createElement('option');o.value=d.id;o.textContent=v.name;vs.appendChild(o);});
+    });
+  }
+  var d=document.getElementById('spDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var c=document.getElementById('supplierPayList');if(!c)return;
+  db.collection('supplierPayments').limit(50).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No supplier payments recorded.</div>';return;}
+    var rows=[];snap.forEach(function(d){rows.push(d.data());});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var total=rows.reduce(function(s,r){return s+(r.amount||0);},0);
+    var h='<div style="margin-bottom:10px;font-size:0.72rem;color:var(--text3)">Total paid: <strong style="color:var(--gold)">'+fmt(total)+'</strong></div>';
+    h+='<table class="tbl"><thead><tr><th>Date</th><th>Vendor</th><th>Method</th><th>Reference</th><th class="num">Amount</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td>'+r.date+'</td><td>'+r.vendorName+'</td><td>'+r.method+'</td>'
+        +'<td>'+(r.reference||'—')+'</td><td class="num">'+fmt(r.amount)+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){document.getElementById('supplierPayList').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+function saveSupplierPay() {
+  var date=document.getElementById('spDate').value;
+  var vendorId=document.getElementById('spVendor').value;
+  var vendorName=document.getElementById('spVendor').options[document.getElementById('spVendor').selectedIndex]&&document.getElementById('spVendor').options[document.getElementById('spVendor').selectedIndex].text||'';
+  var amt=parseFloat(document.getElementById('spAmt').value)||0;
+  var method=document.getElementById('spMethod').value;
+  var ref=document.getElementById('spRef').value;
+  var notes=document.getElementById('spNotes').value;
+  if(!date||!vendorId||!amt){toast('Fill date, vendor and amount','err');return;}
+  db.collection('supplierPayments').add({
+    date:date,vendorId:vendorId,vendorName:vendorName,amount:amt,method:method,reference:ref,notes:notes,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){toast('Payment saved — '+fmt(amt),'ok');loadSupplierPay();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ATTENDANCE
+// ═══════════════════════════════════════════════════════════════
+function initAttendance() {
+  var d=document.getElementById('attDate');if(d&&!d.value)d.valueAsDate=new Date();
+  var rd=document.getElementById('attRecDate');if(rd&&!rd.value)rd.valueAsDate=new Date();
+  var b=document.getElementById('attBranch'),rb=document.getElementById('attRecBranch');
+  [b,rb].forEach(function(sel){if(sel&&sel.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;sel.appendChild(o);});}});
+  var ss=document.getElementById('attStaff');
+  if(ss&&ss.options.length<1){
+    db.collection('users').get().then(function(snap){
+      snap.forEach(function(d){var u=d.data();if(u.role==='admin')return;var o=document.createElement('option');o.value=d.id;o.textContent=u.name;ss.appendChild(o);});
+    });
+  }
+  loadAttendance();
+}
+function saveAttendance() {
+  var date=document.getElementById('attRecDate').value;
+  var branch=document.getElementById('attRecBranch').value;
+  var staffId=document.getElementById('attStaff').value;
+  var staffName=document.getElementById('attStaff').options[document.getElementById('attStaff').selectedIndex]&&document.getElementById('attStaff').options[document.getElementById('attStaff').selectedIndex].text||'';
+  var status=document.getElementById('attStatus').value;
+  var clockIn=document.getElementById('attIn').value;
+  var clockOut=document.getElementById('attOut').value;
+  var notes=document.getElementById('attNotes').value;
+  if(!date||!branch||!staffId){toast('Fill date, branch and staff','err');return;}
+  db.collection('attendance').doc(staffId+'_'+date).set({
+    date:date,branch:branch,staffId:staffId,staffName:staffName,
+    status:status,clockIn:clockIn,clockOut:clockOut,notes:notes,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){toast('Attendance saved','ok');loadAttendance();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadAttendance() {
+  var date=document.getElementById('attDate')&&document.getElementById('attDate').value;
+  var branch=document.getElementById('attBranch')&&document.getElementById('attBranch').value;
+  if(!date){return;}
+  var c=document.getElementById('attList');if(!c)return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  db.collection('attendance').get().then(function(snap){
+    var rows=[];
+    snap.forEach(function(d){
+      var r=d.data();
+      if(r.date!==date)return;
+      if(branch&&r.branch!==branch)return;
+      rows.push(r);
+    });
+    if(!rows.length){c.innerHTML='<div class="empty">No attendance records for '+date+'.</div>';return;}
+    var h='<table class="tbl"><thead><tr><th>Staff</th><th>Branch</th><th>Status</th><th>Clock In</th><th>Clock Out</th><th>Notes</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var sc={present:'badge-green',absent:'badge-red',late:'badge-gold',half:'badge-blue',leave:'badge-blue'}[r.status]||'badge-gold';
+      h+='<tr><td>'+r.staffName+'</td><td>'+r.branch+'</td>'
+        +'<td><span class="badge '+sc+'">'+r.status+'</span></td>'
+        +'<td>'+(r.clockIn||'—')+'</td><td>'+(r.clockOut||'—')+'</td>'
+        +'<td>'+(r.notes||'—')+'</td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TARGETS
+// ═══════════════════════════════════════════════════════════════
+function initTargets() {
+  var ms=document.getElementById('tgtMonth'),ys=document.getElementById('tgtYear');
+  var tb=document.getElementById('tgtBranch');
+  if(tb&&tb.options.length<1){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;tb.appendChild(o);});}
+  if(ms&&ms.options.length<2){
+    var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    months.forEach(function(m,i){var o=document.createElement('option');o.value=String(i+1).padStart(2,'0');o.textContent=m;ms.appendChild(o);});
+    ms.value=String(new Date().getMonth()+1).padStart(2,'0');
+  }
+  if(ys&&ys.options.length<2){var yr=new Date().getFullYear();for(var y=yr;y>=yr-2;y--){var o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o);}}
+  loadTargetProgress();
+}
+function saveTarget() {
+  var branch=document.getElementById('tgtBranch').value;
+  var month=document.getElementById('tgtMonth').value;
+  var year=document.getElementById('tgtYear').value;
+  var rev=parseFloat(document.getElementById('tgtRevenue').value)||0;
+  var vol=parseFloat(document.getElementById('tgtVolume').value)||0;
+  if(!branch||!rev){toast('Select branch and enter revenue target','err');return;}
+  db.collection('targets').doc(branch+'_'+year+'_'+month).set({
+    branch:branch,month:month,year:year,revenueTarget:rev,volumeTarget:vol,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){toast('Target saved','ok');loadTargetProgress();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function loadTargetProgress() {
+  var now=new Date();
+  var month=String(now.getMonth()+1).padStart(2,'0');
+  var year=String(now.getFullYear());
+  var from=year+'-'+month+'-01';
+  var to=todayStr();
+  var c=document.getElementById('targetProgress');if(!c)return;
+  Promise.all([
+    db.collection('targets').get(),
+    db.collection('reports').where('date','>=',from).where('date','<=',to).get()
+  ]).then(function(results){
+    var tSnap=results[0],rSnap=results[1];
+    var targets={};tSnap.forEach(function(d){var t=d.data();if(t.month===month&&t.year===year)targets[t.branch]=t;});
+    var actual={};BRANCHES.forEach(function(b){actual[b]={revenue:0,litres:0};});
+    rSnap.forEach(function(d){var r=d.data();if(r.approvalStatus!=='approved')return;if(actual[r.branch]){actual[r.branch].revenue+=r.grandTotal||0;actual[r.branch].litres+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;}});
+    var h='<div style="font-size:0.7rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">This Month — Progress</div>';
+    BRANCHES.forEach(function(b){
+      var t=targets[b]||{revenueTarget:0,volumeTarget:0};
+      var a=actual[b];
+      var revPct=t.revenueTarget>0?Math.min(100,(a.revenue/t.revenueTarget)*100):0;
+      var volPct=t.volumeTarget>0?Math.min(100,(a.litres/t.volumeTarget)*100):0;
+      var revCol=revPct>=90?'var(--green)':revPct>=60?'var(--amber)':'var(--red)';
+      h+='<div class="card" style="margin-bottom:12px">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:10px">'
+        +'<span style="font-weight:700">'+b+'</span>'
+        +'<span style="font-size:0.65rem;color:var(--text3)">'+new Date().toLocaleString('default',{month:'long'})+' '+year+'</span>'
+        +'</div>'
+        +'<div style="margin-bottom:8px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text3);margin-bottom:4px">'
+        +'<span>Revenue: '+fmt(a.revenue)+' / '+fmt(t.revenueTarget)+'</span><span>'+revPct.toFixed(0)+'%</span></div>'
+        +'<div style="background:var(--s3);border-radius:4px;height:8px"><div style="height:100%;width:'+revPct+'%;background:'+revCol+';border-radius:4px;transition:width 0.5s"></div></div>'
+        +'</div>'
+        +(t.volumeTarget>0?'<div><div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text3);margin-bottom:4px">'
+        +'<span>Volume: '+a.litres.toFixed(0)+'L / '+t.volumeTarget+'L</span><span>'+volPct.toFixed(0)+'%</span></div>'
+        +'<div style="background:var(--s3);border-radius:4px;height:8px"><div style="height:100%;width:'+volPct+'%;background:var(--blue);border-radius:4px"></div></div></div>':'')
+        +'</div>';
+    });
+    c.innerHTML=h;
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEEK COMPARISON
+// ═══════════════════════════════════════════════════════════════
+var _cmpChart=null;
+function loadComparison() {
+  var branch=document.getElementById('cmpBranch')&&document.getElementById('cmpBranch').value;
+  var b2=document.getElementById('cmpBranch');
+  if(b2&&b2.options.length<2){BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b2.appendChild(o);});}
+  // This week: Mon-Sun. Last week: Mon-Sun before
+  var now=new Date();
+  var dow=now.getDay()||7; // 1=Mon, 7=Sun
+  var thisMonday=new Date(now);thisMonday.setDate(now.getDate()-(dow-1));
+  var lastMonday=new Date(thisMonday);lastMonday.setDate(thisMonday.getDate()-7);
+  var lastSunday=new Date(thisMonday);lastSunday.setDate(thisMonday.getDate()-1);
+  var thisMon=thisMonday.toISOString().split('T')[0];
+  var today=todayStr();
+  var lastMon=lastMonday.toISOString().split('T')[0];
+  var lastSun=lastSunday.toISOString().split('T')[0];
+  Promise.all([
+    db.collection('reports').where('date','>=',thisMon).where('date','<=',today).get(),
+    db.collection('reports').where('date','>=',lastMon).where('date','<=',lastSun).get()
+  ]).then(function(results){
+    var thisSnap=results[0],lastSnap=results[1];
+    var thisRev=0,lastRev=0,thisLit=0,lastLit=0;
+    var thisDay={},lastDay={};
+    thisSnap.forEach(function(d){var r=d.data();if(r.approvalStatus!=='approved')return;if(branch&&r.branch!==branch)return;thisRev+=r.grandTotal||0;thisLit+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;thisDay[r.date]=(thisDay[r.date]||0)+(r.grandTotal||0);});
+    lastSnap.forEach(function(d){var r=d.data();if(r.approvalStatus!=='approved')return;if(branch&&r.branch!==branch)return;lastRev+=r.grandTotal||0;lastLit+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;lastDay[r.date]=(lastDay[r.date]||0)+(r.grandTotal||0);});
+    var pct=lastRev>0?(((thisRev-lastRev)/lastRev)*100).toFixed(1):0;
+    var pctCol=parseFloat(pct)>=0?'var(--green)':'var(--red)';
+    var c=document.getElementById('cmpResult');
+    c.innerHTML='<div class="g4" style="margin-bottom:16px">'
+      +'<div class="stat-tile"><div class="st-label">This Week Revenue</div><div class="st-val">'+fmt(thisRev)+'</div><div class="st-sub">'+thisMon+' onwards</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Last Week Revenue</div><div class="st-val" style="color:var(--text2)">'+fmt(lastRev)+'</div><div class="st-sub">'+lastMon+' – '+lastSun+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Week Change</div><div class="st-val" style="color:'+pctCol+'">'+(parseFloat(pct)>=0?'+':'')+pct+'%</div></div>'
+      +'<div class="stat-tile"><div class="st-label">This Week Litres</div><div class="st-val">'+thisLit.toFixed(0)+'L</div></div>'
+      +'</div>';
+    // Chart
+    var days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var thisData=[],lastData=[];
+    for(var i=0;i<7;i++){
+      var td=new Date(thisMonday);td.setDate(thisMonday.getDate()+i);
+      var ld=new Date(lastMonday);ld.setDate(lastMonday.getDate()+i);
+      thisData.push(Math.round(thisDay[td.toISOString().split('T')[0]]||0));
+      lastData.push(Math.round(lastDay[ld.toISOString().split('T')[0]]||0));
+    }
+    var canvas=document.getElementById('cmpChart');if(!canvas)return;
+    if(_cmpChart){_cmpChart.destroy();}
+    _cmpChart=new Chart(canvas.getContext('2d'),{
+      type:'bar',
+      data:{labels:days,datasets:[
+        {label:'This Week',data:thisData,backgroundColor:'rgba(200,146,42,0.8)',borderRadius:3},
+        {label:'Last Week',data:lastData,backgroundColor:'rgba(255,255,255,0.1)',borderRadius:3}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#888',font:{size:11}}},tooltip:{backgroundColor:'#1a1a1a',borderColor:'#2a2a2a',borderWidth:1}},
+        scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555'}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',callback:function(v){return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v);}}}}}
+    });
+  }).catch(function(e){document.getElementById('cmpResult').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAFF PERFORMANCE
+// ═══════════════════════════════════════════════════════════════
+function loadStaffPerf() {
+  var from=document.getElementById('sperfFrom').value;
+  var to=document.getElementById('sperfTo').value;
+  if(!from||!to){
+    var now=new Date();
+    if(!from){document.getElementById('sperfFrom').value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';}
+    if(!to){document.getElementById('sperfTo').value=todayStr();}
+    from=document.getElementById('sperfFrom').value;
+    to=document.getElementById('sperfTo').value;
+  }
+  var c=document.getElementById('sperfList');if(!c)return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  db.collection('reports').where('date','>=',from).where('date','<=',to).get().then(function(snap){
+    var byStaff={};
+    snap.forEach(function(d){
+      var r=d.data();
+      var key=r.staffUid||r.staffName;
+      if(!byStaff[key])byStaff[key]={name:r.staffName,branch:r.branch,reports:0,approved:0,revenue:0,variance:0,late:0};
+      byStaff[key].reports++;
+      if(r.approvalStatus==='approved'){byStaff[key].approved++;byStaff[key].revenue+=r.grandTotal||0;}
+      byStaff[key].variance+=Math.abs((r.reconciliation&&r.reconciliation.variance)||0);
+    });
+    var rows=Object.values(byStaff);
+    if(!rows.length){c.innerHTML='<div class="empty">No data for this period.</div>';return;}
+    rows.sort(function(a,b){return b.revenue-a.revenue;});
+    var h='<table class="tbl"><thead><tr><th>Staff</th><th>Branch</th><th class="num">Reports</th><th class="num">Approved</th><th class="num">Approval Rate</th><th class="num">Total Revenue</th><th class="num">Total Variance</th><th>Score</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var rate=r.reports>0?((r.approved/r.reports)*100).toFixed(0):0;
+      var avgVar=r.approved>0?(r.variance/r.approved).toFixed(0):0;
+      // Score: 0-100 based on approval rate + low variance
+      var score=Math.min(100,Math.round(parseFloat(rate)*0.6+(parseFloat(avgVar)<500?40:parseFloat(avgVar)<2000?20:0)));
+      var scoreCol=score>=80?'var(--green)':score>=60?'var(--amber)':'var(--red)';
+      h+='<tr><td style="font-weight:600">'+r.name+'</td><td>'+r.branch+'</td>'
+        +'<td class="num">'+r.reports+'</td><td class="num">'+r.approved+'</td>'
+        +'<td class="num">'+rate+'%</td><td class="num">'+fmt(r.revenue)+'</td>'
+        +'<td class="num">'+fmt(r.variance)+'</td>'
+        +'<td><div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="flex:1;background:var(--s3);border-radius:4px;height:6px"><div style="width:'+score+'%;height:100%;background:'+scoreCol+';border-radius:4px"></div></div>'
+        +'<span style="font-size:0.7rem;font-weight:700;color:'+scoreCol+'">'+score+'</span>'
+        +'</div></td></tr>';
+    });
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD UPGRADES — Low Stock Alert + Target Progress
+// ═══════════════════════════════════════════════════════════════
+function loadDashboardExtras() {
+  // Low stock alert
+  var LOW_THRESHOLD = 5000; // litres
+  var alerts=[];
+  Promise.all(BRANCHES.map(function(b){
+    return db.collection('inventory').doc(b).get().then(function(s){
+      if(s.exists){var inv=s.data();if((inv.petrol||0)<LOW_THRESHOLD)alerts.push(b+': '+((inv.petrol||0).toFixed(0))+'L remaining');}
+    });
+  })).then(function(){
+    if(alerts.length){
+      toast('⚠ Low stock: '+alerts.join(', '),'err');
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
