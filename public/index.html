@@ -531,6 +531,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDipStick','mOps')">Dip Stick</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivery','mOps')">Fuel Delivery</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPumpCal','mOps')">Pump Calibration</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPurchases','mOps')">Purchase Orders</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
@@ -976,6 +977,76 @@ a { color: var(--gold); text-decoration: none; }
       <div class="card-title">Monthly Revenue Forecast</div>
       <div id="predContent"><div class="empty">Loading…</div></div>
     </div>
+  </div>
+
+
+  <!-- ══ PURCHASE ORDERS ══════════════════════════════════════ -->
+  <div id="tabPurchases" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Purchase Orders</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadPurchases()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+
+      <!-- Left: list of POs -->
+      <div>
+        <div id="poList"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- Right: new PO form -->
+      <div>
+        <div class="card">
+          <div class="card-title">New Purchase Order</div>
+
+          <div class="g2">
+            <div class="field"><label>Vendor</label><select id="poVendor"></select></div>
+            <div class="field"><label>Order Date</label><input type="date" id="poDate"></div>
+          </div>
+          <div class="g2">
+            <div class="field"><label>PO Number / Reference</label><input type="text" id="poRef" placeholder="e.g. PO-2026-001"></div>
+            <div class="field"><label>Expected Delivery Date</label><input type="date" id="poDelivDate"></div>
+          </div>
+          <div class="field"><label>Notes</label><input type="text" id="poNotes" placeholder="Any special instructions"></div>
+
+          <!-- Line items -->
+          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:1px;
+            text-transform:uppercase;margin:14px 0 8px;padding-bottom:6px;
+            border-bottom:1px solid var(--border)">
+            Line Items — Products Ordered
+          </div>
+
+          <div id="poLines"></div>
+
+          <button class="btn btn-ghost btn-sm" onclick="addPOLine()" style="margin-bottom:14px">
+            + Add Line Item
+          </button>
+
+          <!-- PO Total -->
+          <div style="display:flex;justify-content:space-between;align-items:center;
+            padding:12px 0;border-top:1px solid var(--border);margin-bottom:14px">
+            <span style="font-size:0.72rem;color:var(--text3)">Order Total:</span>
+            <span id="poTotal" style="font-size:1.1rem;font-weight:700;
+              color:var(--gold);font-family:var(--mono)">KSh 0</span>
+          </div>
+
+          <div class="field"><label>Payment Terms</label>
+            <select id="poPayTerms">
+              <option>On Delivery</option>
+              <option>Net 7 Days</option>
+              <option>Net 14 Days</option>
+              <option>Net 30 Days</option>
+              <option>Prepaid</option>
+            </select>
+          </div>
+
+          <button class="btn btn-gold btn-sm btn-full" onclick="savePurchaseOrder()">
+            Save Purchase Order
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PO Detail Modal content -->
   </div>
 
 
@@ -1455,6 +1526,7 @@ var PANEL_TO_TAB = {
   tabDelivRecon:   'mReports',
   tabInv:          'mOps',      tabVend:      'mOps',
   tabCreateReport: 'mOps',      tabImport:    'mOps',
+  tabPurchases:    'mOps',
   tabDipStick:     'mOps',      tabDelivery:  'mOps',
   tabPumpCal:      'mOps',
   tabBranchSummary:'mSummary',
@@ -1553,6 +1625,7 @@ function panelInit(panelId) {
     case 'tabDangerZone':   break;
     case 'tabTrends':       loadTrends();        break;
     case 'tabPredictions':  loadPredictions();   break;
+    case 'tabPurchases':    loadPurchases();     break;
     case 'tabDipStick':     loadDipStick();      break;
     case 'tabDelivery':     loadDeliveries();    break;
     case 'tabPumpCal':      loadPumpCal();       break;
@@ -2975,6 +3048,270 @@ function submitReport() {
   }).catch(function(e){ busy('btnSubmit',false); toast('Error: '+e.message,'err'); });
 }
 
+
+
+// ═══════════════════════════════════════════════════════════════
+// PURCHASE ORDERS
+// ═══════════════════════════════════════════════════════════════
+var _poLineCount = 0;
+
+function _poLineHtml(i) {
+  var branchOpts = '<option value="">All Branches</option>'
+    + BRANCHES.map(function(b){ return '<option value="'+b+'">'+b+'</option>'; }).join('');
+  return '<div class="bill-line" id="poLine_'+i+'" style="'
+    + 'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;'
+    + 'gap:8px;align-items:end;margin-bottom:10px;padding-bottom:10px;'
+    + 'border-bottom:1px solid var(--border)">'
+    // Product / Description
+    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Product / Description</label>'
+    + '<input type="text" id="poDesc_'+i+'" placeholder="e.g. Petrol PMS, 2T Oil…" oninput="poCalc()"></div>'
+    // Delivery Branch
+    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Deliver To</label>'
+    + '<select id="poBranch_'+i+'" onchange="poCalc()">'+branchOpts+'</select></div>'
+    // Unit
+    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit</label>'
+    + '<select id="poUnit_'+i+'">'
+    + '<option>Litres</option><option>Pieces</option><option>Kg</option><option>Boxes</option><option>Units</option>'
+    + '</select></div>'
+    // Qty
+    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Quantity</label>'
+    + '<input type="number" id="poQty_'+i+'" value="1" min="0" step="0.01" '
+    + 'oninput="poCalc()" style="font-family:var(--mono);text-align:right"></div>'
+    // Unit Price
+    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit Price (KSh)</label>'
+    + '<input type="number" id="poPrice_'+i+'" value="0" min="0" step="0.01" '
+    + 'oninput="poCalc()" style="font-family:var(--mono);text-align:right"></div>'
+    // Remove
+    + '<button type="button" onclick="removePOLine('+i+')" '
+    + 'style="background:none;border:none;color:var(--red);cursor:pointer;'
+    + 'font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">✕</button>'
+    + '</div>';
+}
+
+function addPOLine() {
+  _poLineCount++;
+  var c = document.getElementById('poLines');
+  if (!c) return;
+  var div = document.createElement('div');
+  div.innerHTML = _poLineHtml(_poLineCount);
+  c.appendChild(div.firstChild);
+}
+
+function removePOLine(i) {
+  var row = document.getElementById('poLine_'+i);
+  if (row) row.remove();
+  poCalc();
+}
+
+function poCalc() {
+  var total = 0;
+  var c = document.getElementById('poLines');
+  if (!c) return;
+  c.querySelectorAll('.bill-line').forEach(function(row) {
+    var id    = row.id.replace('poLine_','');
+    var qty   = parseFloat((document.getElementById('poQty_'+id)||{}).value||0)   || 0;
+    var price = parseFloat((document.getElementById('poPrice_'+id)||{}).value||0) || 0;
+    total += qty * price;
+  });
+  var pt = document.getElementById('poTotal');
+  if (pt) pt.textContent = 'KSh ' + total.toLocaleString('en-KE',
+    {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function savePurchaseOrder() {
+  var vendorEl = document.getElementById('poVendor');
+  var vendor   = vendorEl ? vendorEl.value : '';
+  var vendorName = vendorEl && vendorEl.options[vendorEl.selectedIndex]
+    ? vendorEl.options[vendorEl.selectedIndex].text : '';
+  var date     = (document.getElementById('poDate')||{}).value      || '';
+  var ref      = (document.getElementById('poRef')||{}).value       || '';
+  var delivDate= (document.getElementById('poDelivDate')||{}).value || '';
+  var notes    = (document.getElementById('poNotes')||{}).value     || '';
+  var terms    = (document.getElementById('poPayTerms')||{}).value  || '';
+
+  if (!date) { toast('Select an order date', 'err'); return; }
+
+  // Collect line items
+  var lineItems = [];
+  var orderTotal = 0;
+  var c = document.getElementById('poLines');
+  if (!c || !c.querySelectorAll('.bill-line').length) {
+    toast('Add at least one line item', 'err'); return;
+  }
+
+  c.querySelectorAll('.bill-line').forEach(function(row) {
+    var id     = row.id.replace('poLine_','');
+    var desc   = (document.getElementById('poDesc_'+id)||{}).value   || '';
+    var branch = (document.getElementById('poBranch_'+id)||{}).value || '';
+    var unit   = (document.getElementById('poUnit_'+id)||{}).value   || 'Units';
+    var qty    = parseFloat((document.getElementById('poQty_'+id)||{}).value)    || 0;
+    var price  = parseFloat((document.getElementById('poPrice_'+id)||{}).value)  || 0;
+    var amount = qty * price;
+    if (!desc || qty === 0) return;
+    lineItems.push({
+      description: desc,
+      branch:      branch || 'All Branches',
+      unit:        unit,
+      qty:         qty,
+      unitPrice:   price,
+      amount:      amount
+    });
+    orderTotal += amount;
+  });
+
+  if (!lineItems.length) {
+    toast('Add at least one line item with product and quantity', 'err'); return;
+  }
+
+  // Group branches for summary
+  var branches = [...new Set(lineItems.map(function(l){ return l.branch; }))].join(', ');
+
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  db.collection('purchaseOrders').add({
+    vendorId:         vendor,
+    vendorName:       vendorName,
+    orderDate:        date,
+    reference:        ref,
+    expectedDelivery: delivDate,
+    notes:            notes,
+    paymentTerms:     terms,
+    lineItems:        lineItems,
+    totalAmount:      orderTotal,
+    branches:         branches,
+    status:           'pending',   // pending | received | partial | cancelled
+    createdAt:        now,
+    updatedAt:        now
+  }).then(function() {
+    toast('Purchase Order saved — KSh ' + orderTotal.toLocaleString(), 'ok');
+    // Reset form
+    ['poRef','poNotes','poDelivDate'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('poLines').innerHTML = '';
+    _poLineCount = 0;
+    document.getElementById('poTotal').textContent = 'KSh 0';
+    addPOLine(); // Start fresh with one line
+    loadPurchases();
+  }).catch(function(e){ toast('Error: ' + e.message, 'err'); });
+}
+
+function loadPurchases() {
+  // Populate vendor dropdown
+  var vs = document.getElementById('poVendor');
+  if (vs && vs.options.length < 2) {
+    db.collection('vendors').get().then(function(snap){
+      snap.forEach(function(d){
+        var v=d.data();
+        var o=document.createElement('option');
+        o.value=d.id; o.textContent=v.name;
+        vs.appendChild(o);
+      });
+    }).catch(function(){});
+  }
+  // Set defaults
+  var pd = document.getElementById('poDate');
+  if (pd && !pd.value) pd.valueAsDate = new Date();
+  // Add first line if empty
+  var pl = document.getElementById('poLines');
+  if (pl && !pl.children.length) { _poLineCount=0; addPOLine(); }
+
+  // Load PO list
+  var c = document.getElementById('poList');
+  if (!c) return;
+  c.innerHTML = '<div class="empty">Loading…</div>';
+
+  db.collection('purchaseOrders').limit(60).get().then(function(snap) {
+    if (snap.empty) {
+      c.innerHTML = '<div class="empty">No purchase orders yet. Create one using the form.</div>';
+      return;
+    }
+    var orders = [];
+    snap.forEach(function(d){ orders.push({id:d.id, ...d.data()}); });
+    orders.sort(function(a,b){
+      return (b.orderDate||'').localeCompare(a.orderDate||'');
+    });
+
+    var html = '';
+    orders.forEach(function(o) {
+      var statusColor = {
+        pending:   'badge-gold',
+        received:  'badge-green',
+        partial:   'badge-blue',
+        cancelled: 'badge-red'
+      }[o.status] || 'badge-gold';
+
+      var lines = (o.lineItems||[]);
+      var lineRows = lines.map(function(l){
+        return '<tr>'
+          + '<td>'+l.description+'</td>'
+          + '<td><span class="branch-pill" style="font-size:0.55rem">'+l.branch+'</span></td>'
+          + '<td class="num">'+l.qty+' '+l.unit+'</td>'
+          + '<td class="num">'+fmt(l.unitPrice)+'</td>'
+          + '<td class="num" style="font-weight:600">'+fmt(l.amount)+'</td>'
+          + '</tr>';
+      }).join('');
+
+      html += '<div style="border:1px solid var(--border);border-radius:8px;'
+        + 'margin-bottom:12px;overflow:hidden">'
+        // Header
+        + '<div style="background:var(--s2);padding:10px 14px;display:flex;'
+        + 'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+        + '<div>'
+        + '<span style="font-weight:700;font-size:0.82rem">'+(o.reference||'PO')+'</span>'
+        + ' <span style="font-size:0.65rem;color:var(--text3);margin-left:6px">'
+        + o.vendorName+' · '+o.orderDate+'</span>'
+        + (o.expectedDelivery?'<span style="font-size:0.6rem;color:var(--text3);margin-left:8px">'
+          +'Exp. delivery: '+o.expectedDelivery+'</span>':'')
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<span class="badge '+statusColor+'">'+o.status+'</span>'
+        + '<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'
+        + fmt(o.totalAmount)+'</span>'
+        + '<button class="btn btn-green btn-xs" onclick="markPOReceived(\''+o.id+'\')" '
+        + 'title="Mark as received">✓ Received</button>'
+        + '<button class="btn btn-red btn-xs" onclick="cancelPO(\''+o.id+'\')" '
+        + 'title="Cancel">✕</button>'
+        + '</div></div>'
+        // Line items table
+        + '<table class="tbl" style="margin:0"><thead><tr>'
+        + '<th>Product</th><th>Branch</th>'
+        + '<th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th>'
+        + '</tr></thead><tbody>'
+        + lineRows
+        + '</tbody></table>'
+        // Footer
+        + (o.notes?'<div style="padding:8px 14px;font-size:0.65rem;color:var(--text3)'
+          +';border-top:1px solid var(--border)">Note: '+o.notes+'</div>':'')
+        + '</div>';
+    });
+
+    c.innerHTML = html;
+  }).catch(function(e){
+    c.innerHTML = '<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';
+  });
+}
+
+function markPOReceived(id) {
+  db.collection('purchaseOrders').doc(id).update({
+    status:    'received',
+    receivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt:  firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Purchase Order marked as received', 'ok');
+    loadPurchases();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function cancelPO(id) {
+  if (!confirm('Cancel this purchase order?')) return;
+  db.collection('purchaseOrders').doc(id).update({
+    status:    'cancelled',
+    updatedAt:  firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Purchase Order cancelled', 'ok');
+    loadPurchases();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
 
 // ═══════════════════════════════════════════════════════════════
 // DIP STICK
