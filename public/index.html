@@ -2446,7 +2446,11 @@ function saveBill() {
 
   c.querySelectorAll('.bill-line').forEach(function(row) {
     var id     = row.id.replace('billLine_','');
-    var desc   = (document.getElementById('blDesc_'+id)||{}).value   || '';
+    var descSel = document.getElementById('blDesc_'+id);
+    var descVal = descSel ? descSel.value : '';
+    var desc = descVal === 'Other'
+      ? ((document.getElementById('blDescOther_'+id)||{}).value||'').trim()
+      : descVal;
     var branch = (document.getElementById('blBranch_'+id)||{}).value || '';
     var qty    = parseFloat((document.getElementById('blQty_'+id)||{}).value)   || 0;
     var price  = parseFloat((document.getElementById('blPrice_'+id)||{}).value) || 0;
@@ -3053,6 +3057,35 @@ function submitReport() {
 // ═══════════════════════════════════════════════════════════════
 // PURCHASE ORDERS
 // ═══════════════════════════════════════════════════════════════
+
+function poProductChange(i) {
+  var sel   = document.getElementById('poDesc_'+i);
+  var other = document.getElementById('poDescOther_'+i);
+  var unit  = document.getElementById('poUnit_'+i);
+  if (!sel) return;
+  // Show/hide other input
+  if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+  // Auto-set unit from data-unit attribute
+  var opt = sel.options[sel.selectedIndex];
+  var dataUnit = opt ? opt.getAttribute('data-unit') : '';
+  if (unit && dataUnit) {
+    for (var k=0; k<unit.options.length; k++) {
+      if (unit.options[k].value === dataUnit || unit.options[k].text === dataUnit) {
+        unit.selectedIndex = k; break;
+      }
+    }
+  }
+  poCalc();
+}
+
+function billProductChange(i) {
+  var sel   = document.getElementById('blDesc_'+i);
+  var other = document.getElementById('blDescOther_'+i);
+  if (!sel) return;
+  if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+  billCalc();
+}
+
 var _poLineCount = 0;
 
 function _poLineHtml(i) {
@@ -3062,16 +3095,26 @@ function _poLineHtml(i) {
     + 'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;'
     + 'gap:8px;align-items:end;margin-bottom:10px;padding-bottom:10px;'
     + 'border-bottom:1px solid var(--border)">'
-    // Product / Description
-    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Product / Description</label>'
-    + '<input type="text" id="poDesc_'+i+'" placeholder="e.g. Petrol PMS, 2T Oil…" oninput="poCalc()"></div>'
+    // Product dropdown
+    + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Product</label>'
+    + '<select id="poDesc_'+i+'" onchange="poProductChange('+i+')" style="font-weight:500">'
+    + '<option value="">-- Select Product --</option>'
+    + '<option value="Petrol (PMS)" data-unit="L">Petrol (PMS)</option>'
+    + '<option value="2T Motor Oil" data-unit="pcs">2T Motor Oil</option>'
+    + '<option value="2T-Kupima" data-unit="L">2T-Kupima</option>'
+    + '<option value="Used Oil" data-unit="L">Used Oil</option>'
+    + '<option value="Shell Advance" data-unit="pcs">Shell Advance</option>'
+    + '<option value="Other" data-unit="">Other (type below)</option>'
+    + '</select>'
+    + '<input type="text" id="poDescOther_'+i+'" placeholder="Specify product…" '
+    + 'style="display:none;margin-top:4px" oninput="poCalc()"></div>'
     // Delivery Branch
     + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Deliver To</label>'
     + '<select id="poBranch_'+i+'" onchange="poCalc()">'+branchOpts+'</select></div>'
-    // Unit
+    // Unit — auto-filled from product selection
     + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit</label>'
     + '<select id="poUnit_'+i+'">'
-    + '<option>Litres</option><option>Pieces</option><option>Kg</option><option>Boxes</option><option>Units</option>'
+    + '<option>L</option><option>pcs</option><option>Kg</option><option>Boxes</option><option>Units</option>'
     + '</select></div>'
     // Qty
     + '<div class="field" style="margin:0"><label style="font-size:0.6rem">Quantity</label>'
@@ -3141,7 +3184,11 @@ function savePurchaseOrder() {
 
   c.querySelectorAll('.bill-line').forEach(function(row) {
     var id     = row.id.replace('poLine_','');
-    var desc   = (document.getElementById('poDesc_'+id)||{}).value   || '';
+    var descSel = document.getElementById('poDesc_'+id);
+    var descVal = descSel ? descSel.value : '';
+    var desc = descVal === 'Other'
+      ? ((document.getElementById('poDescOther_'+id)||{}).value || '').trim()
+      : descVal;
     var branch = (document.getElementById('poBranch_'+id)||{}).value || '';
     var unit   = (document.getElementById('poUnit_'+id)||{}).value   || 'Units';
     var qty    = parseFloat((document.getElementById('poQty_'+id)||{}).value)    || 0;
