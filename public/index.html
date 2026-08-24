@@ -502,7 +502,7 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- Main tab bar -->
   <div class="adm-tabs">
-    <button class="adm-tab" id="mainTab_dash"      onclick="mainTab(this,'mDash')">Dashboard</button>
+    <button class="adm-tab" id="mainTab_dash"      onclick="mainTab(this,'mDash')">⌂ Dashboard</button>
     <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
     <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
     <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
@@ -1875,20 +1875,40 @@ auth.onAuthStateChanged(function(user) {
 // ADMIN INIT
 // ═══════════════════════════════════════════════════════════════
 function loadAdminInit() {
-  // Populate branch dropdowns (built-in + custom from DB)
+  // Background: populate dropdowns and cache
   populateBranchDropdowns();
   loadBranchesFromDB();
   loadCustomProductsCache();
   loadPricesCache();
-  // Show dashboard by default
-  hideAllSubNavs();
-  hideAllPanels();
-  var dn = el('subNav_mDash');
-  if (dn) dn.style.display = 'flex';
+  calculateWACC(null, function(w){ WACC_CACHE = w; });
+
+  // Immediately show Dashboard as homepage
+  goToDashboard();
+}
+
+function goToDashboard() {
+  // Hide everything
+  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+  document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
   document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-  var dashTab = el('mainTab_dash');
-  if (dashTab) dashTab.classList.add('active');
-  showPanel('tabDash');
+
+  // Show dashboard sub-nav
+  var sn = el('subNav_mDash');
+  if (sn) sn.style.display = 'flex';
+
+  // Highlight Dashboard tab
+  var dt = el('mainTab_dash');
+  if (dt) dt.classList.add('active');
+
+  // Show dashboard panel with inline style (cannot be overridden)
+  var dash = el('tabDash');
+  if (dash) {
+    dash.style.cssText = 'display:block';
+    dash.style.display = 'block';
+  }
+
+  // Load dashboard content
+  loadDashboard();
 }
 
 function populateBranchDropdowns() {
