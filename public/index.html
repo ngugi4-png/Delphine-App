@@ -1297,34 +1297,73 @@ a { color: var(--gold); text-decoration: none; }
       </div>
       <div>
         <div class="card">
-          <div class="card-title">Record COGS Transfer</div>
-          <div class="field"><label>Date</label><input type="date" id="cogsDate"></div>
-          <div class="field"><label>Branch</label><select id="cogsBranch"></select></div>
-          <div class="field"><label>Revenue for Period (KSh)</label>
-            <input type="number" id="cogsRevenue" step="0.01" oninput="cogsCalc()"></div>
-          <div class="field"><label>COGS Amount (KSh)</label>
-            <input type="number" id="cogsAmount" step="0.01" oninput="cogsCalc()"
-              style="font-weight:700;font-family:var(--mono)"></div>
-          <div class="field"><label>COGS % of Revenue</label>
-            <input type="number" id="cogsPct" step="0.1" placeholder="e.g. 85" oninput="cogsCalcFromPct()"
-              style="font-family:var(--mono)"></div>
-          <div class="field"><label>Transfer To (Bank Account)</label>
-            <select id="cogsBank"></select></div>
-          <div class="field"><label>Transfer Method</label>
-            <select id="cogsMethod">
-              <option>Bank Transfer</option>
-              <option>M-Pesa</option>
-              <option>Cash</option>
-              <option>Cheque</option>
-            </select>
+          <div class="card-title">Calculate &amp; Record COGS Transfer</div>
+
+          <div class="g2">
+            <div class="field"><label>Date</label><input type="date" id="cogsDate" onchange="cogsAutoFetch()"></div>
+            <div class="field"><label>Branch</label>
+              <select id="cogsBranch" onchange="cogsAutoFetch()"></select>
+            </div>
           </div>
-          <div class="field"><label>Reference / Transaction ID</label>
-            <input type="text" id="cogsRef" placeholder="Optional"></div>
+
+          <!-- Auto-fetch button -->
+          <button class="btn btn-ghost btn-sm btn-full" onclick="cogsAutoFetch()" style="margin-bottom:12px">
+            ⟳ Load Sales Data &amp; Calculate COGS
+          </button>
+
+          <!-- WACC Breakdown — shown after calculation -->
+          <div id="cogsWACCBreakdown" style="display:none;background:var(--s2);border-radius:8px;
+            padding:12px;margin-bottom:14px;font-size:0.72rem">
+            <div style="font-size:0.6rem;font-weight:700;color:var(--text3);letter-spacing:1px;
+              text-transform:uppercase;margin-bottom:8px">WACC COGS Breakdown</div>
+            <table style="width:100%;border-collapse:collapse" id="cogsWACCtable">
+            </table>
+            <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between">
+              <div>
+                <div style="color:var(--text3);font-size:0.6rem">Total Revenue</div>
+                <div id="cogsTotalRevenue" style="font-weight:700;font-family:var(--mono);color:var(--text)">—</div>
+              </div>
+              <div>
+                <div style="color:var(--text3);font-size:0.6rem">Total COGS</div>
+                <div id="cogsTotalCOGS" style="font-weight:700;font-family:var(--mono);color:var(--red)">—</div>
+              </div>
+              <div>
+                <div style="color:var(--text3);font-size:0.6rem">Gross Profit</div>
+                <div id="cogsGrossProfit" style="font-weight:700;font-family:var(--mono);color:var(--green)">—</div>
+              </div>
+              <div>
+                <div style="color:var(--text3);font-size:0.6rem">Gross Margin</div>
+                <div id="cogsGrossMargin" style="font-weight:700;font-family:var(--mono);color:var(--gold)">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hidden fields populated by calculation -->
+          <input type="hidden" id="cogsRevenue">
+          <input type="hidden" id="cogsAmount">
+
+          <div class="field"><label>Transfer To (Bank Account)</label>
+            <select id="cogsBank"></select>
+          </div>
+          <div class="g2">
+            <div class="field"><label>Transfer Method</label>
+              <select id="cogsMethod">
+                <option>Bank Transfer</option><option>M-Pesa</option>
+                <option>Cash</option><option>Cheque</option>
+              </select>
+            </div>
+            <div class="field"><label>Reference / Transaction ID</label>
+              <input type="text" id="cogsRef" placeholder="Optional">
+            </div>
+          </div>
           <div class="field"><label>Notes</label>
-            <input type="text" id="cogsNotes" placeholder="Optional"></div>
-          <div id="cogsSummary" style="display:none;background:var(--s2);border-radius:6px;
-            padding:10px 12px;margin-bottom:12px;font-size:0.72rem;color:var(--text2)"></div>
-          <button class="btn btn-gold btn-sm btn-full" onclick="saveCOGS()">Save Transfer</button>
+            <input type="text" id="cogsNotes" placeholder="Optional">
+          </div>
+
+          <button class="btn btn-gold btn-sm btn-full" id="cogsSaveBtn"
+            onclick="saveCOGS()" style="display:none">
+            Save COGS Transfer
+          </button>
         </div>
       </div>
     </div>
@@ -2296,9 +2335,16 @@ function loadBranchPrices() {
 
 function savePrice(branch) {
   var data={
-    petrolSell: parseFloat(gv('price_'+branch+'_petrol'))||0,
-    p2tSell:    parseFloat(gv('price_'+branch+'_p2t'))||0,
-    pshellSell: parseFloat(gv('price_'+branch+'_pshell'))||0,
+    petrolSell:  parseFloat(gv('price_'+branch+'_petrolSell'))||0,
+    petrolCost:  parseFloat(gv('price_'+branch+'_petrolCost'))||0,
+    p2tSell:     parseFloat(gv('price_'+branch+'_p2tSell'))||0,
+    p2tCost:     parseFloat(gv('price_'+branch+'_p2tCost'))||0,
+    p2tkSell:    parseFloat(gv('price_'+branch+'_p2tkSell'))||0,
+    p2tkCost:    parseFloat(gv('price_'+branch+'_p2tkCost'))||0,
+    puoilSell:   parseFloat(gv('price_'+branch+'_puoilSell'))||0,
+    puoilCost:   parseFloat(gv('price_'+branch+'_puoilCost'))||0,
+    pshellSell:  parseFloat(gv('price_'+branch+'_pshellSell'))||0,
+    pshellCost:  parseFloat(gv('price_'+branch+'_pshellCost'))||0,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
   db.collection('invPrices').doc(branch).set(data,{merge:true}).then(function(){
@@ -4450,85 +4496,217 @@ function loadBranchesFromDB() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// COGS TRANSFERS
+// COGS TRANSFERS — WACC-based calculation from daily sales
 // ═══════════════════════════════════════════════════════════════
-function cogsCalc() {
-  var rev = parseFloat((document.getElementById('cogsRevenue')||{}).value)||0;
-  var amt = parseFloat((document.getElementById('cogsAmount')||{}).value)||0;
-  var pct = rev > 0 ? ((amt/rev)*100).toFixed(1) : 0;
-  var pctEl = document.getElementById('cogsPct');
-  if (pctEl && !pctEl._userEditing) pctEl.value = pct;
-  showCogsSummary(rev, amt);
-}
 
-function cogsCalcFromPct() {
-  var rev = parseFloat((document.getElementById('cogsRevenue')||{}).value)||0;
-  var pct = parseFloat((document.getElementById('cogsPct')||{}).value)||0;
-  var amt = (rev * pct / 100);
-  var amtEl = document.getElementById('cogsAmount');
-  if (amtEl) { amtEl.value = amt.toFixed(2); amtEl._userEditing = false; }
-  var pctEl = document.getElementById('cogsPct'); if (pctEl) pctEl._userEditing = true;
-  showCogsSummary(rev, amt);
-}
+// Product definitions with keys matching Firestore report structure
+var COGS_PRODUCTS = [
+  {key:'petrol', name:'Petrol (PMS)', costKey:'petrolCost', sellKey:'petrolSell',
+   qtyFn: function(r){ return (r.pump&&r.pump.metre&&r.pump.metre.sold)||0; },
+   revFn:  function(r){ return (r.pump&&r.pump.display&&r.pump.display.sold)||0; }},
+  {key:'p2t',    name:'2T Motor Oil', costKey:'p2tCost',    sellKey:'p2tSell',
+   qtyFn: function(r){ return (r.products&&r.products.p2t&&r.products.p2t.qty)||0; },
+   revFn:  function(r){ return (r.products&&r.products.p2t&&r.products.p2t.total)||0; }},
+  {key:'p2tk',   name:'2T-Kupima',    costKey:'p2tkCost',   sellKey:'p2tkSell',
+   qtyFn: function(r){ return (r.products&&r.products.p2tk&&r.products.p2tk.qty)||0; },
+   revFn:  function(r){ return (r.products&&r.products.p2tk&&r.products.p2tk.total)||0; }},
+  {key:'puoil',  name:'Used Oil',     costKey:'puoilCost',  sellKey:'puoilSell',
+   qtyFn: function(r){ return (r.products&&r.products.puoil&&r.products.puoil.qty)||0; },
+   revFn:  function(r){ return (r.products&&r.products.puoil&&r.products.puoil.total)||0; }},
+  {key:'pshell', name:'Shell Advance',costKey:'pshellCost', sellKey:'pshellSell',
+   qtyFn: function(r){ return (r.products&&r.products.pshell&&r.products.pshell.qty)||0; },
+   revFn:  function(r){ return (r.products&&r.products.pshell&&r.products.pshell.total)||0; }}
+];
 
-function showCogsSummary(rev, amt) {
-  var sd = document.getElementById('cogsSummary'); if (!sd) return;
-  if (!rev && !amt) { sd.style.display='none'; return; }
-  var margin = rev - amt;
-  sd.style.display = 'block';
-  sd.innerHTML = '<strong>Revenue:</strong> '+fmt(rev)
-    + ' &nbsp;|&nbsp; <strong>COGS:</strong> '+fmt(amt)
-    + ' &nbsp;|&nbsp; <strong>Gross Margin:</strong> <span style="color:'+(margin>=0?'var(--green)':'var(--red)')+'">'+fmt(margin)+'</span>';
+function cogsAutoFetch() {
+  var date   = (document.getElementById('cogsDate')||{}).value;
+  var branch = (document.getElementById('cogsBranch')||{}).value;
+  if (!date || !branch) { toast('Select date and branch first','err'); return; }
+
+  var brkDiv = document.getElementById('cogsWACCBreakdown');
+  if (brkDiv) brkDiv.style.display='none';
+  var saveBtn = document.getElementById('cogsSaveBtn');
+  if (saveBtn) saveBtn.style.display='none';
+
+  // Fetch approved reports for this date + branch
+  // Also fetch cost prices for this branch
+  Promise.all([
+    db.collection('reports').where('date','==',date).where('branch','==',branch).get(),
+    db.collection('invPrices').doc(branch).get()
+  ]).then(function(results) {
+    var rSnap   = results[0];
+    var prSnap  = results[1];
+    var prices  = prSnap.exists ? prSnap.data() : {};
+
+    if (rSnap.empty) {
+      toast('No approved reports found for '+branch+' on '+date,'err');
+      return;
+    }
+
+    // Aggregate quantities and revenues per product across all shifts
+    var totals = {};
+    COGS_PRODUCTS.forEach(function(p){ totals[p.key]={qty:0,rev:0}; });
+
+    rSnap.forEach(function(d) {
+      var r = d.data();
+      // Include all reports (approved + pending) for the day
+      COGS_PRODUCTS.forEach(function(p) {
+        totals[p.key].qty += p.qtyFn(r);
+        totals[p.key].rev += p.revFn(r);
+      });
+    });
+
+    // WACC COGS calculation per product:
+    // For each product: COGS = Qty Sold × Weighted Average Cost Price
+    // Weighted Avg Cost = cost price from invPrices (updated per delivery)
+    // Gross Margin = (Revenue - COGS) / Revenue × 100
+
+    var totalRevenue = 0;
+    var totalCOGS    = 0;
+    var tableRows    = '';
+
+    COGS_PRODUCTS.forEach(function(p) {
+      var qty      = totals[p.key].qty;
+      var rev      = totals[p.key].rev;
+      var costPx   = prices[p.costKey] || 0;
+      var sellPx   = prices[p.sellKey] || 0;
+
+      // If no cost price set, warn
+      if (!costPx && qty > 0) {
+        tableRows += '<tr style="background:rgba(192,57,43,0.08)">'
+          +'<td style="padding:5px 6px;color:var(--text2)">'+p.name+'</td>'
+          +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono)">'+qty.toFixed(1)+'</td>'
+          +'<td colspan="4" style="padding:5px 6px;color:var(--red);font-size:0.65rem">'
+          +'⚠ No cost price set — go to Settings → Branches to set cost price</td></tr>';
+        totalRevenue += rev;
+        return;
+      }
+      if (!qty) return; // skip products with zero sales
+
+      var cogs   = qty * costPx;
+      var margin = rev > 0 ? ((rev - cogs) / rev * 100).toFixed(1) : '0.0';
+      var mCol   = parseFloat(margin) > 0 ? 'var(--green)' : 'var(--red)';
+
+      totalRevenue += rev;
+      totalCOGS    += cogs;
+
+      tableRows += '<tr style="border-bottom:1px solid var(--border)">'
+        +'<td style="padding:5px 6px;font-weight:500;color:var(--text)">'+p.name+'</td>'
+        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--text2)">'+qty.toFixed(2)+'</td>'
+        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--text2)">'+fmt(costPx)+'</td>'
+        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--red)">'+fmt(cogs)+'</td>'
+        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--text2)">'+fmt(rev)+'</td>'
+        +'<td style="padding:5px 6px;text-align:right;font-weight:700;color:'+mCol+'">'+margin+'%</td>'
+        +'</tr>';
+    });
+
+    // Populate the breakdown table
+    var tbl = document.getElementById('cogsWACCtable');
+    if (tbl) {
+      tbl.innerHTML = '<thead><tr style="border-bottom:1px solid var(--border)">'
+        +'<th style="padding:4px 6px;text-align:left;color:var(--text3);font-size:0.6rem">Product</th>'
+        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">Qty Sold</th>'
+        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">WACC Cost</th>'
+        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">COGS</th>'
+        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">Revenue</th>'
+        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">Margin</th>'
+        +'</tr></thead><tbody>'+tableRows+'</tbody>';
+    }
+
+    // Show totals
+    var grossProfit = totalRevenue - totalCOGS;
+    var grossMargin = totalRevenue > 0 ? ((grossProfit/totalRevenue)*100).toFixed(1)+'%' : '—';
+    var gCol = grossProfit >= 0 ? 'var(--green)' : 'var(--red)';
+
+    var trEl=document.getElementById('cogsTotalRevenue'); if(trEl) trEl.textContent=fmt(totalRevenue);
+    var tcEl=document.getElementById('cogsTotalCOGS');    if(tcEl) tcEl.textContent=fmt(totalCOGS);
+    var gpEl=document.getElementById('cogsGrossProfit');  if(gpEl){gpEl.textContent=fmt(grossProfit);gpEl.style.color=gCol;}
+    var gmEl=document.getElementById('cogsGrossMargin');  if(gmEl) gmEl.textContent=grossMargin;
+
+    // Store values in hidden inputs for saveCOGS
+    var revH=document.getElementById('cogsRevenue'); if(revH) revH.value=totalRevenue.toFixed(2);
+    var amtH=document.getElementById('cogsAmount');  if(amtH) amtH.value=totalCOGS.toFixed(2);
+
+    // Show breakdown + save button
+    if(brkDiv) brkDiv.style.display='block';
+    if(saveBtn) saveBtn.style.display='block';
+
+  }).catch(function(e){ toast('Error loading sales: '+e.message,'err'); });
 }
 
 function loadCOGS() {
-  // Populate branch select
   var bs = document.getElementById('cogsBranch');
   if (bs && bs.options.length < 1) {
-    BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bs.appendChild(o);});
+    BRANCHES.forEach(function(b){
+      var o=document.createElement('option');o.value=b;o.textContent=b;bs.appendChild(o);
+    });
   }
-  // Populate bank select
   var bk = document.getElementById('cogsBank');
   if (bk && bk.options.length < 1) {
     db.collection('settings').doc('bankAccounts').get().then(function(s){
-      var accts = s.exists ? (s.data().accounts||[]) : [];
-      accts.forEach(function(a){var o=document.createElement('option');o.value=a.bank+' — '+a.account;o.textContent=a.bank+' ('+a.branch+')';bk.appendChild(o);});
-      if (!accts.length) { var o=document.createElement('option');o.value='Main Account';o.textContent='Main Account';bk.appendChild(o); }
+      var accts = s.exists?(s.data().accounts||[]):[];
+      accts.forEach(function(a){
+        var o=document.createElement('option');
+        o.value=a.bank+'_'+a.account;
+        o.textContent=a.bank+' — '+a.account+' ('+a.branch+')';
+        bk.appendChild(o);
+      });
+      if(!accts.length){var o=document.createElement('option');o.value='Main';o.textContent='Main Account';bk.appendChild(o);}
     }).catch(function(){});
   }
-  var d = document.getElementById('cogsDate'); if (d&&!d.value) d.valueAsDate=new Date();
+  var d = document.getElementById('cogsDate'); if(d&&!d.value) d.valueAsDate=new Date();
 
-  // Load list
-  var c = document.getElementById('cogsList'); if (!c) return;
-  c.innerHTML = '<div class="empty">Loading…</div>';
-  db.collection('cogsTransfers').limit(60).get().then(function(snap) {
-    if (snap.empty) { c.innerHTML='<div class="empty">No COGS transfers recorded yet.</div>'; return; }
-    var rows = []; snap.forEach(function(d){ rows.push({id:d.id,...d.data()}); });
-    rows.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-    var h = '<table class="tbl"><thead><tr>'
-      + '<th>Date</th><th>Branch</th><th class="num">Revenue</th>'
-      + '<th class="num">COGS</th><th class="num">Margin</th>'
-      + '<th>Bank</th><th>Status</th><th></th>'
-      + '</tr></thead><tbody>';
-    rows.forEach(function(r) {
-      var margin = (r.revenue||0)-(r.amount||0);
-      var sc = r.status==='complete' ? 'badge-green' : 'badge-gold';
-      h += '<tr>'
-        + '<td>'+r.date+'</td>'
-        + '<td>'+r.branch+'</td>'
-        + '<td class="num">'+fmt(r.revenue||0)+'</td>'
-        + '<td class="num" style="color:var(--red)">'+fmt(r.amount||0)+'</td>'
-        + '<td class="num" style="color:'+(margin>=0?'var(--green)':'var(--red)')+'">'+fmt(margin)+'</td>'
-        + '<td style="font-size:0.65rem">'+r.bankAccount+'</td>'
-        + '<td><span class="badge '+sc+'">'+r.status+'</span></td>'
-        + '<td>'
-        + (r.status!=='complete'
-            ? '<button class="btn btn-green btn-xs" onclick="markCOGSComplete(\''+r.id+'\')">✓ Done</button>'
-            : '<span style="font-size:0.6rem;color:var(--text3)">'+((r.completedAt&&r.completedAt.toDate)?r.completedAt.toDate().toLocaleDateString():'')+'</span>')
-        + '</td></tr>';
+  var c = document.getElementById('cogsList'); if(!c) return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+
+  db.collection('cogsTransfers').limit(60).get().then(function(snap){
+    if(snap.empty){c.innerHTML='<div class="empty">No COGS transfers yet. Select date + branch above and click Load Sales Data.</div>';return;}
+    var rows=[]; snap.forEach(function(d){rows.push({id:d.id,...d.data()});});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+    var h='<table class="tbl"><thead><tr>'
+      +'<th>Date</th><th>Branch</th>'
+      +'<th class="num">Revenue</th><th class="num">COGS</th>'
+      +'<th class="num">Gross Profit</th><th class="num">Margin</th>'
+      +'<th>Bank</th><th>Status</th><th></th>'
+      +'</tr></thead><tbody>';
+
+    var totRev=0,totCOGS=0;
+    rows.forEach(function(r){
+      var gp=(r.revenue||0)-(r.amount||0);
+      var gm=r.revenue>0?((gp/r.revenue)*100).toFixed(1)+'%':'—';
+      var sc=r.status==='complete'?'badge-green':'badge-gold';
+      var gCol=gp>=0?'var(--green)':'var(--red)';
+      totRev+=r.revenue||0; totCOGS+=r.amount||0;
+      h+='<tr>'
+        +'<td>'+r.date+'</td><td>'+r.branch+'</td>'
+        +'<td class="num">'+fmt(r.revenue||0)+'</td>'
+        +'<td class="num" style="color:var(--red)">'+fmt(r.amount||0)+'</td>'
+        +'<td class="num" style="color:'+gCol+'">'+fmt(gp)+'</td>'
+        +'<td class="num" style="color:'+gCol+'">'+gm+'</td>'
+        +'<td style="font-size:0.65rem">'+(r.bankAccount||'—')+'</td>'
+        +'<td><span class="badge '+sc+'">'+r.status+'</span></td>'
+        +'<td>'
+        +(r.status!=='complete'
+          ?'<button class="btn btn-green btn-xs" onclick="markCOGSComplete(\''+r.id+'\')">✓ Done</button>'
+          :'<span style="font-size:0.6rem;color:var(--text3)">'
+            +((r.completedAt&&r.completedAt.toDate)?r.completedAt.toDate().toLocaleDateString():'✓')+'</span>')
+        +'</td></tr>';
     });
-    c.innerHTML = h + '</tbody></table>';
-  }).catch(function(e){ c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
+
+    // Summary row
+    var totalGP=totRev-totCOGS;
+    var totalGM=totRev>0?((totalGP/totRev)*100).toFixed(1)+'%':'—';
+    h+='<tr style="font-weight:700;border-top:2px solid var(--border);background:var(--s2)">'
+      +'<td colspan="2" style="padding:10px 12px">TOTAL</td>'
+      +'<td class="num">'+fmt(totRev)+'</td>'
+      +'<td class="num" style="color:var(--red)">'+fmt(totCOGS)+'</td>'
+      +'<td class="num" style="color:'+(totalGP>=0?'var(--green)':'var(--red)')+'">'+fmt(totalGP)+'</td>'
+      +'<td class="num" style="color:var(--gold)">'+totalGM+'</td>'
+      +'<td colspan="3"></td></tr>';
+
+    c.innerHTML=h+'</tbody></table>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 
 function saveCOGS() {
@@ -4540,18 +4718,44 @@ function saveCOGS() {
   var method  = (document.getElementById('cogsMethod')||{}).value||'';
   var ref     = (document.getElementById('cogsRef')||{}).value||'';
   var notes   = (document.getElementById('cogsNotes')||{}).value||'';
-  if (!date||!branch||!amount) { toast('Fill date, branch and COGS amount','err'); return; }
+
+  if (!date||!branch||!amount){ toast('Calculate COGS first by clicking Load Sales Data','err'); return; }
+
+  // Collect the WACC breakdown from the table for storage
+  var breakdown = [];
+  var tbl = document.getElementById('cogsWACCtable');
+  if (tbl) {
+    tbl.querySelectorAll('tbody tr').forEach(function(tr){
+      var cells = tr.querySelectorAll('td');
+      if (cells.length >= 5) {
+        breakdown.push({
+          product: cells[0].textContent.trim(),
+          qty:     cells[1].textContent.trim(),
+          cost:    cells[2].textContent.trim(),
+          cogs:    cells[3].textContent.trim(),
+          revenue: cells[4].textContent.trim(),
+          margin:  cells[5]?cells[5].textContent.trim():''
+        });
+      }
+    });
+  }
+
   db.collection('cogsTransfers').add({
     date:date, branch:branch, revenue:revenue, amount:amount,
+    grossProfit: revenue-amount,
+    grossMargin: revenue>0?((revenue-amount)/revenue*100).toFixed(2):0,
     bankAccount:bank, method:method, reference:ref, notes:notes,
+    breakdown: breakdown,
     status:'pending',
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(function(){
-    toast('COGS Transfer saved — '+fmt(amount),'ok');
-    ['cogsRevenue','cogsAmount','cogsPct','cogsRef','cogsNotes'].forEach(function(id){
-      var el=document.getElementById(id); if(el){el.value='';el._userEditing=false;}
-    });
-    document.getElementById('cogsSummary').style.display='none';
+    toast('COGS Transfer saved — COGS: '+fmt(amount)+' | Gross Profit: '+fmt(revenue-amount),'ok');
+    // Reset form
+    document.getElementById('cogsWACCBreakdown').style.display='none';
+    document.getElementById('cogsSaveBtn').style.display='none';
+    ['cogsRef','cogsNotes'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('cogsRevenue').value='';
+    document.getElementById('cogsAmount').value='';
     loadCOGS();
   }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
