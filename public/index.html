@@ -549,6 +549,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAttendance','mSettings')">Attendance</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabTargets','mSettings')">Targets</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabBranches','mSettings')">Branches</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabProducts','mSettings')">Products</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDangerZone','mSettings')">Danger Zone</button>
@@ -902,10 +903,87 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- BRANCHES SETTINGS -->
   <div id="tabBranches" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Branch Settings</h2>
-    <div class="card" style="max-width:480px">
-      <div class="card-title">Fuel Prices</div>
-      <div id="branchPrices"><div class="empty">Loading…</div></div>
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Branch Management</h2>
+    <div class="g21">
+      <div>
+        <div class="card">
+          <div class="card-title">Active Branches</div>
+          <div id="branchList"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">Fuel Prices per Branch</div>
+          <div id="branchPrices"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Add / Edit Branch</div>
+          <div class="field"><label>Branch Name</label>
+            <input type="text" id="branchNameInput" placeholder="e.g. Kahuti"></div>
+          <div class="field"><label>Location / Area</label>
+            <input type="text" id="branchLocation" placeholder="e.g. Murang'a County"></div>
+          <div class="field"><label>Manager Name</label>
+            <input type="text" id="branchManager" placeholder="Optional"></div>
+          <div class="field"><label>Phone</label>
+            <input type="tel" id="branchPhone" placeholder="+254..."></div>
+          <div class="field"><label>Status</label>
+            <select id="branchStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveBranch()">Save Branch</button>
+          <div class="info-note" style="margin-top:8px">
+            Note: Adding a branch here makes it available in all dropdowns across the system.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS SETTINGS -->
+  <div id="tabProducts" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Product Management</h2>
+    <div class="g21">
+      <div>
+        <div class="card">
+          <div class="card-title">Products</div>
+          <div id="productList"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Add / Edit Product</div>
+          <div class="field"><label>Product Name</label>
+            <input type="text" id="prodName" placeholder="e.g. Petrol (PMS)"></div>
+          <div class="field"><label>Unit of Measure</label>
+            <select id="prodUnit">
+              <option value="L">Litres (L)</option>
+              <option value="pcs">Pieces (pcs)</option>
+              <option value="Kg">Kilograms (Kg)</option>
+              <option value="Units">Units</option>
+            </select>
+          </div>
+          <div class="field"><label>Category</label>
+            <select id="prodCategory">
+              <option value="fuel">Fuel</option>
+              <option value="lubricant">Lubricant / Oil</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Default Selling Price (KSh)</label>
+            <input type="number" id="prodPrice" step="0.01" placeholder="0.00"></div>
+          <div class="field"><label>Track Inventory</label>
+            <select id="prodTrack">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div class="field"><label>Notes</label>
+            <input type="text" id="prodNotes" placeholder="Optional"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveProduct()">Save Product</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1619,7 +1697,8 @@ function panelInit(panelId) {
     case 'tabExpenses':     loadExpenses();      break;
     case 'tabDebts':        loadDebts();         break;
     case 'tabStaff':        loadStaffLists();    break;
-    case 'tabBranches':     loadBranchPrices();  break;
+    case 'tabBranches':     loadBranchManager(); break;
+    case 'tabProducts':     loadProducts();      break;
     case 'tabBankAccts':    loadBankAccts();     break;
     case 'tabEmailSettings':loadEmailSettings(); break;
     case 'tabDangerZone':   break;
@@ -1735,8 +1814,10 @@ auth.onAuthStateChanged(function(user) {
 // ADMIN INIT
 // ═══════════════════════════════════════════════════════════════
 function loadAdminInit() {
-  // Populate branch dropdowns
+  // Populate branch dropdowns (built-in + custom from DB)
   populateBranchDropdowns();
+  loadBranchesFromDB();
+  loadCustomProductsCache();
   loadPricesCache();
   // Show dashboard by default
   hideAllSubNavs();
@@ -4062,6 +4143,235 @@ function loadDashboardExtras() {
       toast('⚠ Low stock: '+alerts.join(', '),'err');
     }
   });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BRANCH MANAGER
+// ═══════════════════════════════════════════════════════════════
+function loadBranchManager() {
+  loadBranchList();
+  loadBranchPrices();
+}
+
+function loadBranchList() {
+  var c = document.getElementById('branchList');
+  if (!c) return;
+  db.collection('branches').get().then(function(snap) {
+    if (snap.empty) {
+      // Show built-in branches if none in DB yet
+      var h = '<div class="info-note" style="margin-bottom:8px">Built-in branches:</div>';
+      BRANCHES.forEach(function(b) {
+        h += '<div class="u-row">'
+          + '<div class="u-info" style="flex:1">'
+          + '<span class="u-name">'+b+'</span>'
+          + '<span class="badge badge-green" style="margin-left:8px">Built-in</span>'
+          + '</div></div>';
+      });
+      c.innerHTML = h;
+      return;
+    }
+    var rows = '';
+    snap.forEach(function(d) {
+      var b = d.data();
+      var sc = b.status === 'active' ? 'badge-green' : 'badge-red';
+      rows += '<div class="u-row">'
+        + '<div class="u-info" style="flex:1">'
+        + '<span class="u-name">'+b.name+'</span>'
+        + '<span class="badge '+sc+'" style="margin:0 6px">'+b.status+'</span>'
+        + (b.location ? '<span class="u-email">'+b.location+'</span>' : '')
+        + (b.manager ? '<span class="u-email" style="margin-left:6px">Mgr: '+b.manager+'</span>' : '')
+        + '</div>'
+        + '<button class="btn btn-red btn-xs" onclick="deleteBranch(\''+d.id+'\',\''+b.name.replace(/'/g,'')+'\')">Remove</button>'
+        + '</div>';
+    });
+    c.innerHTML = rows;
+  }).catch(function(e) {
+    c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>';
+  });
+}
+
+function saveBranch() {
+  var name     = (document.getElementById('branchNameInput')||{}).value.trim();
+  var location = (document.getElementById('branchLocation')||{}).value.trim();
+  var manager  = (document.getElementById('branchManager')||{}).value.trim();
+  var phone    = (document.getElementById('branchPhone')||{}).value.trim();
+  var status   = (document.getElementById('branchStatus')||{}).value || 'active';
+
+  if (!name) { toast('Enter a branch name', 'err'); return; }
+
+  db.collection('branches').add({
+    name: name, location: location, manager: manager,
+    phone: phone, status: status,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function() {
+    // Add to in-memory BRANCHES array so it shows up in dropdowns immediately
+    if (BRANCHES.indexOf(name) === -1) {
+      BRANCHES.push(name);
+      // Re-populate all branch dropdowns
+      populateBranchDropdowns();
+    }
+    toast('Branch saved: '+name, 'ok');
+    ['branchNameInput','branchLocation','branchManager','branchPhone'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = '';
+    });
+    loadBranchList();
+  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
+}
+
+function deleteBranch(id, name) {
+  if (!confirm('Remove branch "'+name+'"? This does NOT delete its reports or data.')) return;
+  db.collection('branches').doc(id).delete().then(function() {
+    // Remove from BRANCHES array
+    var idx = BRANCHES.indexOf(name);
+    if (idx > -1) BRANCHES.splice(idx, 1);
+    populateBranchDropdowns();
+    toast('Branch removed', 'ok');
+    loadBranchList();
+  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
+}
+
+// Load custom branches from DB and merge with built-in ones
+function loadBranchesFromDB() {
+  db.collection('branches').get().then(function(snap) {
+    snap.forEach(function(d) {
+      var b = d.data();
+      if (b.status === 'active' && BRANCHES.indexOf(b.name) === -1) {
+        BRANCHES.push(b.name);
+      }
+    });
+    populateBranchDropdowns();
+  }).catch(function(){});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT MANAGER
+// ═══════════════════════════════════════════════════════════════
+
+// In-memory custom products (merged with built-in PRODUCTS)
+var CUSTOM_PRODUCTS = [];
+
+function loadProducts() {
+  var c = document.getElementById('productList');
+  if (!c) return;
+  db.collection('products').get().then(function(snap) {
+    var h = '';
+
+    // Show built-in products first
+    h += '<div class="info-note" style="margin-bottom:10px">Built-in products (always available):</div>';
+    var builtIn = [
+      {name:'Petrol (PMS)',  unit:'L',   category:'fuel'},
+      {name:'2T Motor Oil',  unit:'pcs', category:'lubricant'},
+      {name:'2T-Kupima',     unit:'L',   category:'lubricant'},
+      {name:'Used Oil',      unit:'L',   category:'lubricant'},
+      {name:'Shell Advance', unit:'pcs', category:'lubricant'}
+    ];
+    builtIn.forEach(function(p) {
+      h += '<div class="u-row">'
+        + '<div class="u-info" style="flex:1">'
+        + '<span class="u-name">'+p.name+'</span>'
+        + '<span class="badge badge-gold" style="margin:0 6px">'+p.unit+'</span>'
+        + '<span class="badge badge-blue">'+p.category+'</span>'
+        + '</div>'
+        + '<span class="badge badge-green">Built-in</span>'
+        + '</div>';
+    });
+
+    if (!snap.empty) {
+      h += '<div class="info-note" style="margin:12px 0 8px">Custom products:</div>';
+      CUSTOM_PRODUCTS = [];
+      snap.forEach(function(d) {
+        var p = d.data(); p.id = d.id;
+        CUSTOM_PRODUCTS.push(p);
+        h += '<div class="u-row">'
+          + '<div class="u-info" style="flex:1">'
+          + '<span class="u-name">'+p.name+'</span>'
+          + '<span class="badge badge-gold" style="margin:0 6px">'+p.unit+'</span>'
+          + '<span class="badge badge-blue">'+p.category+'</span>'
+          + (p.price ? '<span class="u-email" style="margin-left:6px">KSh '+p.price+'/'+p.unit+'</span>' : '')
+          + '</div>'
+          + '<button class="btn btn-red btn-xs" onclick="deleteProduct(\''+d.id+'\',\''+p.name.replace(/'/g,'')+'\')">Remove</button>'
+          + '</div>';
+      });
+    }
+
+    c.innerHTML = h;
+    // Rebuild product dropdowns with custom products included
+    rebuildProductDropdowns();
+  }).catch(function(e) {
+    c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>';
+  });
+}
+
+function saveProduct() {
+  var name     = (document.getElementById('prodName')||{}).value.trim();
+  var unit     = (document.getElementById('prodUnit')||{}).value     || 'L';
+  var category = (document.getElementById('prodCategory')||{}).value || 'other';
+  var price    = parseFloat((document.getElementById('prodPrice')||{}).value) || 0;
+  var track    = (document.getElementById('prodTrack')||{}).value    || 'yes';
+  var notes    = (document.getElementById('prodNotes')||{}).value    || '';
+
+  if (!name) { toast('Enter a product name', 'err'); return; }
+
+  db.collection('products').add({
+    name: name, unit: unit, category: category,
+    price: price, trackInventory: track === 'yes', notes: notes,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function() {
+    toast('Product saved: '+name, 'ok');
+    ['prodName','prodNotes','prodPrice'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = '';
+    });
+    loadProducts();
+  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
+}
+
+function deleteProduct(id, name) {
+  if (!confirm('Remove product "'+name+'"?')) return;
+  db.collection('products').doc(id).delete().then(function() {
+    toast('Product removed', 'ok');
+    loadProducts();
+  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
+}
+
+// Rebuild all product dropdowns to include custom products
+function rebuildProductDropdowns() {
+  var builtInOpts = [
+    {value:'Petrol (PMS)',  unit:'L'},
+    {value:'2T Motor Oil',  unit:'pcs'},
+    {value:'2T-Kupima',     unit:'L'},
+    {value:'Used Oil',      unit:'L'},
+    {value:'Shell Advance', unit:'pcs'}
+  ];
+  var allOpts = builtInOpts.concat(CUSTOM_PRODUCTS.map(function(p) {
+    return {value: p.name, unit: p.unit};
+  }));
+  allOpts.push({value:'Other', unit:''});
+
+  // Find all product dropdowns in PO lines and Bill lines
+  document.querySelectorAll('[id^="poDesc_"],[id^="blDesc_"]').forEach(function(sel) {
+    if (sel.tagName !== 'SELECT') return;
+    var curVal = sel.value;
+    sel.innerHTML = '<option value="">-- Select Product --</option>'
+      + allOpts.map(function(o) {
+          return '<option value="'+o.value+'"'
+            + (o.unit ? ' data-unit="'+o.unit+'"' : '')
+            + (o.value === curVal ? ' selected' : '')
+            + '>'+o.value+'</option>';
+        }).join('');
+  });
+}
+
+// Load custom products on startup and merge with built-in
+function loadCustomProductsCache() {
+  db.collection('products').get().then(function(snap) {
+    CUSTOM_PRODUCTS = [];
+    snap.forEach(function(d) {
+      var p = d.data(); p.id = d.id;
+      CUSTOM_PRODUCTS.push(p);
+    });
+    rebuildProductDropdowns();
+  }).catch(function(){});
 }
 
 // ═══════════════════════════════════════════════════════════════
