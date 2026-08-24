@@ -543,6 +543,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPriceHistory','mFinance')">Price History</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPayroll','mFinance')">Payroll</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabSupplierPay','mFinance')">Supplier Payments</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabCOGS','mFinance')">COGS Transfers</button>
   </div>
   <div id="subNav_mSettings" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabStaff','mSettings')">Staff</button>
@@ -597,6 +598,7 @@ a { color: var(--gold); text-decoration: none; }
   <div id="tabAppr" class="adm-panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700">Approvals</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Approvals Report','apprTbl','approvals.pdf')">Export PDF</button>
       <div style="display:flex;gap:8px">
         <select id="apprBranchFilter" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
           <option value="">All Branches</option>
@@ -831,6 +833,7 @@ a { color: var(--gold); text-decoration: none; }
         <input type="date" id="bsTo"   style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
         <button class="btn btn-gold btn-sm" onclick="loadBranchSummary()">Load</button>
         <button class="btn btn-ghost btn-sm" onclick="exportBranchSummaryCSV()">Export CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Branch Summary','bsTbl','branch-summary.pdf')">Export PDF</button>
       </div>
     </div>
     <div id="bsSummary"><div class="empty">Select a date range and click Load.</div></div>
@@ -903,41 +906,14 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- BRANCHES SETTINGS -->
   <div id="tabBranches" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Branch Management</h2>
-    <div class="g21">
-      <div>
-        <div class="card">
-          <div class="card-title">Active Branches</div>
-          <div id="branchList"><div class="empty">Loading…</div></div>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <div class="card-title">Fuel Prices per Branch</div>
-          <div id="branchPrices"><div class="empty">Loading…</div></div>
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <div class="card-title">Add / Edit Branch</div>
-          <div class="field"><label>Branch Name</label>
-            <input type="text" id="branchNameInput" placeholder="e.g. Kahuti"></div>
-          <div class="field"><label>Location / Area</label>
-            <input type="text" id="branchLocation" placeholder="e.g. Murang'a County"></div>
-          <div class="field"><label>Manager Name</label>
-            <input type="text" id="branchManager" placeholder="Optional"></div>
-          <div class="field"><label>Phone</label>
-            <input type="tel" id="branchPhone" placeholder="+254..."></div>
-          <div class="field"><label>Status</label>
-            <select id="branchStatus">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          <button class="btn btn-gold btn-sm btn-full" onclick="saveBranch()">Save Branch</button>
-          <div class="info-note" style="margin-top:8px">
-            Note: Adding a branch here makes it available in all dropdowns across the system.
-          </div>
-        </div>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Branch Management</h2>
+      <button class="btn btn-gold btn-sm" onclick="openAddBranch()">+ Add Branch</button>
+    </div>
+    <div id="branchList"><div class="empty">Loading…</div></div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-title">Fuel Prices per Branch</div>
+      <div id="branchPrices"><div class="empty">Loading…</div></div>
     </div>
   </div>
 
@@ -1231,7 +1207,7 @@ a { color: var(--gold); text-decoration: none; }
         <select id="mcMonth" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"></select>
         <select id="mcYear"  style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem"></select>
         <button class="btn btn-gold btn-sm" onclick="loadMonthlyClose()">Generate</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportMonthlyClose()">Export PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportMonthlyClosePDF()">Export PDF</button>
       </div>
     </div>
     <div id="mcResult"><div class="empty">Select month and year then click Generate.</div></div>
@@ -1304,6 +1280,51 @@ a { color: var(--gold); text-decoration: none; }
           </div>
           <div class="field"><label>Notes</label><input type="text" id="phNotes"></div>
           <button class="btn btn-gold btn-sm btn-full" onclick="savePriceChange()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ COGS TRANSFERS ════════════════════════════════════════ -->
+  <div id="tabCOGS" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">COGS Transfers</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadCOGS()">↺ Refresh</button>
+    </div>
+    <div class="g21">
+      <div>
+        <div id="cogsList"><div class="empty">Loading…</div></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Record COGS Transfer</div>
+          <div class="field"><label>Date</label><input type="date" id="cogsDate"></div>
+          <div class="field"><label>Branch</label><select id="cogsBranch"></select></div>
+          <div class="field"><label>Revenue for Period (KSh)</label>
+            <input type="number" id="cogsRevenue" step="0.01" oninput="cogsCalc()"></div>
+          <div class="field"><label>COGS Amount (KSh)</label>
+            <input type="number" id="cogsAmount" step="0.01" oninput="cogsCalc()"
+              style="font-weight:700;font-family:var(--mono)"></div>
+          <div class="field"><label>COGS % of Revenue</label>
+            <input type="number" id="cogsPct" step="0.1" placeholder="e.g. 85" oninput="cogsCalcFromPct()"
+              style="font-family:var(--mono)"></div>
+          <div class="field"><label>Transfer To (Bank Account)</label>
+            <select id="cogsBank"></select></div>
+          <div class="field"><label>Transfer Method</label>
+            <select id="cogsMethod">
+              <option>Bank Transfer</option>
+              <option>M-Pesa</option>
+              <option>Cash</option>
+              <option>Cheque</option>
+            </select>
+          </div>
+          <div class="field"><label>Reference / Transaction ID</label>
+            <input type="text" id="cogsRef" placeholder="Optional"></div>
+          <div class="field"><label>Notes</label>
+            <input type="text" id="cogsNotes" placeholder="Optional"></div>
+          <div id="cogsSummary" style="display:none;background:var(--s2);border-radius:6px;
+            padding:10px 12px;margin-bottom:12px;font-size:0.72rem;color:var(--text2)"></div>
+          <button class="btn btn-gold btn-sm btn-full" onclick="saveCOGS()">Save Transfer</button>
         </div>
       </div>
     </div>
@@ -1610,7 +1631,7 @@ var PANEL_TO_TAB = {
   tabBranchSummary:'mSummary',
   tabExpenses:     'mFinance',  tabDebts:        'mFinance',
   tabPriceHistory: 'mFinance',  tabPayroll:      'mFinance',
-  tabSupplierPay:  'mFinance',
+  tabSupplierPay:  'mFinance',  tabCOGS: 'mFinance',
   tabStaff:        'mSettings', tabBranches:     'mSettings',
   tabBankAccts:    'mSettings', tabEmailSettings:'mSettings',
   tabDangerZone:   'mSettings', tabAttendance:   'mSettings',
@@ -1714,6 +1735,7 @@ function panelInit(panelId) {
     case 'tabPriceHistory': loadPriceHistory();  break;
     case 'tabPayroll':      initPayroll();       break;
     case 'tabSupplierPay':  loadSupplierPay();   break;
+    case 'tabCOGS':        loadCOGS();          break;
     case 'tabAttendance':   initAttendance();    break;
     case 'tabTargets':      initTargets();       break;
     case 'tabComparison':   loadComparison();    break;
@@ -4149,100 +4171,10 @@ function loadDashboardExtras() {
 // ═══════════════════════════════════════════════════════════════
 // BRANCH MANAGER
 // ═══════════════════════════════════════════════════════════════
-function loadBranchManager() {
-  loadBranchList();
-  loadBranchPrices();
-}
 
-function loadBranchList() {
-  var c = document.getElementById('branchList');
-  if (!c) return;
-  db.collection('branches').get().then(function(snap) {
-    if (snap.empty) {
-      // Show built-in branches if none in DB yet
-      var h = '<div class="info-note" style="margin-bottom:8px">Built-in branches:</div>';
-      BRANCHES.forEach(function(b) {
-        h += '<div class="u-row">'
-          + '<div class="u-info" style="flex:1">'
-          + '<span class="u-name">'+b+'</span>'
-          + '<span class="badge badge-green" style="margin-left:8px">Built-in</span>'
-          + '</div></div>';
-      });
-      c.innerHTML = h;
-      return;
-    }
-    var rows = '';
-    snap.forEach(function(d) {
-      var b = d.data();
-      var sc = b.status === 'active' ? 'badge-green' : 'badge-red';
-      rows += '<div class="u-row">'
-        + '<div class="u-info" style="flex:1">'
-        + '<span class="u-name">'+b.name+'</span>'
-        + '<span class="badge '+sc+'" style="margin:0 6px">'+b.status+'</span>'
-        + (b.location ? '<span class="u-email">'+b.location+'</span>' : '')
-        + (b.manager ? '<span class="u-email" style="margin-left:6px">Mgr: '+b.manager+'</span>' : '')
-        + '</div>'
-        + '<button class="btn btn-red btn-xs" onclick="deleteBranch(\''+d.id+'\',\''+b.name.replace(/'/g,'')+'\')">Remove</button>'
-        + '</div>';
-    });
-    c.innerHTML = rows;
-  }).catch(function(e) {
-    c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>';
-  });
-}
 
-function saveBranch() {
-  var name     = (document.getElementById('branchNameInput')||{}).value.trim();
-  var location = (document.getElementById('branchLocation')||{}).value.trim();
-  var manager  = (document.getElementById('branchManager')||{}).value.trim();
-  var phone    = (document.getElementById('branchPhone')||{}).value.trim();
-  var status   = (document.getElementById('branchStatus')||{}).value || 'active';
-
-  if (!name) { toast('Enter a branch name', 'err'); return; }
-
-  db.collection('branches').add({
-    name: name, location: location, manager: manager,
-    phone: phone, status: status,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(function() {
-    // Add to in-memory BRANCHES array so it shows up in dropdowns immediately
-    if (BRANCHES.indexOf(name) === -1) {
-      BRANCHES.push(name);
-      // Re-populate all branch dropdowns
-      populateBranchDropdowns();
-    }
-    toast('Branch saved: '+name, 'ok');
-    ['branchNameInput','branchLocation','branchManager','branchPhone'].forEach(function(id) {
-      var el = document.getElementById(id); if (el) el.value = '';
-    });
-    loadBranchList();
-  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
-}
-
-function deleteBranch(id, name) {
-  if (!confirm('Remove branch "'+name+'"? This does NOT delete its reports or data.')) return;
-  db.collection('branches').doc(id).delete().then(function() {
-    // Remove from BRANCHES array
-    var idx = BRANCHES.indexOf(name);
-    if (idx > -1) BRANCHES.splice(idx, 1);
-    populateBranchDropdowns();
-    toast('Branch removed', 'ok');
-    loadBranchList();
-  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
-}
 
 // Load custom branches from DB and merge with built-in ones
-function loadBranchesFromDB() {
-  db.collection('branches').get().then(function(snap) {
-    snap.forEach(function(d) {
-      var b = d.data();
-      if (b.status === 'active' && BRANCHES.indexOf(b.name) === -1) {
-        BRANCHES.push(b.name);
-      }
-    });
-    populateBranchDropdowns();
-  }).catch(function(){});
-}
 
 // ═══════════════════════════════════════════════════════════════
 // PRODUCT MANAGER
@@ -4372,6 +4304,383 @@ function loadCustomProductsCache() {
     });
     rebuildProductDropdowns();
   }).catch(function(){});
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BRANCH MANAGER — full CRUD
+// ═══════════════════════════════════════════════════════════════
+
+var _editingBranchId = null; // null = add mode, id = edit mode
+
+function loadBranchManager() {
+  loadBranchList();
+  loadBranchPrices();
+}
+
+function openAddBranch() {
+  _editingBranchId = null;
+  openModal('Add New Branch',
+    '<div class="field"><label>Branch Name</label>'
+    + '<input type="text" id="mbName" placeholder="e.g. Karatina"></div>'
+    + '<div class="field"><label>Location / Area</label>'
+    + '<input type="text" id="mbLocation" placeholder="e.g. Nyeri County"></div>'
+    + '<div class="field"><label>Manager Name</label>'
+    + '<input type="text" id="mbManager" placeholder="Optional"></div>'
+    + '<div class="field"><label>Phone</label>'
+    + '<input type="tel" id="mbPhone" placeholder="+254..."></div>'
+    + '<div class="field"><label>Status</label>'
+    + '<select id="mbStatus"><option value="active">Active</option>'
+    + '<option value="inactive">Inactive</option></select></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveBranch()">Save Branch</button>'
+  );
+}
+
+function openEditBranch(id, name, location, manager, phone, status) {
+  _editingBranchId = id;
+  openModal('Edit Branch — '+name,
+    '<div class="field"><label>Branch Name</label>'
+    + '<input type="text" id="mbName" value="'+name+'"></div>'
+    + '<div class="field"><label>Location / Area</label>'
+    + '<input type="text" id="mbLocation" value="'+location+'"></div>'
+    + '<div class="field"><label>Manager Name</label>'
+    + '<input type="text" id="mbManager" value="'+manager+'"></div>'
+    + '<div class="field"><label>Phone</label>'
+    + '<input type="tel" id="mbPhone" value="'+phone+'"></div>'
+    + '<div class="field"><label>Status</label>'
+    + '<select id="mbStatus">'
+    + '<option value="active"'+(status==='active'?' selected':'')+'>Active</option>'
+    + '<option value="inactive"'+(status==='inactive'?' selected':'')+'>Inactive</option>'
+    + '</select></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveBranch()">Update Branch</button>'
+  );
+}
+
+function saveBranch() {
+  var name     = ((document.getElementById('mbName')||{}).value||'').trim();
+  var location = ((document.getElementById('mbLocation')||{}).value||'').trim();
+  var manager  = ((document.getElementById('mbManager')||{}).value||'').trim();
+  var phone    = ((document.getElementById('mbPhone')||{}).value||'').trim();
+  var status   = ((document.getElementById('mbStatus')||{}).value)||'active';
+  if (!name) { toast('Enter a branch name','err'); return; }
+
+  var data = {name:name, location:location, manager:manager,
+              phone:phone, status:status,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+
+  var promise = _editingBranchId
+    ? db.collection('branches').doc(_editingBranchId).update(data)
+    : db.collection('branches').add(
+        Object.assign(data, {createdAt: firebase.firestore.FieldValue.serverTimestamp()})
+      );
+
+  promise.then(function() {
+    if (!_editingBranchId && BRANCHES.indexOf(name) === -1) {
+      BRANCHES.push(name);
+      populateBranchDropdowns();
+    }
+    toast((_editingBranchId?'Branch updated':'Branch added')+': '+name,'ok');
+    closeModal();
+    loadBranchList();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function deleteBranch(id, name) {
+  if (!confirm('Delete branch "'+name+'"?\n\nThis removes it from the branch list but does NOT delete any reports or data associated with it.')) return;
+  db.collection('branches').doc(id).delete().then(function() {
+    var idx = BRANCHES.indexOf(name);
+    if (idx > -1) { BRANCHES.splice(idx,1); populateBranchDropdowns(); }
+    toast('Branch deleted','ok');
+    loadBranchList();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function loadBranchList() {
+  var c = document.getElementById('branchList'); if (!c) return;
+  db.collection('branches').get().then(function(snap) {
+    // Built-in branches
+    var builtIn = ['Kahuti','Karega','Kanyenyaini'];
+    var h = '<table class="tbl"><thead><tr>'
+      + '<th>Branch</th><th>Location</th><th>Manager</th><th>Phone</th>'
+      + '<th>Status</th><th>Actions</th></tr></thead><tbody>';
+
+    // Built-in rows
+    builtIn.forEach(function(b) {
+      h += '<tr><td style="font-weight:600">'+b+'</td>'
+        + '<td style="color:var(--text3)">Murang\'a</td>'
+        + '<td>—</td><td>—</td>'
+        + '<td><span class="badge badge-green">active</span></td>'
+        + '<td><span style="font-size:0.6rem;color:var(--text3)">Built-in</span></td></tr>';
+    });
+
+    // Custom branches from DB
+    snap.forEach(function(d) {
+      var b = d.data();
+      var sc = b.status === 'active' ? 'badge-green' : 'badge-red';
+      var safeName = (b.name||'').replace(/'/g,'').replace(/"/g,'');
+      var safeLoc  = (b.location||'').replace(/'/g,'').replace(/"/g,'');
+      var safeMgr  = (b.manager||'').replace(/'/g,'').replace(/"/g,'');
+      var safePh   = (b.phone||'').replace(/'/g,'').replace(/"/g,'');
+      h += '<tr>'
+        + '<td style="font-weight:600">'+b.name+'</td>'
+        + '<td>'+(b.location||'—')+'</td>'
+        + '<td>'+(b.manager||'—')+'</td>'
+        + '<td>'+(b.phone||'—')+'</td>'
+        + '<td><span class="badge '+sc+'">'+b.status+'</span></td>'
+        + '<td style="display:flex;gap:4px">'
+        + '<button class="btn btn-blue btn-xs" onclick="openEditBranch(\''+d.id+'\',\''+safeName+'\',\''+safeLoc+'\',\''+safeMgr+'\',\''+safePh+'\',\''+b.status+'\')">Edit</button>'
+        + '<button class="btn btn-red btn-xs" onclick="deleteBranch(\''+d.id+'\',\''+safeName+'\')">Delete</button>'
+        + '</td></tr>';
+    });
+
+    h += '</tbody></table>';
+    if (snap.empty) h = h.replace('<tbody>', '<tbody><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">No custom branches yet. Built-in branches above are always available.</td></tr>');
+    c.innerHTML = h;
+  }).catch(function(e){ c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
+}
+
+function loadBranchesFromDB() {
+  db.collection('branches').get().then(function(snap) {
+    snap.forEach(function(d) {
+      var b = d.data();
+      if (b.status === 'active' && BRANCHES.indexOf(b.name) === -1) BRANCHES.push(b.name);
+    });
+    populateBranchDropdowns();
+  }).catch(function(){});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COGS TRANSFERS
+// ═══════════════════════════════════════════════════════════════
+function cogsCalc() {
+  var rev = parseFloat((document.getElementById('cogsRevenue')||{}).value)||0;
+  var amt = parseFloat((document.getElementById('cogsAmount')||{}).value)||0;
+  var pct = rev > 0 ? ((amt/rev)*100).toFixed(1) : 0;
+  var pctEl = document.getElementById('cogsPct');
+  if (pctEl && !pctEl._userEditing) pctEl.value = pct;
+  showCogsSummary(rev, amt);
+}
+
+function cogsCalcFromPct() {
+  var rev = parseFloat((document.getElementById('cogsRevenue')||{}).value)||0;
+  var pct = parseFloat((document.getElementById('cogsPct')||{}).value)||0;
+  var amt = (rev * pct / 100);
+  var amtEl = document.getElementById('cogsAmount');
+  if (amtEl) { amtEl.value = amt.toFixed(2); amtEl._userEditing = false; }
+  var pctEl = document.getElementById('cogsPct'); if (pctEl) pctEl._userEditing = true;
+  showCogsSummary(rev, amt);
+}
+
+function showCogsSummary(rev, amt) {
+  var sd = document.getElementById('cogsSummary'); if (!sd) return;
+  if (!rev && !amt) { sd.style.display='none'; return; }
+  var margin = rev - amt;
+  sd.style.display = 'block';
+  sd.innerHTML = '<strong>Revenue:</strong> '+fmt(rev)
+    + ' &nbsp;|&nbsp; <strong>COGS:</strong> '+fmt(amt)
+    + ' &nbsp;|&nbsp; <strong>Gross Margin:</strong> <span style="color:'+(margin>=0?'var(--green)':'var(--red)')+'">'+fmt(margin)+'</span>';
+}
+
+function loadCOGS() {
+  // Populate branch select
+  var bs = document.getElementById('cogsBranch');
+  if (bs && bs.options.length < 1) {
+    BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bs.appendChild(o);});
+  }
+  // Populate bank select
+  var bk = document.getElementById('cogsBank');
+  if (bk && bk.options.length < 1) {
+    db.collection('settings').doc('bankAccounts').get().then(function(s){
+      var accts = s.exists ? (s.data().accounts||[]) : [];
+      accts.forEach(function(a){var o=document.createElement('option');o.value=a.bank+' — '+a.account;o.textContent=a.bank+' ('+a.branch+')';bk.appendChild(o);});
+      if (!accts.length) { var o=document.createElement('option');o.value='Main Account';o.textContent='Main Account';bk.appendChild(o); }
+    }).catch(function(){});
+  }
+  var d = document.getElementById('cogsDate'); if (d&&!d.value) d.valueAsDate=new Date();
+
+  // Load list
+  var c = document.getElementById('cogsList'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading…</div>';
+  db.collection('cogsTransfers').limit(60).get().then(function(snap) {
+    if (snap.empty) { c.innerHTML='<div class="empty">No COGS transfers recorded yet.</div>'; return; }
+    var rows = []; snap.forEach(function(d){ rows.push({id:d.id,...d.data()}); });
+    rows.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    var h = '<table class="tbl"><thead><tr>'
+      + '<th>Date</th><th>Branch</th><th class="num">Revenue</th>'
+      + '<th class="num">COGS</th><th class="num">Margin</th>'
+      + '<th>Bank</th><th>Status</th><th></th>'
+      + '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+      var margin = (r.revenue||0)-(r.amount||0);
+      var sc = r.status==='complete' ? 'badge-green' : 'badge-gold';
+      h += '<tr>'
+        + '<td>'+r.date+'</td>'
+        + '<td>'+r.branch+'</td>'
+        + '<td class="num">'+fmt(r.revenue||0)+'</td>'
+        + '<td class="num" style="color:var(--red)">'+fmt(r.amount||0)+'</td>'
+        + '<td class="num" style="color:'+(margin>=0?'var(--green)':'var(--red)')+'">'+fmt(margin)+'</td>'
+        + '<td style="font-size:0.65rem">'+r.bankAccount+'</td>'
+        + '<td><span class="badge '+sc+'">'+r.status+'</span></td>'
+        + '<td>'
+        + (r.status!=='complete'
+            ? '<button class="btn btn-green btn-xs" onclick="markCOGSComplete(\''+r.id+'\')">✓ Done</button>'
+            : '<span style="font-size:0.6rem;color:var(--text3)">'+((r.completedAt&&r.completedAt.toDate)?r.completedAt.toDate().toLocaleDateString():'')+'</span>')
+        + '</td></tr>';
+    });
+    c.innerHTML = h + '</tbody></table>';
+  }).catch(function(e){ c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
+}
+
+function saveCOGS() {
+  var date    = (document.getElementById('cogsDate')||{}).value||'';
+  var branch  = (document.getElementById('cogsBranch')||{}).value||'';
+  var revenue = parseFloat((document.getElementById('cogsRevenue')||{}).value)||0;
+  var amount  = parseFloat((document.getElementById('cogsAmount')||{}).value)||0;
+  var bank    = (document.getElementById('cogsBank')||{}).value||'';
+  var method  = (document.getElementById('cogsMethod')||{}).value||'';
+  var ref     = (document.getElementById('cogsRef')||{}).value||'';
+  var notes   = (document.getElementById('cogsNotes')||{}).value||'';
+  if (!date||!branch||!amount) { toast('Fill date, branch and COGS amount','err'); return; }
+  db.collection('cogsTransfers').add({
+    date:date, branch:branch, revenue:revenue, amount:amount,
+    bankAccount:bank, method:method, reference:ref, notes:notes,
+    status:'pending',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('COGS Transfer saved — '+fmt(amount),'ok');
+    ['cogsRevenue','cogsAmount','cogsPct','cogsRef','cogsNotes'].forEach(function(id){
+      var el=document.getElementById(id); if(el){el.value='';el._userEditing=false;}
+    });
+    document.getElementById('cogsSummary').style.display='none';
+    loadCOGS();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function markCOGSComplete(id) {
+  db.collection('cogsTransfers').doc(id).update({
+    status: 'complete',
+    completedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){ toast('Marked as complete ✓','ok'); loadCOGS(); })
+    .catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PDF EXPORT
+// ═══════════════════════════════════════════════════════════════
+function exportPDF(title, tableId, filename) {
+  // Use jsPDF to export any table
+  try {
+    var doc = new window.jspdf.jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+    var pageW = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFillColor(13,13,13);
+    doc.rect(0,0,pageW,20,'F');
+    doc.setTextColor(200,146,42);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('DELPHINE ENTERPRISE LIMITED', 14, 10);
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.setTextColor(160,152,128);
+    doc.text(title, 14, 16);
+    doc.text('Generated: '+new Date().toLocaleString(), pageW-14, 16, {align:'right'});
+
+    // Build table data from DOM
+    var tbl = document.getElementById(tableId);
+    if (!tbl) {
+      // If no table, use the visible content
+      exportPDFFromContent(title, filename);
+      return;
+    }
+
+    var headers = [];
+    tbl.querySelectorAll('thead th').forEach(function(th){ headers.push(th.textContent.trim()); });
+    var rows = [];
+    tbl.querySelectorAll('tbody tr').forEach(function(tr){
+      var row = [];
+      tr.querySelectorAll('td').forEach(function(td){ row.push(td.textContent.trim()); });
+      if (row.length) rows.push(row);
+    });
+
+    // AutoTable
+    doc.autoTable({
+      head: [headers],
+      body: rows,
+      startY: 24,
+      theme: 'grid',
+      headStyles: { fillColor:[200,146,42], textColor:[0,0,0], fontStyle:'bold', fontSize:8 },
+      bodyStyles: { fontSize:7.5, textColor:[50,50,50] },
+      alternateRowStyles: { fillColor:[245,245,245] },
+      margin: { left:14, right:14 }
+    });
+
+    // Footer
+    var pageCount = doc.internal.getNumberOfPages();
+    for (var i=1; i<=pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(160,152,128);
+      doc.text('Page '+i+' of '+pageCount, pageW/2, doc.internal.pageSize.getHeight()-5, {align:'center'});
+    }
+
+    doc.save(filename || (title.replace(/\s+/g,'-').toLowerCase()+'.pdf'));
+    toast('PDF downloaded','ok');
+  } catch(e) {
+    // Fallback: print dialog
+    window.print();
+    toast('Opening print dialog — choose "Save as PDF"','ok');
+  }
+}
+
+function exportPDFFromContent(title, filename) {
+  // Simple fallback: open print dialog
+  var style = document.createElement('style');
+  style.id = '__pdf_style';
+  style.textContent = '@media print { .adm-header,.adm-tabs,.adm-sub-nav,.row-btns,.btn{display:none!important} .adm-panel{display:block!important} }';
+  document.head.appendChild(style);
+  var t = document.title; document.title = title;
+  window.print();
+  document.title = t;
+  setTimeout(function(){ var s=document.getElementById('__pdf_style'); if(s)s.remove(); },1000);
+}
+
+// Load jsPDF autoTable plugin if not loaded
+function ensurePDFPlugin(cb) {
+  if (window.jspdf && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+  s.onload = cb;
+  document.head.appendChild(s);
+}
+
+// Exported wrappers — called from buttons
+function exportTablePDF(title, tableId, filename) {
+  ensurePDFPlugin(function(){ exportPDF(title, tableId, filename); });
+}
+
+function exportMonthlyClosePDF() {
+  ensurePDFPlugin(function(){
+    var month = (document.getElementById('mcMonth')||{}).value||'';
+    var year  = (document.getElementById('mcYear')||{}).value||'';
+    var tbl   = document.querySelector('#mcResult table');
+    if (!tbl) { toast('Generate the report first','err'); return; }
+    try {
+      var doc = new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+      var W = doc.internal.pageSize.getWidth();
+      doc.setFillColor(13,13,13); doc.rect(0,0,W,22,'F');
+      doc.setTextColor(200,146,42); doc.setFontSize(15); doc.setFont('helvetica','bold');
+      doc.text('DELPHINE ENTERPRISE LIMITED',14,10);
+      doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(200,152,128);
+      doc.text('Monthly Closing Report — '+month+'/'+year,14,17);
+      doc.text('Generated: '+new Date().toLocaleString(),W-14,17,{align:'right'});
+      var headers=[]; tbl.querySelectorAll('thead th').forEach(function(th){headers.push(th.textContent.trim());});
+      var rows=[]; tbl.querySelectorAll('tbody tr').forEach(function(tr){var r=[];tr.querySelectorAll('td').forEach(function(td){r.push(td.textContent.trim());});if(r.length)rows.push(r);});
+      doc.autoTable({head:[headers],body:rows,startY:26,theme:'grid',
+        headStyles:{fillColor:[200,146,42],textColor:[0,0,0],fontStyle:'bold',fontSize:9},
+        bodyStyles:{fontSize:8.5,textColor:[30,30,30]},
+        alternateRowStyles:{fillColor:[245,245,245]},margin:{left:14,right:14}});
+      doc.save('monthly-closing-'+year+'-'+month+'.pdf');
+      toast('PDF downloaded','ok');
+    } catch(e){ window.print(); }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
