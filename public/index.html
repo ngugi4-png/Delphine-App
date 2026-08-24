@@ -3487,24 +3487,74 @@ function loadPurchases() {
   });
 }
 
-function markPOReceived(id) {
-  db.collection('purchaseOrders').doc(id).update({
-    status:    'received',
-    receivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt:  firebase.firestore.FieldValue.serverTimestamp()
-  }).then(function(){
-    toast('Purchase Order marked as received', 'ok');
-    loadPurchases();
-  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+function receivePOAsBill(poId) {
+  // Load the PO, mark as received, and auto-create a bill
+  db.collection('purchaseOrders').doc(poId).get().then(function(snap) {
+    if (!snap.exists) { toast('PO not found','err'); return; }
+    var po  = snap.data();
+    var now = firebase.firestore.FieldValue.serverTimestamp();
+    var receivedDate = new Date().toISOString().split('T')[0];
+
+    // Build bill from PO line items
+    var billLines = (po.lineItems||[]).map(function(l) {
+      return {
+        description: l.description,
+        branch:      l.branch,
+        unit:        l.unit||'Units',
+        qty:         l.qty,
+        unitPrice:   l.unitPrice,
+        amount:      l.amount
+      };
+    });
+    var totalAmount = billLines.reduce(function(s,l){ return s+(l.amount||0); }, 0);
+
+    // Save bill
+    db.collection('bills').add({
+      vendorId:    po.vendorId   || '',
+      vendorName:  po.vendorName || '',
+      date:        receivedDate,
+      reference:   po.reference  || '',
+      notes:       'Auto-created from PO. Payment terms: '+(po.paymentTerms||''),
+      lineItems:   billLines,
+      totalAmount: totalAmount,
+      amount:      totalAmount,
+      branch:      (po.branches||''),
+      description: (po.lineItems||[]).map(function(l){return l.description;}).join(', '),
+      fromPO:      poId,
+      status:      'unpaid',
+      createdAt:   now
+    }).then(function() {
+      // Mark PO as received
+      return db.collection('purchaseOrders').doc(poId).update({
+        status:      'received',
+        receivedAt:  now,
+        updatedAt:   now,
+        billCreated: true
+      });
+    }).then(function() {
+      // Recalculate WACC cache
+      calculateWACC(null, function(w){ WACC_CACHE = w; });
+      toast('✓ Received! Bill created automatically in Vendors & Bills.','ok');
+      loadPurchases();
+    }).catch(function(e){ toast('Error: '+e.message,'err'); });
+  }).catch(function(e){ toast('Error loading PO: '+e.message,'err'); });
 }
 
 function cancelPO(id) {
   if (!confirm('Cancel this purchase order?')) return;
   db.collection('purchaseOrders').doc(id).update({
-    status:    'cancelled',
-    updatedAt:  firebase.firestore.FieldValue.serverTimestamp()
+    status:   'cancelled',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(function(){
-    toast('Purchase Order cancelled', 'ok');
+    toast('Purchase Order cancelled','ok');
+    loadPurchases();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function deletePO(id) {
+  if (!confirm('Permanently delete this purchase order? This cannot be undone.')) return;
+  db.collection('purchaseOrders').doc(id).delete().then(function(){
+    toast('Purchase Order deleted','ok');
     loadPurchases();
   }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
