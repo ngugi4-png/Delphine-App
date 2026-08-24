@@ -4523,116 +4523,38 @@ function cogsAutoFetch() {
   var branch = (document.getElementById('cogsBranch')||{}).value;
   if (!date || !branch) { toast('Select date and branch first','err'); return; }
 
-  var brkDiv = document.getElementById('cogsWACCBreakdown');
-  if (brkDiv) brkDiv.style.display='none';
+  var brkDiv  = document.getElementById('cogsWACCBreakdown');
   var saveBtn = document.getElementById('cogsSaveBtn');
-  if (saveBtn) saveBtn.style.display='none';
+  if (brkDiv)  brkDiv.style.display  = 'none';
+  if (saveBtn) saveBtn.style.display = 'none';
 
-  // Fetch approved reports for this date + branch
-  // Also fetch cost prices for this branch
+  // Fetch sales reports + sell prices in parallel
   Promise.all([
     db.collection('reports').where('date','==',date).where('branch','==',branch).get(),
     db.collection('invPrices').doc(branch).get()
   ]).then(function(results) {
-    var rSnap   = results[0];
-    var prSnap  = results[1];
-    var prices  = prSnap.exists ? prSnap.data() : {};
+    var rSnap      = results[0];
+    var sellPrices = results[1].exists ? results[1].data() : {};
 
-    if (rSnap.empty) {
-      toast('No approved reports found for '+branch+' on '+date,'err');
-      return;
-    }
+    // Layer WACC cost prices from purchase orders on top
+    var waccCosts = (WACC_CACHE && WACC_CACHE[branch]) || {};
 
-    // Aggregate quantities and revenues per product across all shifts
-    var totals = {};
-    COGS_PRODUCTS.forEach(function(p){ totals[p.key]={qty:0,rev:0}; });
-
-    rSnap.forEach(function(d) {
-      var r = d.data();
-      // Include all reports (approved + pending) for the day
-      COGS_PRODUCTS.forEach(function(p) {
-        totals[p.key].qty += p.qtyFn(r);
-        totals[p.key].rev += p.revFn(r);
+    if (Object.keys(waccCosts).length > 0) {
+      // WACC already cached — run immediately
+      var prices = Object.assign({}, sellPrices);
+      Object.keys(waccCosts).forEach(function(k){ prices[k+'Cost'] = waccCosts[k]; });
+      runCOGSCalc(rSnap, prices, branch);
+    } else {
+      // Calculate WACC from POs now
+      calculateWACC(branch, function(wacc) {
+        var prices = Object.assign({}, sellPrices);
+        Object.keys(wacc).forEach(function(k){ prices[k+'Cost'] = wacc[k]; });
+        runCOGSCalc(rSnap, prices, branch);
       });
-    });
-
-    // WACC COGS calculation per product:
-    // For each product: COGS = Qty Sold × Weighted Average Cost Price
-    // Weighted Avg Cost = cost price from invPrices (updated per delivery)
-    // Gross Margin = (Revenue - COGS) / Revenue × 100
-
-    var totalRevenue = 0;
-    var totalCOGS    = 0;
-    var tableRows    = '';
-
-    COGS_PRODUCTS.forEach(function(p) {
-      var qty      = totals[p.key].qty;
-      var rev      = totals[p.key].rev;
-      var costPx   = prices[p.costKey] || 0;
-      var sellPx   = prices[p.sellKey] || 0;
-
-      // If no cost price set, warn
-      if (!costPx && qty > 0) {
-        tableRows += '<tr style="background:rgba(192,57,43,0.08)">'
-          +'<td style="padding:5px 6px;color:var(--text2)">'+p.name+'</td>'
-          +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono)">'+qty.toFixed(1)+'</td>'
-          +'<td colspan="4" style="padding:5px 6px;color:var(--red);font-size:0.65rem">'
-          +'⚠ No cost price set — go to Settings → Branches to set cost price</td></tr>';
-        totalRevenue += rev;
-        return;
-      }
-      if (!qty) return; // skip products with zero sales
-
-      var cogs   = qty * costPx;
-      var margin = rev > 0 ? ((rev - cogs) / rev * 100).toFixed(1) : '0.0';
-      var mCol   = parseFloat(margin) > 0 ? 'var(--green)' : 'var(--red)';
-
-      totalRevenue += rev;
-      totalCOGS    += cogs;
-
-      tableRows += '<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:5px 6px;font-weight:500;color:var(--text)">'+p.name+'</td>'
-        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--text2)">'+qty.toFixed(2)+'</td>'
-        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--text2)">'+fmt(costPx)+'</td>'
-        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--red)">'+fmt(cogs)+'</td>'
-        +'<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--text2)">'+fmt(rev)+'</td>'
-        +'<td style="padding:5px 6px;text-align:right;font-weight:700;color:'+mCol+'">'+margin+'%</td>'
-        +'</tr>';
-    });
-
-    // Populate the breakdown table
-    var tbl = document.getElementById('cogsWACCtable');
-    if (tbl) {
-      tbl.innerHTML = '<thead><tr style="border-bottom:1px solid var(--border)">'
-        +'<th style="padding:4px 6px;text-align:left;color:var(--text3);font-size:0.6rem">Product</th>'
-        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">Qty Sold</th>'
-        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">WACC Cost</th>'
-        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">COGS</th>'
-        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">Revenue</th>'
-        +'<th style="padding:4px 6px;text-align:right;color:var(--text3);font-size:0.6rem">Margin</th>'
-        +'</tr></thead><tbody>'+tableRows+'</tbody>';
     }
-
-    // Show totals
-    var grossProfit = totalRevenue - totalCOGS;
-    var grossMargin = totalRevenue > 0 ? ((grossProfit/totalRevenue)*100).toFixed(1)+'%' : '—';
-    var gCol = grossProfit >= 0 ? 'var(--green)' : 'var(--red)';
-
-    var trEl=document.getElementById('cogsTotalRevenue'); if(trEl) trEl.textContent=fmt(totalRevenue);
-    var tcEl=document.getElementById('cogsTotalCOGS');    if(tcEl) tcEl.textContent=fmt(totalCOGS);
-    var gpEl=document.getElementById('cogsGrossProfit');  if(gpEl){gpEl.textContent=fmt(grossProfit);gpEl.style.color=gCol;}
-    var gmEl=document.getElementById('cogsGrossMargin');  if(gmEl) gmEl.textContent=grossMargin;
-
-    // Store values in hidden inputs for saveCOGS
-    var revH=document.getElementById('cogsRevenue'); if(revH) revH.value=totalRevenue.toFixed(2);
-    var amtH=document.getElementById('cogsAmount');  if(amtH) amtH.value=totalCOGS.toFixed(2);
-
-    // Show breakdown + save button
-    if(brkDiv) brkDiv.style.display='block';
-    if(saveBtn) saveBtn.style.display='block';
-
   }).catch(function(e){ toast('Error loading sales: '+e.message,'err'); });
 }
+
 
 function loadCOGS() {
   var bs = document.getElementById('cogsBranch');
