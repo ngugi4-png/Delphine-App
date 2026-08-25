@@ -1,4 +1,33 @@
-<!DOCTYPE html>
+<!DOCTY
+
+  <div id="tabDash" class="adm-dashboard-home" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↺ Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadWeather()">☁ Weather</button>
+      </div>
+    </div>
+    <!-- KPI tiles -->
+    <div class="g4" id="dashKpis" style="margin-bottom:20px">
+      <div class="stat-tile"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">—</div><div class="st-sub">All branches</div></div>
+      <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">—</div><div class="st-sub">Petrol today</div></div>
+      <div class="stat-tile"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">—</div><div class="st-sub">Awaiting approval</div></div>
+      <div class="stat-tile"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">—</div><div class="st-sub">Approved accounts</div></div>
+    </div>
+    <!-- Weather -->
+    <div class="card">
+      <div class="card-title">☁ Branch Weather</div>
+      <div id="weatherCards" class="g3">
+        <div class="empty">Loading weather…</div>
+      </div>
+    </div>
+    <!-- Recent approvals -->
+    <div class="card">
+      <div class="card-title">Recent Reports</div>
+      <div id="dashRecentReports"><div class="empty">No reports yet.</div></div>
+    </div>
+  </div>PE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -519,34 +548,6 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
   </div>
 
-  <div id="tabDash" class="adm-dashboard-home" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↺ Refresh</button>
-        <button class="btn btn-ghost btn-sm" onclick="loadWeather()">☁ Weather</button>
-      </div>
-    </div>
-    <!-- KPI tiles -->
-    <div class="g4" id="dashKpis" style="margin-bottom:20px">
-      <div class="stat-tile"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">—</div><div class="st-sub">All branches</div></div>
-      <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">—</div><div class="st-sub">Petrol today</div></div>
-      <div class="stat-tile"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">—</div><div class="st-sub">Awaiting approval</div></div>
-      <div class="stat-tile"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">—</div><div class="st-sub">Approved accounts</div></div>
-    </div>
-    <!-- Weather -->
-    <div class="card">
-      <div class="card-title">☁ Branch Weather</div>
-      <div id="weatherCards" class="g3">
-        <div class="empty">Loading weather…</div>
-      </div>
-    </div>
-    <!-- Recent approvals -->
-    <div class="card">
-      <div class="card-title">Recent Reports</div>
-      <div id="dashRecentReports"><div class="empty">No reports yet.</div></div>
-    </div>
-  </div>
 
   
 
