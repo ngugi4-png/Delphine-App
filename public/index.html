@@ -519,7 +519,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
   </div>
 
-  <div id="tabDash" class="adm-dashboard-home">
+  <div id="tabDash" class="adm-dashboard-home" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
       <div style="display:flex;gap:8px">
@@ -1710,12 +1710,12 @@ function mainTab(btn, navId) {
   hideAllSubNavs();
   hideAllPanels();
 
+  // Hide dashboard home when navigating to any other tab
+  var dash = el('tabDash');
+  if (dash) dash.style.display = 'none';
+
   if (navId === 'mSummary') {
     showPanel('tabBranchSummary');
-    return;
-  }
-  if (navId === 'mDash') {
-    showPanel('tabDash');
     return;
   }
   var sn = el('subNav_'+navId);
@@ -1897,6 +1897,8 @@ function goToDashboard() {
   document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
   document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
   document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+  var dash = el('tabDash');
+  if (dash) dash.style.display = 'block';
   loadDashboard();
 }
 
