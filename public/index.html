@@ -2505,58 +2505,165 @@ function downloadCSV(rows, filename) {
 // ═══════════════════════════════════════════════════════════════
 // ═══════════ VENDOR CRUD ═══════════════════════════════════════
 var _editVendorId = null;
+
 function openAddVendor() {
   _editVendorId = null;
   openModal('Add Vendor',
-    '<div class="field"><label>Name *</label><input type="text" id="mvName"></div>'
-    +'<div class="field"><label>Contact</label><input type="text" id="mvContact"></div>'
-    +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone"></div>'
+    '<div class="field"><label>Vendor Name *</label><input type="text" id="mvName" placeholder="e.g. Kenya Pipeline"></div>'
+    +'<div class="field"><label>Contact Person</label><input type="text" id="mvContact"></div>'
+    +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone" placeholder="+254..."></div>'
     +'<div class="field"><label>Email</label><input type="email" id="mvEmail"></div></div>'
     +'<div class="field"><label>Notes</label><input type="text" id="mvNotes"></div>',
-    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Save</button>');
+    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Save Vendor</button>');
 }
+
 function openEditVendor(id,name,contact,phone,email,notes) {
   _editVendorId = id;
-  openModal('Edit Vendor',
-    '<div class="field"><label>Name *</label><input type="text" id="mvName" value="'+name+'"></div>'
-    +'<div class="field"><label>Contact</label><input type="text" id="mvContact" value="'+contact+'"></div>'
+  openModal('Edit Vendor — '+name,
+    '<div class="field"><label>Vendor Name *</label><input type="text" id="mvName" value="'+name+'"></div>'
+    +'<div class="field"><label>Contact Person</label><input type="text" id="mvContact" value="'+contact+'"></div>'
     +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone" value="'+phone+'"></div>'
     +'<div class="field"><label>Email</label><input type="email" id="mvEmail" value="'+email+'"></div></div>'
     +'<div class="field"><label>Notes</label><input type="text" id="mvNotes" value="'+notes+'"></div>',
-    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Update</button>');
+    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Update Vendor</button>');
 }
+
 function saveVendorModal() {
-  var name=((document.getElementById('mvName')||{}).value||'').trim();
-  var contact=((document.getElementById('mvContact')||{}).value||'').trim();
-  var phone=((document.getElementById('mvPhone')||{}).value||'').trim();
-  var email=((document.getElementById('mvEmail')||{}).value||'').trim();
-  var notes=((document.getElementById('mvNotes')||{}).value||'').trim();
-  if(!name){toast('Enter vendor name','err');return;}
-  var data={name:name,contact:contact,phone:phone,email:email,notes:notes,
+  var name    = ((document.getElementById('mvName')||{}).value||'').trim();
+  var contact = ((document.getElementById('mvContact')||{}).value||'').trim();
+  var phone   = ((document.getElementById('mvPhone')||{}).value||'').trim();
+  var email   = ((document.getElementById('mvEmail')||{}).value||'').trim();
+  var notes   = ((document.getElementById('mvNotes')||{}).value||'').trim();
+  if (!name) { toast('Enter a vendor name','err'); return; }
+  var data = {name:name,contact:contact,phone:phone,email:email,notes:notes,
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
-  var p=_editVendorId?db.collection('vendors').doc(_editVendorId).update(data)
-    :db.collection('vendors').add(Object.assign({},data,{createdAt:firebase.firestore.FieldValue.serverTimestamp()}));
-  p.then(function(){toast((_editVendorId?'Updated':'Added')+': '+name,'ok');closeModal();loadVendors();})
-   .catch(function(e){toast('Error: '+e.message,'err');});
+  var p = _editVendorId
+    ? db.collection('vendors').doc(_editVendorId).update(data)
+    : db.collection('vendors').add(Object.assign({},data,{createdAt:firebase.firestore.FieldValue.serverTimestamp()}));
+  p.then(function(){
+    toast((_editVendorId?'Vendor updated':'Vendor added')+': '+name,'ok');
+    closeModal(); loadVendors();
+  }).catch(function(e){ toast('Error saving vendor: '+e.message,'err'); });
 }
-function saveVendor(){saveVendorModal();}
-function deleteVendor(id,name){
-  if(!confirm('Delete "'+name+'"? Bills remain.'))return;
-  db.collection('vendors').doc(id).delete()
-    .then(function(){toast('Deleted','ok');loadVendors();})
-    .catch(function(e){toast('Error: '+e.message,'err');});
+
+function saveVendor() { saveVendorModal(); }
+
+function deleteVendor(id,name) {
+  if(!confirm('Delete "'+name+'"? Bills will remain.')) return;
+  db.collection('vendors').doc(id).delete().then(function(){
+    toast('Vendor deleted','ok'); loadVendors();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
-function deleteBill(id){
-  if(!confirm('Delete bill?'))return;
-  db.collection('bills').doc(id).delete().then(function(){toast('Deleted','ok');loadVendors();})
-    .catch(function(e){toast('Error: '+e.message,'err');});
+
+function updateInventoryFromBill(lineItems, multiplier) {
+  lineItems.forEach(function(l){
+    if (!l.description||!l.branch||!l.qty) return;
+    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9_]/gi,'_');
+    var ref = db.collection('inventory').doc(docId);
+    db.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        var cur = snap.exists?(snap.data().qty||0):0;
+        tx.set(ref,{branch:l.branch,product:l.description,
+          qty:Math.max(0,cur+(parseFloat(l.qty)||0)*multiplier),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      });
+    }).catch(function(){});
+  });
+  calculateWACC(null,function(w){WACC_CACHE=w;});
 }
+
+function loadBillList() {
+  var bc=el('billList'); if(!bc) return;
+  bc.innerHTML='<div class="empty">Loading\u2026</div>';
+  db.collection('bills').limit(60).get().then(function(bSnap){
+    if(bSnap.empty){bc.innerHTML='<div class="empty">No bills yet.</div>';return;}
+    var items=[]; bSnap.forEach(function(d){items.push({id:d.id,b:d.data()});});
+    items.sort(function(a,b){return (b.b.date||'').localeCompare(a.b.date||'');});
+    var h='';
+    items.forEach(function(item){
+      var b=item.b;
+      var lines=b.lineItems||[{description:b.description||'\u2014',branch:b.branch||'\u2014',qty:1,unitPrice:b.amount||0,amount:b.amount||0}];
+      h+='<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden">'
+        +'<div style="background:var(--s2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+        +'<div><span style="font-weight:600;font-size:0.78rem">'+(b.vendorName||b.date||'\u2014')+'</span>'
+        +' <span style="font-size:0.62rem;color:var(--text3)">'+b.date+'</span>'
+        +(b.reference?' <span style="font-size:0.6rem;color:var(--text3)">Ref: '+b.reference+'</span>':'')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px">'
+        +'<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'+fmt(b.totalAmount||b.amount||0)+'</span>'
+        +'<button class="btn btn-blue btn-xs" onclick="editBill(\''+item.id+'\')">Edit</button>'
+        +'<button class="btn btn-red btn-xs" onclick="deleteBill(\''+item.id+'\')">Delete</button>'
+        +'</div></div>'
+        +'<table class="tbl" style="margin:0"><thead><tr><th>Product</th><th>Branch</th>'
+        +'<th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th>'
+        +'</tr></thead><tbody>';
+      lines.forEach(function(l){
+        h+='<tr><td>'+(l.description||'\u2014')+'</td><td>'+(l.branch||'\u2014')+'</td>'
+          +'<td class="num">'+(l.qty||1)+'</td><td class="num">'+fmt(l.unitPrice||0)+'</td>'
+          +'<td class="num">'+fmt(l.amount||0)+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    });
+    bc.innerHTML=h;
+  }).catch(function(e){bc.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+}
+
+function editBill(id) {
+  db.collection('bills').doc(id).get().then(function(snap){
+    if(!snap.exists){toast('Bill not found','err');return;}
+    var b=snap.data();
+    var vd=el('billVendor'); if(vd) vd.value=b.vendorId||'';
+    var bd=el('billDate');   if(bd) bd.value=b.date||'';
+    var br=el('billRef');    if(br) br.value=b.reference||'';
+    var bn=el('billNote');   if(bn) bn.value=b.notes||'';
+    var bei=el('billEditId');if(bei) bei.value=id;
+    var bl=document.getElementById('billLines');
+    if(bl){bl.innerHTML='';_billLineCount=0;}
+    (b.lineItems||[]).forEach(function(line){
+      _billLineCount++;
+      var div=document.createElement('div');
+      div.innerHTML=_billLineHtml(_billLineCount);
+      if(bl) bl.appendChild(div.firstChild);
+      (function(i,l){setTimeout(function(){
+        var d=document.getElementById('blDesc_'+i);
+        if(d){for(var k=0;k<d.options.length;k++){if(d.options[k].value===l.description){d.selectedIndex=k;break;}}}
+        var br2=document.getElementById('blBranch_'+i);if(br2)br2.value=l.branch||'';
+        var qt=document.getElementById('blQty_'+i);if(qt)qt.value=l.qty||1;
+        var pr=document.getElementById('blPrice_'+i);if(pr)pr.value=l.unitPrice||0;
+        billCalc();
+      },60);}(_billLineCount,line));
+    });
+    var ft=el('billFormTitle');if(ft)ft.textContent='Edit Bill';
+    var sb=el('billSaveBtn');  if(sb)sb.textContent='Update Bill';
+    var ce=el('billCancelEdit');if(ce)ce.style.display='block';
+    var f=document.getElementById('billLines');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});
+    toast('Bill loaded for editing','ok');
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+
+function cancelBillEdit() {
+  var bei=el('billEditId');if(bei)bei.value='';
+  var ft=el('billFormTitle');if(ft)ft.textContent='Record Bill';
+  var sb=el('billSaveBtn');  if(sb)sb.textContent='Save Bill';
+  var ce=el('billCancelEdit');if(ce)ce.style.display='none';
+  var bl=document.getElementById('billLines');if(bl){bl.innerHTML='';_billLineCount=0;addBillLine();}
+  var br=el('billRef');if(br)br.value='';
+  var bn=el('billNote');if(bn)bn.value='';
+  var bt=el('billTotal');if(bt)bt.textContent='KSh 0';
+}
+
+function deleteBill(id) {
+  if(!confirm('Delete this bill?\nInventory will NOT be automatically reversed.'))return;
+  db.collection('bills').doc(id).delete().then(function(){
+    toast('Bill deleted','ok');loadBillList();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+
 function loadVendors() {
   db.collection('vendors').get().then(function(snap){
     var c=el('vendorList'),vs=el('billVendor');
     if(vs){while(vs.options.length)vs.remove(0);}
     if(snap.empty){
-      if(c)c.innerHTML='<div class="empty">No vendors yet \u2014 click <b>+ Add Vendor</b></div>';
+      if(c)c.innerHTML='<div class="empty">No vendors yet \u2014 click <b>+ Add Vendor</b> above.</div>';
     } else {
       var rows='';
       snap.forEach(function(d){
@@ -2574,156 +2681,56 @@ function loadVendors() {
           +'</td></tr>';
         if(vs){var o=document.createElement('option');o.value=d.id;o.textContent=v.name;vs.appendChild(o);}
       });
-      if(c)c.innerHTML='<table class="tbl"><thead><tr><th>Vendor</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
+      if(c)c.innerHTML='<table class="tbl"><thead><tr><th>Vendor</th><th>Contact</th>'
+        +'<th>Phone</th><th>Email</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
     }
-    var pvs=el('poVendor');
-    if(pvs&&pvs.options.length<2){snap.forEach(function(d){var o=document.createElement('option');o.value=d.id;o.textContent=d.data().name;pvs.appendChild(o);});}
     var bd=el('billDate');if(bd&&!bd.value)bd.valueAsDate=new Date();
-    var bl=document.getElementById('billLines');if(bl&&!bl.children.length){_billLineCount=0;addBillLine();}
-    db.collection('bills').limit(40).get().then(function(bSnap){
-      var bc=el('billList');if(!bc)return;
-      if(bSnap.empty){bc.innerHTML='<div class="empty">No bills yet.</div>';return;}
-      var items=[];bSnap.forEach(function(d){items.push({id:d.id,b:d.data()});});
-      items.sort(function(a,b){return (b.b.date||'').localeCompare(a.b.date||'');});
-      var h='';
-      items.forEach(function(item){
-        var b=item.b;
-        var lines=b.lineItems||[{description:b.description||'\u2014',branch:b.branch||'\u2014',qty:1,unitPrice:b.amount||0,amount:b.amount||0}];
-        h+='<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden">'
-          +'<div style="background:var(--s2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
-          +'<div><span style="font-weight:600;font-size:0.78rem">'+(b.vendorName||b.date||'\u2014')+'</span>'
-          +' <span style="font-size:0.62rem;color:var(--text3)">'+b.date+'</span>'
-          +(b.fromPO?' <span class="badge badge-blue" style="font-size:0.55rem">From PO</span>':'')+'</div>'
-          +'<div style="display:flex;align-items:center;gap:8px">'
-          +'<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'+fmt(b.totalAmount||b.amount||0)+'</span>'
-          +'<button class="btn btn-red btn-xs" onclick="deleteBill(\''+item.id+'\')">&#128465;</button>'
-          +'</div></div>'
-          +'<table class="tbl" style="margin:0"><thead><tr><th>Product</th><th>Branch</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead><tbody>';
-        lines.forEach(function(l){
-          h+='<tr><td>'+(l.description||'\u2014')+'</td><td>'+(l.branch||'\u2014')+'</td>'
-            +'<td class="num">'+(l.qty||1)+'</td><td class="num">'+fmt(l.unitPrice||0)+'</td>'
-            +'<td class="num">'+fmt(l.amount||0)+'</td></tr>';
-        });
-        h+='</tbody></table></div>';
-      });
-      bc.innerHTML=h;
-    }).catch(function(e){if(el('billList'))el('billList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+    var bl=document.getElementById('billLines');
+    if(bl&&!bl.children.length){_billLineCount=0;addBillLine();}
+    loadBillList();
   }).catch(function(e){if(el('vendorList'))el('vendorList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
-}
-function _billLineHtml(i) {
-  // Build one line item row
-  var branchOpts = BRANCHES.map(function(b){
-    return '<option value="'+b+'">'+b+'</option>';
-  }).join('');
-  return '<div class="bill-line" id="billLine_'+i+'" style="'
-    +'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:10px;'
-    +'padding-bottom:10px;border-bottom:1px solid var(--border)">'
-    // Description
-    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Description / Product</label>'
-    +'<input type="text" id="blDesc_'+i+'" placeholder="e.g. Petrol PMS" oninput="billCalc()"></div>'
-    // Branch
-    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Branch</label>'
-    +'<select id="blBranch_'+i+'"><option value="">All</option>'+branchOpts+'</select></div>'
-    // Qty
-    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Qty</label>'
-    +'<input type="number" id="blQty_'+i+'" value="1" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
-    // Unit price
-    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit Price (KSh)</label>'
-    +'<input type="number" id="blPrice_'+i+'" value="0" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
-    // Remove button
-    +'<button type="button" onclick="removeBillLine('+i+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">✕</button>'
-    +'</div>';
-}
-
-var _billLineCount = 0;
-
-function addBillLine() {
-  _billLineCount++;
-  var c = document.getElementById('billLines');
-  if (!c) return;
-  var div = document.createElement('div');
-  div.innerHTML = _billLineHtml(_billLineCount);
-  c.appendChild(div.firstChild);
-}
-
-function removeBillLine(i) {
-  var row = document.getElementById('billLine_'+i);
-  if (row) row.remove();
-  billCalc();
-}
-
-function billCalc() {
-  var total = 0;
-  var c = document.getElementById('billLines');
-  if (!c) return;
-  c.querySelectorAll('.bill-line').forEach(function(row) {
-    var id = row.id.replace('billLine_','');
-    var qty   = parseFloat((document.getElementById('blQty_'+id)||{}).value||0) || 0;
-    var price = parseFloat((document.getElementById('blPrice_'+id)||{}).value||0) || 0;
-    total += qty * price;
-  });
-  var bt = document.getElementById('billTotal');
-  if (bt) bt.textContent = 'KSh ' + total.toLocaleString('en-KE', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
 function saveBill() {
-  var vendor   = document.getElementById('billVendor') ? document.getElementById('billVendor').value : '';
-  var date     = document.getElementById('billDate')   ? document.getElementById('billDate').value   : '';
-  var ref      = document.getElementById('billRef')    ? document.getElementById('billRef').value    : '';
-  var note     = document.getElementById('billNote')   ? document.getElementById('billNote').value   : '';
-
-  if (!date) { toast('Select a date', 'err'); return; }
-
-  // Collect line items
-  var lineItems = [];
-  var billTotal = 0;
-  var c = document.getElementById('billLines');
-  if (!c || !c.querySelectorAll('.bill-line').length) {
-    toast('Add at least one line item', 'err'); return;
-  }
-
-  c.querySelectorAll('.bill-line').forEach(function(row) {
-    var id     = row.id.replace('billLine_','');
-    var descSel = document.getElementById('blDesc_'+id);
-    var descVal = descSel ? descSel.value : '';
-    var desc = descVal === 'Other'
-      ? ((document.getElementById('blDescOther_'+id)||{}).value||'').trim()
-      : descVal;
-    var branch = (document.getElementById('blBranch_'+id)||{}).value || '';
-    var qty    = parseFloat((document.getElementById('blQty_'+id)||{}).value)   || 0;
-    var price  = parseFloat((document.getElementById('blPrice_'+id)||{}).value) || 0;
-    var amount = qty * price;
-    if (!desc || qty === 0) return; // skip empty rows
-    lineItems.push({ description: desc, branch: branch, qty: qty, unitPrice: price, amount: amount });
-    billTotal += amount;
+  var vendorEl=document.getElementById('billVendor');
+  var vendor=vendorEl?vendorEl.value:'';
+  var vendorName=vendorEl&&vendorEl.selectedIndex>=0?vendorEl.options[vendorEl.selectedIndex].text:'';
+  var date=(el('billDate')||{}).value||'';
+  var ref=(el('billRef')||{}).value||'';
+  var note=(el('billNote')||{}).value||'';
+  var editId=(el('billEditId')||{}).value||'';
+  if(!date){toast('Select a date','err');return;}
+  var lineItems=[],billTotal=0;
+  var bl=document.getElementById('billLines');
+  if(!bl||!bl.querySelectorAll('.bill-line').length){toast('Add at least one line item','err');return;}
+  bl.querySelectorAll('.bill-line').forEach(function(row){
+    var id=row.id.replace('billLine_','');
+    var descSel=document.getElementById('blDesc_'+id);
+    var descVal=descSel?descSel.value:'';
+    var desc=descVal==='Other'?((document.getElementById('blDescOther_'+id)||{}).value||'').trim():descVal;
+    var branch=(document.getElementById('blBranch_'+id)||{}).value||'';
+    var qty=parseFloat((document.getElementById('blQty_'+id)||{}).value)||0;
+    var price=parseFloat((document.getElementById('blPrice_'+id)||{}).value)||0;
+    var amount=qty*price;
+    if(!desc||!qty)return;
+    lineItems.push({description:desc,branch:branch,qty:qty,unitPrice:price,amount:amount});
+    billTotal+=amount;
   });
-
-  if (!lineItems.length) { toast('Fill in at least one line item with description and qty', 'err'); return; }
-
-  var now = firebase.firestore.FieldValue.serverTimestamp();
-  db.collection('bills').add({
-    vendorId:   vendor,
-    date:       date,
-    reference:  ref,
-    notes:      note,
-    lineItems:  lineItems,
-    totalAmount: billTotal,
-    // Keep backward-compat fields
-    branch:     lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ') || 'Multiple',
-    description: lineItems.map(function(l){return l.description;}).join(', '),
-    amount:     billTotal,
-    createdAt:  now
-  }).then(function() {
-    toast('Bill saved — KSh ' + billTotal.toLocaleString(), 'ok');
-    // Reset form
-    document.getElementById('billRef').value  = '';
-    document.getElementById('billNote').value = '';
-    document.getElementById('billLines').innerHTML = '';
-    _billLineCount = 0;
-    document.getElementById('billTotal').textContent = 'KSh 0';
-    loadVendors();
-  })
-    .catch(function(e) { toast('Error: ' + e.message, 'err'); });
+  if(!lineItems.length){toast('Fill in at least one line item','err');return;}
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  var data={vendorId:vendor,vendorName:vendorName,date:date,reference:ref,notes:note,
+    lineItems:lineItems,totalAmount:billTotal,amount:billTotal,
+    branch:lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ')||'Multiple',
+    description:lineItems.map(function(l){return l.description;}).join(', '),updatedAt:now};
+  var p=editId
+    ?db.collection('bills').doc(editId).update(data)
+    :db.collection('bills').add(Object.assign({},data,{createdAt:now}));
+  p.then(function(){
+    updateInventoryFromBill(lineItems,1);
+    toast((editId?'Bill updated':'Bill saved')+' \u2014 KSh '+billTotal.toLocaleString(),'ok');
+    cancelBillEdit();
+    loadBillList();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
 }
 
 
