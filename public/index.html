@@ -1894,12 +1894,14 @@ function loadAdminInit() {
 }
 
 function goToDashboard() {
-  document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
-  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
-  document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-  var dash = el('tabDash');
-  if (dash) dash.style.display = 'block';
-  loadDashboard();
+  setTimeout(function() {
+    document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
+    document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+    document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+    var dash = el('tabDash');
+    if (dash) dash.style.display = 'block';
+    loadDashboard();
+  }, 80);
 }
 
 function populateBranchDropdowns() {
