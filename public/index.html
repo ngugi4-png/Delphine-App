@@ -4521,8 +4521,8 @@ function loadBranchList() {
         + '<td style="color:var(--text3)">Murang\'a</td>'
         + '<td>—</td><td>—</td>'
         + '<td><span class="badge badge-green">active</span></td>'
-        + '<td><span style="font-size:0.6rem;color:var(--text3)">Built-in</span></td></tr>';
-    });
+        + '<td><button class="btn btn-blue btn-xs" onclick="openEditBuiltinBranch(\''+b+'\')">Edit</button></td></tr>';
+    });;
 
     // Custom branches from DB
     snap.forEach(function(d) {
