@@ -511,9 +511,7 @@ a { color: var(--gold); text-decoration: none; }
   </div>
 
   <!-- Sub-navs -->
-  <div id="subNav_mDash" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDash','mDash')">Dashboard</button>
-  </div>
+
   <div id="subNav_mReports" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
@@ -1655,7 +1653,6 @@ function toggleTheme() {
 
 // Map panel IDs to their main tab ID
 var PANEL_TO_TAB = {
-  tabDash:         'mDash',
   tabAppr:         'mReports',  tabSales:     'mReports',
   tabPL:           'mReports',  tabStock:     'mReports',
   tabAudit:        'mReports',  tabExport:    'mReports',
@@ -1738,7 +1735,6 @@ function showPanel(panelId) {
 // Panel init — runs once per panel open
 function panelInit(panelId) {
   switch(panelId) {
-    case 'tabDash':         loadDashboard();     break;
     case 'tabAppr':         loadApprovals();     break;
     case 'tabSales':        initDSR();           break;
     case 'tabPL':           initPL();            break;
@@ -1883,16 +1879,17 @@ function loadAdminInit() {
 }
 
 function goToDashboard() {
-  setTimeout(function() {
-    // Hide all panels, sub-navs, deactivate all tabs
-    document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
-    document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
-    document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-    // Show dashboard
-    var dash = el('tabDash');
-    if (dash) dash.style.display = 'block';
-    loadDashboard();
-  }, 80);
+  // Hide all sub-navs and tabs — but NOT panels yet
+  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+  document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+  // Hide all panels except tabDash
+  document.querySelectorAll('.adm-panel').forEach(function(p){
+    if (p.id !== 'tabDash') p.style.display = 'none';
+  });
+  // Always show tabDash
+  var dash = el('tabDash');
+  if (dash) dash.style.display = 'block';
+  loadDashboard();
 }
 
 function populateBranchDropdowns() {
