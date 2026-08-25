@@ -2474,72 +2474,112 @@ function downloadCSV(rows, filename) {
 // ═══════════════════════════════════════════════════════════════
 // VENDORS & BILLS
 // ═══════════════════════════════════════════════════════════════
+// ═══════════ VENDOR CRUD ═══════════════════════════════════════
+var _editVendorId = null;
+function openAddVendor() {
+  _editVendorId = null;
+  openModal('Add Vendor',
+    '<div class="field"><label>Name *</label><input type="text" id="mvName"></div>'
+    +'<div class="field"><label>Contact</label><input type="text" id="mvContact"></div>'
+    +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone"></div>'
+    +'<div class="field"><label>Email</label><input type="email" id="mvEmail"></div></div>'
+    +'<div class="field"><label>Notes</label><input type="text" id="mvNotes"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Save</button>');
+}
+function openEditVendor(id,name,contact,phone,email,notes) {
+  _editVendorId = id;
+  openModal('Edit Vendor',
+    '<div class="field"><label>Name *</label><input type="text" id="mvName" value="'+name+'"></div>'
+    +'<div class="field"><label>Contact</label><input type="text" id="mvContact" value="'+contact+'"></div>'
+    +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone" value="'+phone+'"></div>'
+    +'<div class="field"><label>Email</label><input type="email" id="mvEmail" value="'+email+'"></div></div>'
+    +'<div class="field"><label>Notes</label><input type="text" id="mvNotes" value="'+notes+'"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Update</button>');
+}
+function saveVendorModal() {
+  var name=((document.getElementById('mvName')||{}).value||'').trim();
+  var contact=((document.getElementById('mvContact')||{}).value||'').trim();
+  var phone=((document.getElementById('mvPhone')||{}).value||'').trim();
+  var email=((document.getElementById('mvEmail')||{}).value||'').trim();
+  var notes=((document.getElementById('mvNotes')||{}).value||'').trim();
+  if(!name){toast('Enter vendor name','err');return;}
+  var data={name:name,contact:contact,phone:phone,email:email,notes:notes,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  var p=_editVendorId?db.collection('vendors').doc(_editVendorId).update(data)
+    :db.collection('vendors').add(Object.assign({},data,{createdAt:firebase.firestore.FieldValue.serverTimestamp()}));
+  p.then(function(){toast((_editVendorId?'Updated':'Added')+': '+name,'ok');closeModal();loadVendors();})
+   .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function saveVendor(){saveVendorModal();}
+function deleteVendor(id,name){
+  if(!confirm('Delete "'+name+'"? Bills remain.'))return;
+  db.collection('vendors').doc(id).delete()
+    .then(function(){toast('Deleted','ok');loadVendors();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
+function deleteBill(id){
+  if(!confirm('Delete bill?'))return;
+  db.collection('bills').doc(id).delete().then(function(){toast('Deleted','ok');loadVendors();})
+    .catch(function(e){toast('Error: '+e.message,'err');});
+}
 function loadVendors() {
   db.collection('vendors').get().then(function(snap){
-    var c=el('vendorList');
-    if(!snap.empty){
-      var vs=el('billVendor');
-      if(vs){ while(vs.options.length>0)vs.remove(0); }
-      var html='';
+    var c=el('vendorList'),vs=el('billVendor');
+    if(vs){while(vs.options.length)vs.remove(0);}
+    if(snap.empty){
+      if(c)c.innerHTML='<div class="empty">No vendors yet \u2014 click <b>+ Add Vendor</b></div>';
+    } else {
+      var rows='';
       snap.forEach(function(d){
         var v=d.data();
-        html+='<div class="u-row"><div class="u-info" style="flex:1"><span class="u-name">'+v.name+'</span>'
-          +' <span class="u-email">'+v.contact+'</span></div>'
-          +'<button class="btn btn-red btn-xs" onclick="deleteVendor(\''+d.id+'\')">Remove</button></div>';
+        var sn=(v.name||'').replace(/['"<>]/g,'');
+        var sc=(v.contact||'').replace(/['"<>]/g,'');
+        var sp=(v.phone||'').replace(/['"<>]/g,'');
+        var se=(v.email||'').replace(/['"<>]/g,'');
+        var so=(v.notes||'').replace(/['"<>]/g,'');
+        rows+='<tr><td style="font-weight:600">'+(v.name||'')+'</td>'
+          +'<td>'+(v.contact||'\u2014')+'</td><td>'+(v.phone||'\u2014')+'</td><td>'+(v.email||'\u2014')+'</td>'
+          +'<td style="display:flex;gap:4px">'
+          +'<button class="btn btn-blue btn-xs" onclick="openEditVendor(\''+d.id+'\',\''+sn+'\',\''+sc+'\',\''+sp+'\',\''+se+'\',\''+so+'\')">Edit</button>'
+          +'<button class="btn btn-red btn-xs" onclick="deleteVendor(\''+d.id+'\',\''+sn+'\')">Delete</button>'
+          +'</td></tr>';
         if(vs){var o=document.createElement('option');o.value=d.id;o.textContent=v.name;vs.appendChild(o);}
       });
-      if(c) c.innerHTML=html;
-    } else { if(c) c.innerHTML='<div class="empty">No vendors.</div>'; }
-    // init bill date + first line item
-    var bd=el('billDate'); if(bd&&!bd.value) bd.valueAsDate=new Date();
-    if(document.getElementById('billLines')&&!document.getElementById('billLines').children.length){
-      _billLineCount=0; addBillLine();
+      if(c)c.innerHTML='<table class="tbl"><thead><tr><th>Vendor</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
     }
-    // load bills
-    db.collection('bills').limit(30).get().then(function(bSnap){
-      var bc=el('billList');
-      if(!bc) return;
-      if(bSnap.empty){bc.innerHTML='<div class="empty">No bills.</div>';return;}
-      var _bd=[]; bSnap.forEach(function(d){_bd.push({id:d.id,data:d.data()});}); 
-      _bd.sort(function(a,b){return (b.data.date||'').localeCompare(a.data.date||'');});
-      var h='<div>';
-      _bd.forEach(function(item){
-        var b=item.data;
-        var lines=b.lineItems||[{description:b.description,branch:b.branch,qty:b.qty||1,unitPrice:b.unitPrice||b.amount,amount:b.amount}];
+    var pvs=el('poVendor');
+    if(pvs&&pvs.options.length<2){snap.forEach(function(d){var o=document.createElement('option');o.value=d.id;o.textContent=d.data().name;pvs.appendChild(o);});}
+    var bd=el('billDate');if(bd&&!bd.value)bd.valueAsDate=new Date();
+    var bl=document.getElementById('billLines');if(bl&&!bl.children.length){_billLineCount=0;addBillLine();}
+    db.collection('bills').limit(40).get().then(function(bSnap){
+      var bc=el('billList');if(!bc)return;
+      if(bSnap.empty){bc.innerHTML='<div class="empty">No bills yet.</div>';return;}
+      var items=[];bSnap.forEach(function(d){items.push({id:d.id,b:d.data()});});
+      items.sort(function(a,b){return (b.b.date||'').localeCompare(a.b.date||'');});
+      var h='';
+      items.forEach(function(item){
+        var b=item.b;
+        var lines=b.lineItems||[{description:b.description||'\u2014',branch:b.branch||'\u2014',qty:1,unitPrice:b.amount||0,amount:b.amount||0}];
         h+='<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden">'
-          +'<div style="background:var(--s2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-          +'<div><span style="font-weight:600;font-size:0.78rem">'+b.date+'</span>'
-          +(b.reference?' <span style="font-size:0.62rem;color:var(--text3)">Ref: '+b.reference+'</span>':'')
-          +'</div>'
-          +'<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'+fmt(b.totalAmount||b.amount)+'</span>'
-          +'</div>'
-          +'<table class="tbl" style="margin:0"><thead><tr>'
-          +'<th>Description</th><th>Branch</th><th class="num">Qty</th>'
-          +'<th class="num">Unit Price</th><th class="num">Total</th>'
-          +'</tr></thead><tbody>';
+          +'<div style="background:var(--s2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+          +'<div><span style="font-weight:600;font-size:0.78rem">'+(b.vendorName||b.date||'\u2014')+'</span>'
+          +' <span style="font-size:0.62rem;color:var(--text3)">'+b.date+'</span>'
+          +(b.fromPO?' <span class="badge badge-blue" style="font-size:0.55rem">From PO</span>':'')+'</div>'
+          +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'+fmt(b.totalAmount||b.amount||0)+'</span>'
+          +'<button class="btn btn-red btn-xs" onclick="deleteBill(\''+item.id+'\')">&#128465;</button>'
+          +'</div></div>'
+          +'<table class="tbl" style="margin:0"><thead><tr><th>Product</th><th>Branch</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead><tbody>';
         lines.forEach(function(l){
-          h+='<tr><td>'+l.description+'</td><td>'+(l.branch||'—')+'</td>'
-            +'<td class="num">'+(l.qty||1)+'</td>'
-            +'<td class="num">'+fmt(l.unitPrice||0)+'</td>'
+          h+='<tr><td>'+(l.description||'\u2014')+'</td><td>'+(l.branch||'\u2014')+'</td>'
+            +'<td class="num">'+(l.qty||1)+'</td><td class="num">'+fmt(l.unitPrice||0)+'</td>'
             +'<td class="num">'+fmt(l.amount||0)+'</td></tr>';
         });
         h+='</tbody></table></div>';
       });
-      h+='</div>';
-      bc.innerHTML=h+'</tbody></table>';
-    });
-  }
-    .catch(function(e){ _dbErr('query', e); }));
-}
-function saveVendor() {
-  var n=gv('vendorName').trim(),c=gv('vendorContact').trim();
-  if(!n){toast('Enter vendor name','err');return;}
-  db.collection('vendors').add({name:n,contact:c,createdAt:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){toast('Vendor saved','ok');sv('vendorName','');sv('vendorContact','');loadVendors();});
-}
-function deleteVendor(id){
-  if(!confirm('Remove vendor?'))return;
-  db.collection('vendors').doc(id).delete().then(function(){toast('Removed','ok');loadVendors();});
+      bc.innerHTML=h;
+    }).catch(function(e){if(el('billList'))el('billList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+  }).catch(function(e){if(el('vendorList'))el('vendorList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 function _billLineHtml(i) {
   // Build one line item row
