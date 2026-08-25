@@ -1,33 +1,4 @@
-<!DOCTY
-
-  <div id="tabDash" class="adm-dashboard-home" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↺ Refresh</button>
-        <button class="btn btn-ghost btn-sm" onclick="loadWeather()">☁ Weather</button>
-      </div>
-    </div>
-    <!-- KPI tiles -->
-    <div class="g4" id="dashKpis" style="margin-bottom:20px">
-      <div class="stat-tile"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">—</div><div class="st-sub">All branches</div></div>
-      <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">—</div><div class="st-sub">Petrol today</div></div>
-      <div class="stat-tile"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">—</div><div class="st-sub">Awaiting approval</div></div>
-      <div class="stat-tile"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">—</div><div class="st-sub">Approved accounts</div></div>
-    </div>
-    <!-- Weather -->
-    <div class="card">
-      <div class="card-title">☁ Branch Weather</div>
-      <div id="weatherCards" class="g3">
-        <div class="empty">Loading weather…</div>
-      </div>
-    </div>
-    <!-- Recent approvals -->
-    <div class="card">
-      <div class="card-title">Recent Reports</div>
-      <div id="dashRecentReports"><div class="empty">No reports yet.</div></div>
-    </div>
-  </div>PE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -267,11 +238,6 @@ a { color: var(--gold); text-decoration: none; }
 .adm-hbtn:hover { color: var(--text); border-color: var(--gold); }
 
 /* Main tab bar */
-.adm-dashboard-home {
-  padding: 20px 24px 10px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
 .adm-tabs {
   display: flex; align-items: center;
   padding: 0 24px; gap: 0;
@@ -279,9 +245,6 @@ a { color: var(--gold); text-decoration: none; }
   background: var(--s1);
   overflow-x: auto;
   flex-shrink: 0;
-  position: sticky;
-  top: 52px;
-  z-index: 90;
 }
 .adm-tab {
   padding: 12px 18px; border: none; background: transparent;
@@ -538,7 +501,6 @@ a { color: var(--gold); text-decoration: none; }
   </div>
 
   <!-- Main tab bar -->
-
   <div class="adm-tabs">
     <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
     <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
@@ -548,10 +510,10 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
   </div>
 
-
-  
-
   <!-- Sub-navs -->
+  <div id="subNav_mDash" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDash','mDash')">Dashboard</button>
+  </div>
   <div id="subNav_mReports" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
@@ -602,7 +564,34 @@ a { color: var(--gold); text-decoration: none; }
   <!-- ── PANELS ─────────────────────────────────── -->
 
   <!-- DASHBOARD -->
-
+  <div id="tabDash" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↺ Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadWeather()">☁ Weather</button>
+      </div>
+    </div>
+    <!-- KPI tiles -->
+    <div class="g4" id="dashKpis" style="margin-bottom:20px">
+      <div class="stat-tile"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">—</div><div class="st-sub">All branches</div></div>
+      <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">—</div><div class="st-sub">Petrol today</div></div>
+      <div class="stat-tile"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">—</div><div class="st-sub">Awaiting approval</div></div>
+      <div class="stat-tile"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">—</div><div class="st-sub">Approved accounts</div></div>
+    </div>
+    <!-- Weather -->
+    <div class="card">
+      <div class="card-title">☁ Branch Weather</div>
+      <div id="weatherCards" class="g3">
+        <div class="empty">Loading weather…</div>
+      </div>
+    </div>
+    <!-- Recent approvals -->
+    <div class="card">
+      <div class="card-title">Recent Reports</div>
+      <div id="dashRecentReports"><div class="empty">No reports yet.</div></div>
+    </div>
+  </div>
 
   <!-- APPROVALS -->
   <div id="tabAppr" class="adm-panel">
@@ -1666,6 +1655,7 @@ function toggleTheme() {
 
 // Map panel IDs to their main tab ID
 var PANEL_TO_TAB = {
+  tabDash:         'mDash',
   tabAppr:         'mReports',  tabSales:     'mReports',
   tabPL:           'mReports',  tabStock:     'mReports',
   tabAudit:        'mReports',  tabExport:    'mReports',
@@ -1710,8 +1700,7 @@ function mainTab(btn, navId) {
   btn.classList.add('active');
   hideAllSubNavs();
   hideAllPanels();
-
-  // Hide dashboard home when navigating to any other tab
+  // Hide dashboard when any tab is clicked
   var dash = el('tabDash');
   if (dash) dash.style.display = 'none';
 
@@ -1751,6 +1740,7 @@ function showPanel(panelId) {
 // Panel init — runs once per panel open
 function panelInit(panelId) {
   switch(panelId) {
+    case 'tabDash':         loadDashboard();     break;
     case 'tabAppr':         loadApprovals();     break;
     case 'tabSales':        initDSR();           break;
     case 'tabPL':           initPL();            break;
@@ -1896,9 +1886,11 @@ function loadAdminInit() {
 
 function goToDashboard() {
   setTimeout(function() {
-    document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
+    // Hide all panels, sub-navs, deactivate all tabs
     document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+    document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
     document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+    // Show dashboard
     var dash = el('tabDash');
     if (dash) dash.style.display = 'block';
     loadDashboard();
@@ -2506,15 +2498,9 @@ function saveVendorModal() {
 }
 function saveVendor(){saveVendorModal();}
 function deleteVendor(id,name){
-  if(!confirm('Delete "'+name+'"? Bills will remain.'))return;
+  if(!confirm('Delete "'+name+'"? Bills remain.'))return;
   db.collection('vendors').doc(id).delete()
-    .then(function(){
-      toast('Deleted','ok');
-      // Clear and rebuild PO vendor dropdown too
-      var pvs=el('poVendor');
-      if(pvs){ while(pvs.options.length>1)pvs.remove(1); }
-      loadVendors();
-    })
+    .then(function(){toast('Deleted','ok');loadVendors();})
     .catch(function(e){toast('Error: '+e.message,'err');});
 }
 function deleteBill(id){
@@ -3452,10 +3438,9 @@ function savePurchaseOrder() {
 }
 
 function loadPurchases() {
-  // Always reload vendor dropdown fresh
+  // Populate vendor dropdown
   var vs = document.getElementById('poVendor');
-  if (vs) {
-    while(vs.options.length>1) vs.remove(1);
+  if (vs && vs.options.length < 2) {
     db.collection('vendors').get().then(function(snap){
       snap.forEach(function(d){
         var v=d.data();
@@ -4475,37 +4460,6 @@ function loadBranchManager() {
   loadBranchPrices();
 }
 
-function openEditBuiltinBranch(name) {
-  // Built-in branches can have their display info stored in DB
-  // We'll create/update a document for them so they can have manager/phone info
-  _editingBranchId = null; // will be set if doc exists
-  // Check if a doc already exists for this built-in branch
-  db.collection('branches').where('name','==',name).get().then(function(snap){
-    var existing = snap.empty ? null : snap.docs[0];
-    _editingBranchId = existing ? existing.id : null;
-    var data = existing ? existing.data() : {};
-    openModal('Edit Branch — '+name,
-      '<div class="field"><label>Branch Name</label>'
-      +'<input type="text" id="mbName" value="'+name+'" readonly style="opacity:0.6"></div>'
-      +'<div class="field"><label>Location / Area</label>'
-      +'<input type="text" id="mbLocation" value="'+(data.location||'')+'"></div>'
-      +'<div class="field"><label>Manager Name</label>'
-      +'<input type="text" id="mbManager" value="'+(data.manager||'')+'"></div>'
-      +'<div class="field"><label>Phone</label>'
-      +'<input type="tel" id="mbPhone" value="'+(data.phone||'')+'"></div>'
-      +'<div class="field"><label>Status</label>'
-      +'<select id="mbStatus">'
-      +'<option value="active"'+((!data.status||data.status==='active')?' selected':'')+'>Active</option>'
-      +'<option value="inactive"'+(data.status==='inactive'?' selected':'')+'>Inactive</option>'
-      +'</select></div>',
-      '<button class="btn btn-gold btn-sm" onclick="saveBranch()">Save</button>'
-    );
-  }).catch(function(){
-    toast('Error loading branch data','err');
-  });
-}
-
-
 function openAddBranch() {
   _editingBranchId = null;
   openModal('Add New Branch',
@@ -4598,8 +4552,8 @@ function loadBranchList() {
         + '<td style="color:var(--text3)">Murang\'a</td>'
         + '<td>—</td><td>—</td>'
         + '<td><span class="badge badge-green">active</span></td>'
-        + '<td><button class="btn btn-blue btn-xs" onclick="openEditBuiltinBranch(\''+b+'\')">Edit</button></td></tr>';
-    });;
+        + '<td><span style="font-size:0.6rem;color:var(--text3)">Built-in</span></td></tr>';
+    });
 
     // Custom branches from DB
     snap.forEach(function(d) {
