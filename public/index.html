@@ -501,71 +501,8 @@ a { color: var(--gold); text-decoration: none; }
   </div>
 
   <!-- Main tab bar -->
-  <div class="adm-tabs">
-    <button class="adm-tab" id="mainTab_dash"      onclick="mainTab(this,'mDash')">⌂ Dashboard</button>
-    <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
-    <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
-    <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
-    <button class="adm-tab" id="mainTab_finance"   onclick="mainTab(this,'mFinance')">Finance</button>
-    <button class="adm-tab" id="mainTab_settings"  onclick="mainTab(this,'mSettings')">Settings</button>
-    <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
-  </div>
 
-  <!-- Sub-navs -->
-  <div id="subNav_mDash" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDash','mDash')">Dashboard</button>
-  </div>
-  <div id="subNav_mReports" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabPL','mReports')">P&amp;L</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabMonthlyClose','mReports')">Monthly Closing</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabHandover','mReports')">Shift Handover</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivRecon','mReports')">Delivery Recon</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabStock','mReports')">Stock</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabAudit','mReports')">Audit</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabExport','mReports')">Export</button>
-  </div>
-  <div id="subNav_mOps" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabInv','mOps')">Inventory</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDipStick','mOps')">Dip Stick</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivery','mOps')">Fuel Delivery</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabPumpCal','mOps')">Pump Calibration</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabPurchases','mOps')">Purchase Orders</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
-  </div>
-  <div id="subNav_mSummary" class="adm-sub-nav"></div>
-  <div id="subNav_mFinance" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabExpenses','mFinance')">Expenses</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDebts','mFinance')">Debts</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabPriceHistory','mFinance')">Price History</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabPayroll','mFinance')">Payroll</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabSupplierPay','mFinance')">Supplier Payments</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabCOGS','mFinance')">COGS Transfers</button>
-  </div>
-  <div id="subNav_mSettings" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabStaff','mSettings')">Staff</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabAttendance','mSettings')">Attendance</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabTargets','mSettings')">Targets</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabBranches','mSettings')">Branches</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabProducts','mSettings')">Products</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabDangerZone','mSettings')">Danger Zone</button>
-  </div>
-  <div id="subNav_mAnalytics" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabTrends','mAnalytics')">Trends</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabComparison','mAnalytics')">Comparison</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabStaffPerf','mAnalytics')">Staff Performance</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabPredictions','mAnalytics')">Predictions</button>
-  </div>
-
-  <!-- ── PANELS ─────────────────────────────────── -->
-
-  <!-- DASHBOARD -->
-  <div id="tabDash" class="adm-panel">
+  <div id="tabDash" class="adm-dashboard-home">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
       <div style="display:flex;gap:8px">
@@ -1656,7 +1593,6 @@ function toggleTheme() {
 
 // Map panel IDs to their main tab ID
 var PANEL_TO_TAB = {
-  tabDash:         'mDash',
   tabAppr:         'mReports',  tabSales:     'mReports',
   tabPL:           'mReports',  tabStock:     'mReports',
   tabAudit:        'mReports',  tabExport:    'mReports',
@@ -1742,7 +1678,6 @@ function showPanel(panelId) {
 // Panel init — runs once per panel open
 function panelInit(panelId) {
   switch(panelId) {
-    case 'tabDash':         loadDashboard();     break;
     case 'tabAppr':         loadApprovals();     break;
     case 'tabSales':        initDSR();           break;
     case 'tabPL':           initPL();            break;
@@ -1887,27 +1822,9 @@ function loadAdminInit() {
 }
 
 function goToDashboard() {
-  // Hide everything
-  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
   document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
+  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
   document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-
-  // Show dashboard sub-nav
-  var sn = el('subNav_mDash');
-  if (sn) sn.style.display = 'flex';
-
-  // Highlight Dashboard tab
-  var dt = el('mainTab_dash');
-  if (dt) dt.classList.add('active');
-
-  // Show dashboard panel with inline style (cannot be overridden)
-  var dash = el('tabDash');
-  if (dash) {
-    dash.style.cssText = 'display:block';
-    dash.style.display = 'block';
-  }
-
-  // Load dashboard content
   loadDashboard();
 }
 
@@ -2512,9 +2429,15 @@ function saveVendorModal() {
 }
 function saveVendor(){saveVendorModal();}
 function deleteVendor(id,name){
-  if(!confirm('Delete "'+name+'"? Bills remain.'))return;
+  if(!confirm('Delete "'+name+'"? Bills will remain.'))return;
   db.collection('vendors').doc(id).delete()
-    .then(function(){toast('Deleted','ok');loadVendors();})
+    .then(function(){
+      toast('Deleted','ok');
+      // Clear and rebuild PO vendor dropdown too
+      var pvs=el('poVendor');
+      if(pvs){ while(pvs.options.length>1)pvs.remove(1); }
+      loadVendors();
+    })
     .catch(function(e){toast('Error: '+e.message,'err');});
 }
 function deleteBill(id){
@@ -3452,9 +3375,10 @@ function savePurchaseOrder() {
 }
 
 function loadPurchases() {
-  // Populate vendor dropdown
+  // Always reload vendor dropdown fresh
   var vs = document.getElementById('poVendor');
-  if (vs && vs.options.length < 2) {
+  if (vs) {
+    while(vs.options.length>1) vs.remove(1);
     db.collection('vendors').get().then(function(snap){
       snap.forEach(function(d){
         var v=d.data();
@@ -4474,6 +4398,37 @@ function loadBranchManager() {
   loadBranchPrices();
 }
 
+function openEditBuiltinBranch(name) {
+  // Built-in branches can have their display info stored in DB
+  // We'll create/update a document for them so they can have manager/phone info
+  _editingBranchId = null; // will be set if doc exists
+  // Check if a doc already exists for this built-in branch
+  db.collection('branches').where('name','==',name).get().then(function(snap){
+    var existing = snap.empty ? null : snap.docs[0];
+    _editingBranchId = existing ? existing.id : null;
+    var data = existing ? existing.data() : {};
+    openModal('Edit Branch — '+name,
+      '<div class="field"><label>Branch Name</label>'
+      +'<input type="text" id="mbName" value="'+name+'" readonly style="opacity:0.6"></div>'
+      +'<div class="field"><label>Location / Area</label>'
+      +'<input type="text" id="mbLocation" value="'+(data.location||'')+'"></div>'
+      +'<div class="field"><label>Manager Name</label>'
+      +'<input type="text" id="mbManager" value="'+(data.manager||'')+'"></div>'
+      +'<div class="field"><label>Phone</label>'
+      +'<input type="tel" id="mbPhone" value="'+(data.phone||'')+'"></div>'
+      +'<div class="field"><label>Status</label>'
+      +'<select id="mbStatus">'
+      +'<option value="active"'+((!data.status||data.status==='active')?' selected':'')+'>Active</option>'
+      +'<option value="inactive"'+(data.status==='inactive'?' selected':'')+'>Inactive</option>'
+      +'</select></div>',
+      '<button class="btn btn-gold btn-sm" onclick="saveBranch()">Save</button>'
+    );
+  }).catch(function(){
+    toast('Error loading branch data','err');
+  });
+}
+
+
 function openAddBranch() {
   _editingBranchId = null;
   openModal('Add New Branch',
@@ -4931,3 +4886,63 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+  <div class="adm-tabs">
+    <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
+    <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
+    <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
+    <button class="adm-tab" id="mainTab_finance"   onclick="mainTab(this,'mFinance')">Finance</button>
+    <button class="adm-tab" id="mainTab_settings"  onclick="mainTab(this,'mSettings')">Settings</button>
+    <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
+  </div>
+
+  <!-- Sub-navs -->
+  <div id="subNav_mReports" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPL','mReports')">P&amp;L</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabMonthlyClose','mReports')">Monthly Closing</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabHandover','mReports')">Shift Handover</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivRecon','mReports')">Delivery Recon</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabStock','mReports')">Stock</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAudit','mReports')">Audit</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabExport','mReports')">Export</button>
+  </div>
+  <div id="subNav_mOps" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabInv','mOps')">Inventory</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDipStick','mOps')">Dip Stick</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivery','mOps')">Fuel Delivery</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPumpCal','mOps')">Pump Calibration</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPurchases','mOps')">Purchase Orders</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
+  </div>
+  <div id="subNav_mSummary" class="adm-sub-nav"></div>
+  <div id="subNav_mFinance" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabExpenses','mFinance')">Expenses</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDebts','mFinance')">Debts</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPriceHistory','mFinance')">Price History</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPayroll','mFinance')">Payroll</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabSupplierPay','mFinance')">Supplier Payments</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabCOGS','mFinance')">COGS Transfers</button>
+  </div>
+  <div id="subNav_mSettings" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabStaff','mSettings')">Staff</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAttendance','mSettings')">Attendance</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabTargets','mSettings')">Targets</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabBranches','mSettings')">Branches</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabProducts','mSettings')">Products</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabDangerZone','mSettings')">Danger Zone</button>
+  </div>
+  <div id="subNav_mAnalytics" class="adm-sub-nav">
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabTrends','mAnalytics')">Trends</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabComparison','mAnalytics')">Comparison</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabStaffPerf','mAnalytics')">Staff Performance</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabPredictions','mAnalytics')">Predictions</button>
+  </div>
+
+  <!-- ── PANELS ─────────────────────────────────── -->
+
+  <!-- DASHBOARD -->
