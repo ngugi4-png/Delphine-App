@@ -809,16 +809,66 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- IMPORT -->
   <div id="tabImport" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Import Historical Data</h2>
-    <div class="card" style="max-width:600px">
-      <div class="card-title">CSV Import</div>
-      <div class="field"><label>Branch</label><select id="importBranch"></select></div>
-      <div class="field"><label>CSV File</label><input type="file" id="importFile" accept=".csv"></div>
-      <div class="row-btns">
-        <button class="btn btn-gold btn-sm" onclick="previewImport()">Preview</button>
-        <button class="btn btn-green btn-sm" id="btnImportAll" style="display:none" onclick="runImport()">Import All</button>
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Import Data</h2>
+    <div class="g21">
+      <div>
+        <!-- Template Downloads -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Download Templates</div>
+          <p style="font-size:0.72rem;color:var(--text3);margin-bottom:14px">
+            Download a CSV template, fill it in, then upload below to import records in bulk.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--s2);border-radius:8px;border:1px solid var(--border)">
+              <div>
+                <div style="font-weight:600;font-size:0.78rem">Daily Sales Report</div>
+                <div style="font-size:0.65rem;color:var(--text3)">Pump metre readings, litres sold, product sales per shift</div>
+              </div>
+              <button class="btn btn-gold btn-sm" onclick="downloadTemplate('sales')">⬇ Download</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--s2);border-radius:8px;border:1px solid var(--border)">
+              <div>
+                <div style="font-weight:600;font-size:0.78rem">Vendor Purchases / Purchase Orders</div>
+                <div style="font-size:0.65rem;color:var(--text3)">Vendor name, product, quantity, unit price per delivery</div>
+              </div>
+              <button class="btn btn-gold btn-sm" onclick="downloadTemplate('purchases')">⬇ Download</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--s2);border-radius:8px;border:1px solid var(--border)">
+              <div>
+                <div style="font-weight:600;font-size:0.78rem">Expenses</div>
+                <div style="font-size:0.65rem;color:var(--text3)">Date, branch, category, amount, notes</div>
+              </div>
+              <button class="btn btn-gold btn-sm" onclick="downloadTemplate('expenses')">⬇ Download</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="importPreview" style="margin-top:16px"></div>
+      <div>
+        <!-- CSV Upload & Import -->
+        <div class="card">
+          <div class="card-title">Upload &amp; Import</div>
+          <div class="field"><label>Import Type</label>
+            <select id="importType" onchange="importTypeChanged()">
+              <option value="sales">Daily Sales Reports</option>
+              <option value="purchases">Vendor Purchases</option>
+              <option value="expenses">Expenses</option>
+            </select>
+          </div>
+          <div class="field"><label>Branch</label><select id="importBranch"></select></div>
+          <div class="field"><label>CSV File</label>
+            <input type="file" id="importFile" accept=".csv"
+              style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:8px;color:var(--text);font-size:0.72rem;width:100%">
+          </div>
+          <div class="info-note" id="importNote" style="margin-bottom:12px;font-size:0.68rem">
+            Use the template above to ensure correct column format.
+          </div>
+          <div class="row-btns">
+            <button class="btn btn-gold btn-sm" onclick="previewImport()">Preview</button>
+            <button class="btn btn-green btn-sm" id="btnImportAll" style="display:none" onclick="runImport()">Import All</button>
+          </div>
+          <div id="importPreview" style="margin-top:16px"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -4896,6 +4946,285 @@ function exportMonthlyClosePDF() {
       toast('PDF downloaded','ok');
     } catch(e){ window.print(); }
   });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// IMPORT TEMPLATES + CSV IMPORT
+// ═══════════════════════════════════════════════════════════════
+
+var TEMPLATES = {
+  sales: {
+    filename: 'delphine-daily-sales-template.csv',
+    headers: [
+      'date','branch','shift','staff_name',
+      'pump_opening_metre','pump_closing_metre','litres_sold','petrol_price_per_litre',
+      'pump_revenue',
+      'p2t_qty','p2t_unit_price','p2t_total',
+      'p2tk_qty','p2tk_unit_price','p2tk_total',
+      'puoil_qty','puoil_unit_price','puoil_total',
+      'pshell_qty','pshell_unit_price','pshell_total',
+      'grand_total','cash_collected','mpesa_collected',
+      'opening_float','closing_float','notes'
+    ],
+    example: [
+      '2024-01-15','Kahuti','Morning','John Kamau',
+      '12450.5','12623.8','173.3','215.00',
+      '37279.50',
+      '2','250','500',
+      '0','0','0',
+      '0','0','0',
+      '1','420','420',
+      '38199.50','30000','8199.50',
+      '5000','4800','Normal shift'
+    ],
+    notes: [
+      '# DELPHINE ENTERPRISE LIMITED — Daily Sales Report Template',
+      '# Columns:',
+      '#   date: YYYY-MM-DD format',
+      '#   branch: Kahuti | Karega | Kanyenyaini (or your custom branch name)',
+      '#   shift: Morning | Afternoon | Evening | Night',
+      '#   pump_opening_metre / pump_closing_metre: metre reading in litres',
+      '#   litres_sold: closing_metre - opening_metre',
+      '#   petrol_price_per_litre: selling price on that day',
+      '#   pump_revenue: litres_sold x petrol_price_per_litre',
+      '#   p2t/p2tk/puoil/pshell: qty sold, unit price, total for each product',
+      '#   grand_total: pump_revenue + all product totals',
+      '#   cash_collected / mpesa_collected: how payment was received',
+      '#   opening_float / closing_float: cash float at start and end of shift',
+      '# DELETE THESE COMMENT LINES BEFORE IMPORTING'
+    ]
+  },
+  purchases: {
+    filename: 'delphine-vendor-purchases-template.csv',
+    headers: [
+      'date','vendor_name','invoice_reference',
+      'product','branch','unit','quantity','unit_price','total_amount',
+      'payment_terms','notes'
+    ],
+    example: [
+      '2024-01-15','Kenya Pipeline Co.','INV-2024-001',
+      'Petrol (PMS)','Kahuti','L','5000','198.00','990000',
+      'On Delivery','Regular monthly delivery'
+    ],
+    notes: [
+      '# DELPHINE ENTERPRISE LIMITED — Vendor Purchases Template',
+      '# Columns:',
+      '#   date: YYYY-MM-DD format (delivery date)',
+      '#   vendor_name: must match vendor name in system (or will create new)',
+      '#   invoice_reference: vendor invoice number',
+      '#   product: Petrol (PMS) | 2T Motor Oil | 2T-Kupima | Used Oil | Shell Advance',
+      '#   branch: Kahuti | Karega | Kanyenyaini | All Branches',
+      '#   unit: L (litres) | pcs (pieces)',
+      '#   quantity: amount delivered',
+      '#   unit_price: cost price per unit (KSh)',
+      '#   total_amount: quantity x unit_price',
+      '#   payment_terms: On Delivery | 7 Days | 30 Days | COD',
+      '# ONE ROW PER LINE ITEM — use multiple rows for multi-product deliveries',
+      '# DELETE THESE COMMENT LINES BEFORE IMPORTING'
+    ]
+  },
+  expenses: {
+    filename: 'delphine-expenses-template.csv',
+    headers: [
+      'date','branch','category','amount','notes'
+    ],
+    example: [
+      '2024-01-15','Kahuti','Maintenance','3500','Generator service'
+    ],
+    notes: [
+      '# DELPHINE ENTERPRISE LIMITED — Expenses Template',
+      '# Columns:',
+      '#   date: YYYY-MM-DD format',
+      '#   branch: Kahuti | Karega | Kanyenyaini',
+      '#   category: Fuel | Maintenance | Salaries | Utilities | Supplies | Other',
+      '#   amount: expense amount in KSh',
+      '#   notes: description of the expense',
+      '# DELETE THESE COMMENT LINES BEFORE IMPORTING'
+    ]
+  }
+};
+
+function downloadTemplate(type) {
+  var t = TEMPLATES[type];
+  if (!t) return;
+  var rows = [];
+  // Add notes/comments
+  t.notes.forEach(function(n){ rows.push([n]); });
+  rows.push([]); // blank line
+  // Add headers
+  rows.push(t.headers);
+  // Add example row
+  rows.push(t.example);
+  // Convert to CSV
+  var csv = rows.map(function(row){
+    return row.map(function(cell){
+      var s = String(cell||'');
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        s = '"' + s.replace(/"/g,'""') + '"';
+      }
+      return s;
+    }).join(',');
+  }).join('\n');
+  // Download
+  var blob = new Blob([csv], {type:'text/csv'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = t.filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Template downloaded: '+t.filename,'ok');
+}
+
+function importTypeChanged() {
+  var type = (document.getElementById('importType')||{}).value||'sales';
+  var note = document.getElementById('importNote');
+  var msgs = {
+    sales: 'Template: date, branch, shift, metre readings, litres sold, product quantities and totals.',
+    purchases: 'Template: date, vendor, product, branch, quantity, unit price.',
+    expenses: 'Template: date, branch, category, amount, notes.'
+  };
+  if (note) note.textContent = msgs[type]||'';
+}
+
+function initImport() {
+  var bs = document.getElementById('importBranch');
+  if (bs && bs.options.length < 1) {
+    BRANCHES.forEach(function(b){
+      var o=document.createElement('option'); o.value=b; o.textContent=b; bs.appendChild(o);
+    });
+  }
+  importTypeChanged();
+}
+
+function previewImport() {
+  var file = (document.getElementById('importFile')||{}).files;
+  if (!file || !file[0]) { toast('Select a CSV file first','err'); return; }
+  var type = (document.getElementById('importType')||{}).value||'sales';
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var lines = e.target.result.split('\n')
+      .map(function(l){ return l.trim(); })
+      .filter(function(l){ return l && !l.startsWith('#'); });
+    if (!lines.length) { toast('File is empty or only has comments','err'); return; }
+    var headers = lines[0].split(',').map(function(h){ return h.trim().replace(/^"|"$/g,''); });
+    var rows = lines.slice(1).filter(function(l){ return l.trim(); }).map(function(l){
+      return l.split(',').map(function(c){ return c.trim().replace(/^"|"$/g,''); });
+    });
+    var prev = document.getElementById('importPreview');
+    if (!prev) return;
+    if (!rows.length) { prev.innerHTML='<div class="empty">No data rows found.</div>'; return; }
+    var h = '<div style="font-size:0.72rem;margin-bottom:8px;color:var(--text3)">'
+      + rows.length+' rows ready to import (type: '+type+')</div>'
+      + '<div style="overflow-x:auto"><table class="tbl" style="font-size:0.65rem"><thead><tr>'
+      + headers.map(function(hd){ return '<th>'+hd+'</th>'; }).join('')
+      + '</tr></thead><tbody>'
+      + rows.slice(0,5).map(function(row){
+          return '<tr>'+row.map(function(c){ return '<td>'+c+'</td>'; }).join('')+'</tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + (rows.length>5?'<div style="font-size:0.65rem;color:var(--text3);margin-top:6px">...and '+(rows.length-5)+' more rows</div>':'');
+    prev.innerHTML = h;
+    prev.dataset.rows = JSON.stringify(rows);
+    prev.dataset.headers = JSON.stringify(headers);
+    var btn = document.getElementById('btnImportAll');
+    if (btn) btn.style.display = 'inline-block';
+  };
+  reader.readAsText(file[0]);
+}
+
+function runImport() {
+  var type    = (document.getElementById('importType')||{}).value||'sales';
+  var branch  = (document.getElementById('importBranch')||{}).value||'';
+  var prev    = document.getElementById('importPreview');
+  if (!prev||!prev.dataset.rows) { toast('Preview first','err'); return; }
+  var rows    = JSON.parse(prev.dataset.rows);
+  var headers = JSON.parse(prev.dataset.headers);
+  var now     = firebase.firestore.FieldValue.serverTimestamp();
+  var batch   = db.batch();
+  var count   = 0;
+
+  rows.forEach(function(row) {
+    var obj = {};
+    headers.forEach(function(h,i){ obj[h] = row[i]||''; });
+
+    if (type === 'sales') {
+      var ref = db.collection('reports').doc();
+      batch.set(ref, {
+        date:            obj.date||'',
+        branch:          obj.branch||branch,
+        shift:           obj.shift||'Morning',
+        staffName:       obj.staff_name||'',
+        approvalStatus:  'pending',
+        source:          'import',
+        pump: {
+          metre: {
+            open: parseFloat(obj.pump_opening_metre)||0,
+            close: parseFloat(obj.pump_closing_metre)||0,
+            sold: parseFloat(obj.litres_sold)||0
+          },
+          display: { sold: parseFloat(obj.pump_revenue)||0 }
+        },
+        products: {
+          p2t:   { qty: parseFloat(obj.p2t_qty)||0,   unitPrice: parseFloat(obj.p2t_unit_price)||0,   total: parseFloat(obj.p2t_total)||0 },
+          p2tk:  { qty: parseFloat(obj.p2tk_qty)||0,  unitPrice: parseFloat(obj.p2tk_unit_price)||0,  total: parseFloat(obj.p2tk_total)||0 },
+          puoil: { qty: parseFloat(obj.puoil_qty)||0, unitPrice: parseFloat(obj.puoil_unit_price)||0, total: parseFloat(obj.puoil_total)||0 },
+          pshell:{ qty: parseFloat(obj.pshell_qty)||0,unitPrice: parseFloat(obj.pshell_unit_price)||0,total: parseFloat(obj.pshell_total)||0 }
+        },
+        grandTotal:     parseFloat(obj.grand_total)||0,
+        cashCollected:  parseFloat(obj.cash_collected)||0,
+        mpesaCollected: parseFloat(obj.mpesa_collected)||0,
+        openingFloat:   parseFloat(obj.opening_float)||0,
+        closingFloat:   parseFloat(obj.closing_float)||0,
+        notes:          obj.notes||'',
+        createdAt:      now, importedAt: now
+      });
+    } else if (type === 'purchases') {
+      var ref2 = db.collection('purchaseOrders').doc();
+      batch.set(ref2, {
+        orderDate:    obj.date||'',
+        vendorName:   obj.vendor_name||'',
+        reference:    obj.invoice_reference||'',
+        paymentTerms: obj.payment_terms||'On Delivery',
+        notes:        obj.notes||'',
+        status:       'received',
+        lineItems: [{
+          description: obj.product||'',
+          branch:      obj.branch||branch,
+          unit:        obj.unit||'L',
+          qty:         parseFloat(obj.quantity)||0,
+          unitPrice:   parseFloat(obj.unit_price)||0,
+          amount:      parseFloat(obj.total_amount)||0
+        }],
+        totalAmount:  parseFloat(obj.total_amount)||0,
+        source:       'import',
+        createdAt:    now
+      });
+    } else if (type === 'expenses') {
+      var ref3 = db.collection('expenses').doc();
+      batch.set(ref3, {
+        date:     obj.date||'',
+        branch:   obj.branch||branch,
+        category: obj.category||'Other',
+        amount:   parseFloat(obj.amount)||0,
+        notes:    obj.notes||'',
+        source:   'import',
+        createdAt: now
+      });
+    }
+    count++;
+  });
+
+  batch.commit().then(function(){
+    toast('Imported '+count+' records successfully','ok');
+    // Refresh WACC if purchases imported
+    if (type==='purchases') calculateWACC(null, function(w){ WACC_CACHE=w; });
+    document.getElementById('importPreview').innerHTML='';
+    document.getElementById('importPreview').dataset.rows='';
+    document.getElementById('importFile').value='';
+    document.getElementById('btnImportAll').style.display='none';
+  }).catch(function(e){ toast('Import error: '+e.message,'err'); });
 }
 
 // ═══════════════════════════════════════════════════════════════
