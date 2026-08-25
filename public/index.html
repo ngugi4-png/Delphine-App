@@ -238,6 +238,11 @@ a { color: var(--gold); text-decoration: none; }
 .adm-hbtn:hover { color: var(--text); border-color: var(--gold); }
 
 /* Main tab bar */
+.adm-dashboard-home {
+  padding: 20px 24px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
 .adm-tabs {
   display: flex; align-items: center;
   padding: 0 24px; gap: 0;
@@ -245,6 +250,9 @@ a { color: var(--gold); text-decoration: none; }
   background: var(--s1);
   overflow-x: auto;
   flex-shrink: 0;
+  position: sticky;
+  top: 52px;
+  z-index: 90;
 }
 .adm-tab {
   padding: 12px 18px; border: none; background: transparent;
@@ -502,6 +510,15 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- Main tab bar -->
 
+  <div class="adm-tabs">
+    <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
+    <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
+    <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
+    <button class="adm-tab" id="mainTab_finance"   onclick="mainTab(this,'mFinance')">Finance</button>
+    <button class="adm-tab" id="mainTab_settings"  onclick="mainTab(this,'mSettings')">Settings</button>
+    <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
+  </div>
+
   <div id="tabDash" class="adm-dashboard-home">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
@@ -531,14 +548,7 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
-  <div class="adm-tabs">
-    <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
-    <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
-    <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
-    <button class="adm-tab" id="mainTab_finance"   onclick="mainTab(this,'mFinance')">Finance</button>
-    <button class="adm-tab" id="mainTab_settings"  onclick="mainTab(this,'mSettings')">Settings</button>
-    <button class="adm-tab" id="mainTab_analytics" onclick="mainTab(this,'mAnalytics')">Analytics</button>
-  </div>
+  
 
   <!-- Sub-navs -->
   <div id="subNav_mReports" class="adm-sub-nav">
