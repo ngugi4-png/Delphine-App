@@ -278,6 +278,7 @@ a { color: var(--gold); text-decoration: none; }
 
 /* Panels — controlled entirely by JS inline styles */
 .adm-panel { display: none; padding: 24px; }
+.adm-dash   { display: none; padding: 24px; }
 
 /* ═══════════════════════════════════════════════════
    CARDS + GRID
@@ -562,7 +563,7 @@ a { color: var(--gold); text-decoration: none; }
   <!-- ── PANELS ─────────────────────────────────── -->
 
   <!-- DASHBOARD -->
-  <div id="tabDash" class="adm-panel">
+  <div id="tabDash" class="adm-dash">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700;color:var(--text)">Dashboard</h2>
       <div style="display:flex;gap:8px">
@@ -1879,14 +1880,11 @@ function loadAdminInit() {
 }
 
 function goToDashboard() {
-  // Hide all sub-navs and tabs — but NOT panels yet
+  // Hide all panels, sub-navs, deactivate tabs
+  document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
   document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
   document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-  // Hide all panels except tabDash
-  document.querySelectorAll('.adm-panel').forEach(function(p){
-    if (p.id !== 'tabDash') p.style.display = 'none';
-  });
-  // Always show tabDash
+  // Show dashboard (it is .adm-dash not .adm-panel so not hidden above)
   var dash = el('tabDash');
   if (dash) dash.style.display = 'block';
   loadDashboard();
