@@ -4,147 +4,54 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Site Scout — Delphine</title>
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #161513; color: #F2EEE6; font-family: "Helvetica Neue", Arial, sans-serif; }
-input[type=range] {
-  -webkit-appearance: none; height: 6px; border-radius: 3px;
-  background: #3A3630; outline: none; width: 100%;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 20px; height: 20px;
-  border-radius: 50%; background: #D4911A; cursor: pointer; border: 3px solid #161513;
-}
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #1F1D19; }
-::-webkit-scrollbar-thumb { background: #3A3630; border-radius: 4px; }
-.spin { animation: spin 0.9s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-select, button, input { font-family: inherit; }
-button:focus-visible, select:focus-visible, input:focus-visible {
-  outline: 2px solid #D4911A; outline-offset: 2px;
-}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#161513;color:#F2EEE6;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh}
+input[type=range]{-webkit-appearance:none;height:6px;border-radius:3px;background:#3A3630;outline:none;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#D4911A;cursor:pointer;border:3px solid #161513}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#1F1D19}::-webkit-scrollbar-thumb{background:#3A3630;border-radius:4px}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+select,button,input{font-family:inherit}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #D4911A;outline-offset:2px}
 </style>
 </head>
 <body>
-<div id="root"></div>
-
+<div id="root"><div style="color:#D4911A;padding:40px;font-size:1.1rem">Loading Site Scout…</div></div>
 <script>
-// ── Storage API shim (uses localStorage in standalone, window.storage in parent) ──
+// Storage shim — localStorage inside iframe
 window.storage = {
-  _get: function(k) { try { return localStorage.getItem(k); } catch(e){ return null; } },
-  _set: function(k,v) { try { localStorage.setItem(k,v); return true; } catch(e){ return false; } },
-  get:  function(k) { return Promise.resolve(this._get(k) !== null ? {value:this._get(k)} : null); },
-  set:  function(k,v) { return Promise.resolve(this._set(k,v) ? {value:v} : null); },
-  delete: function(k) { try { localStorage.removeItem(k); return Promise.resolve({deleted:true}); } catch(e){ return Promise.resolve(null); } },
-  list:  function() { return Promise.resolve({keys:[]}); }
+  get:  function(k){ try{var v=localStorage.getItem(k);return Promise.resolve(v!=null?{value:v}:null);}catch(e){return Promise.resolve(null);} },
+  set:  function(k,v){ try{localStorage.setItem(k,v);return Promise.resolve({value:v});}catch(e){return Promise.resolve(null);} },
+  delete:function(k){ try{localStorage.removeItem(k);return Promise.resolve({deleted:true});}catch(e){return Promise.resolve(null);} },
+  list: function(){ return Promise.resolve({keys:[]}); }
 };
-</script>
-
-<script type="text/babel" data-presets="react,typescript">
-
-// ── Icon stubs (replaces lucide-react import) ──────────────────────────────────
-const iconStyle = (size, color, sw) => ({
-  display:'inline-block', width:size, height:size, flexShrink:0,
-  stroke: color||'currentColor', fill:'none', strokeWidth:sw||2,
-  verticalAlign:'middle'
-});
-
-const MapPin = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-    <circle cx="12" cy="10" r="3"/>
-  </svg>
-);
-const TrendingUp = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-    <polyline points="17 6 23 6 23 12"/>
-  </svg>
-);
-const Users = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-  </svg>
-);
-const Shield = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-);
-const Zap = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-  </svg>
-);
-const Plus = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-);
-const Trash2 = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14H6L5 6"/>
-    <path d="M10 11v6"/><path d="M14 11v6"/>
-    <path d="M9 6V4h6v2"/>
-  </svg>
-);
-const ChevronDown = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-);
-const ChevronUp = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <polyline points="18 15 12 9 6 15"/>
-  </svg>
-);
-const Fuel = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <line x1="3" y1="22" x2="15" y2="22"/>
-    <line x1="4" y1="9" x2="14" y2="9"/>
-    <path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/>
-    <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>
-  </svg>
-);
-const X = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-  </svg>
-);
-const Search = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-  </svg>
-);
-const Settings = ({size=16,color,strokeWidth=2}) => (
-  <svg style={iconStyle(size,color,strokeWidth)} viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-  </svg>
-);
-const Loader2 = ({size=16,color,strokeWidth=2}) => (
-  <svg style={{...iconStyle(size,color,strokeWidth),animation:'spin 0.9s linear infinite'}} viewBox="0 0 24 24">
-    <line x1="12" y1="2" x2="12" y2="6"/>
-    <line x1="12" y1="18" x2="12" y2="22"/>
-    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
-    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
-    <line x1="2" y1="12" x2="6" y2="12"/>
-    <line x1="18" y1="12" x2="22" y2="12"/>
-    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
-    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
-  </svg>
-);
-
 const { useState, useEffect, useMemo } = React;
-// Icons defined above
+function _icon(size, color, sw, path) {
+  return React.createElement('svg', {
+    width:size||16, height:size||16, viewBox:'0 0 24 24',
+    fill:'none', stroke:color||'currentColor', strokeWidth:sw||2,
+    strokeLinecap:'round', strokeLinejoin:'round',
+    style:{display:'inline-block',verticalAlign:'middle',flexShrink:0}
+  }, React.createElement('g', {dangerouslySetInnerHTML:{__html:path}}));
+}
+const MapPin = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>');
+const TrendingUp = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
+const Users = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+const Shield = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>');
+const Zap = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>');
+const Plus = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>');
+const Trash2 = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>');
+const ChevronDown = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<polyline points="6 9 12 15 18 9"/>');
+const ChevronUp = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<polyline points="18 15 12 9 6 15"/>');
+const Fuel = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<line x1="3" y1="22" x2="15" y2="22"/><line x1="4" y1="9" x2="14" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>');
+const X = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>');
+const Search = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>');
+const Settings = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>');
+const Loader2 = ({size,color,strokeWidth:sw}) => _icon(size,color,sw,'<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>');
+// React hooks available from outer scope
+// icons defined below
 
 // ---------- Seed data: Murang'a + Kiambu County administrative wards ----------
 // Ward names and groupings verified against IEBC's official "Registered Voters Per
@@ -170,21 +77,21 @@ const CONSTITUENCIES = {
   "Kabete": ["Gitaru", "Muguga", "Nyadhuna", "Kabete", "Uthiru"],
   "Kikuyu": ["Karai", "Nachu", "Sigona", "Kikuyu", "Kinoo"],
   "Limuru": ["Bibirioni", "Limuru Central", "Ndeiya", "Limuru East", "Ngecha Tigoni"],
-  "Lari": ["Kinale", "Kijabe", "Nyanduma", "Kamburu", "Lari/Kirenga"],
+  "Lari": ["Kinale", "Kijabe", "Nyanduma", "Kamburu", "Lari/Kirenga"]
 };
-
 const MURANGA_CONSTITUENCIES = ["Kangema", "Mathioya", "Kiharu", "Kigumo", "Maragwa", "Kandara", "Gatanga"];
 const KIAMBU_CONSTITUENCIES = ["Gatundu South", "Gatundu North", "Juja", "Thika Town", "Ruiru", "Githunguri", "Kiambu", "Kiambaa", "Kabete", "Kikuyu", "Limuru", "Lari"];
-
 const COUNTIES = {
   "Murang'a": MURANGA_CONSTITUENCIES,
-  "Kiambu": KIAMBU_CONSTITUENCIES,
+  "Kiambu": KIAMBU_CONSTITUENCIES
 };
 
 // Reverse lookup: constituency -> county
 const CONSTITUENCY_TO_COUNTY = {};
 Object.entries(COUNTIES).forEach(([county, list]) => {
-  list.forEach((c) => { CONSTITUENCY_TO_COUNTY[c] = county; });
+  list.forEach(c => {
+    CONSTITUENCY_TO_COUNTY[c] = county;
+  });
 });
 
 // Known major trading/market centers by constituency (public knowledge, town names —
@@ -290,186 +197,614 @@ const WARD_VOTERS = {
   "Lari||Kijabe": 19124,
   "Lari||Nyanduma": 14572,
   "Lari||Kamburu": 12018,
-  "Lari||Lari/Kirenga": 18979,
-
+  "Lari||Lari/Kirenga": 18979
 };
-
-const SEED_SITES = [
-  { name: "Kangema Township", constituency: "Kangema", ward: "Muguru", note: "Constituency HQ market center", lat: -0.6856, lng: 36.9650 },
-  { name: "Kanyenya-ini", constituency: "Kangema", ward: "Kanyenya-ini", note: "Trading center" },
-  { name: "Rwathia", constituency: "Kangema", ward: "Rwathia", note: "Trading center" },
-  { name: "Kiru", constituency: "Mathioya", ward: "Kiru", note: "Trading center on Kangema-Nyeri road" },
-  { name: "Kamacharia", constituency: "Mathioya", ward: "Kamacharia", note: "Trading center" },
-  { name: "Murang'a Town", constituency: "Kiharu", ward: "Township", note: "County HQ, largest urban center", lat: -0.7167, lng: 37.1500 },
-  { name: "Mbiri", constituency: "Kiharu", ward: "Mbiri", note: "Near Murang'a town, industrial area" },
-  { name: "Kigumo Town", constituency: "Kigumo", ward: "Kigumo", note: "Constituency HQ market" },
-  { name: "Kangari", constituency: "Kigumo", ward: "Kangari", note: "Trading center on Murang'a-Kangema road" },
-  { name: "Kahumbu", constituency: "Kigumo", ward: "Kahumbu", note: "Trading center" },
-  { name: "Makuyu", constituency: "Maragwa", ward: "Makuyu", note: "Major junction on Thika-Murang'a A2/A3 highway", lat: -0.9000, lng: 37.1833 },
-  { name: "Kenol", constituency: "Maragwa", ward: "Kimorori/Wempa", note: "Major highway town, A2/A3 junction, high transit traffic" },
-  { name: "Kambiti", constituency: "Maragwa", ward: "Kambiti", note: "Trading center" },
-  { name: "Kandara Town", constituency: "Kandara", ward: "Ruchu", note: "Constituency HQ market" },
-  { name: "Kabati", constituency: "Kandara", ward: "Muruka", note: "Major junction town, Kandara-Thika-Murang'a routes" },
-  { name: "Gatanga Town", constituency: "Gatanga", ward: "Gatanga", note: "Constituency HQ market" },
-  { name: "Ithanga", constituency: "Gatanga", ward: "Ithanga", note: "Trading center towards Yatta/Thika" },
-  { name: "Kahuti", constituency: "Kigumo", ward: "Kangari", note: "Existing Delphine branch" },
-  { name: "Karega", constituency: "Kigumo", ward: "Kigumo", note: "Existing Delphine branch" },
-  { name: "Kanyenyaini", constituency: "Kangema", ward: "Kanyenya-ini", note: "Existing Delphine branch" },
-  // Kiambu County known major centers
-  { name: "Thika Town", constituency: "Thika Town", ward: "Township", note: "Major industrial town, Thika Superhighway/A2 junction", lat: -1.0500, lng: 37.0833 },
-  { name: "Ruiru Town", constituency: "Ruiru", ward: "Biashara", note: "Fast-growing town on Thika Superhighway, dense population", lat: -1.1483, lng: 36.9604 },
-  { name: "Juja", constituency: "Juja", ward: "Juja", note: "University town on Thika Superhighway, high transit traffic" },
-  { name: "Kiambu Town", constituency: "Kiambu", ward: "Township", note: "County HQ, dense urban market", lat: -1.1670, lng: 36.8170 },
-  { name: "Gatundu Town", constituency: "Gatundu South", ward: "Ngenda", note: "Sub-county HQ market center" },
-  { name: "Githunguri Town", constituency: "Githunguri", ward: "Githunguri", note: "Dairy/coffee trading hub", lat: -1.0586, lng: 36.7779 },
-  { name: "Limuru Town", constituency: "Limuru", ward: "Limuru Central", note: "Major town on Nairobi-Naivasha route (A104)", lat: -1.1078, lng: 36.6428 },
-  { name: "Kikuyu Town", constituency: "Kikuyu", ward: "Kikuyu", note: "Dense urban center near Nairobi, Southern/Waiyaki Way corridor" },
-  { name: "Kinoo", constituency: "Kikuyu", ward: "Kinoo", note: "High-density Nairobi-adjacent center, Waiyaki Way" },
-  { name: "Kabete", constituency: "Kabete", ward: "Kabete", note: "Trading center near Nairobi boundary" },
-  { name: "Uthiru", constituency: "Kabete", ward: "Uthiru", note: "Dense Nairobi-adjacent center" },
-  { name: "Kijabe", constituency: "Lari", ward: "Kijabe", note: "Trading center on Nairobi-Naivasha old road" },
-  { name: "Kimende", constituency: "Lari", ward: "Nyanduma", note: "Highway trading center" },
-  { name: "Kahawa Sukari", constituency: "Ruiru", ward: "Kahawa Sukari", note: "Dense residential/commercial, near Thika Rd" },
-  { name: "Witeithie", constituency: "Juja", ward: "Witeithie", note: "Growing residential/trading center" },
-  // --- Remaining wards without a confirmed named center yet (added as ward-anchor placeholders) ---
-  { name: "Gitugi Center", constituency: "Mathioya", ward: "Gitugi", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Wangu Center", constituency: "Kiharu", ward: "Wangu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Mugoiri Center", constituency: "Kiharu", ward: "Mugoiri", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Murarandia Center", constituency: "Kiharu", ward: "Murarandia", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Gaturi Center", constituency: "Kiharu", ward: "Gaturi", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Muthithi Center", constituency: "Kigumo", ward: "Muthithi", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kinyona Center", constituency: "Kigumo", ward: "Kinyona", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kamahuha Center", constituency: "Maragwa", ward: "Kamahuha", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ichagaki Center", constituency: "Maragwa", ward: "Ichagaki", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Nginda Center", constituency: "Maragwa", ward: "Nginda", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ng'araria Center", constituency: "Kandara", ward: "Ng'araria", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kagundu-ini", constituency: "Kandara", ward: "Kagundu-ini", note: "Named retail/market center for the ward (search-confirmed)" },
-  { name: "Gaichanjiru", constituency: "Kandara", ward: "Gaichanjiru", note: "Ward center anchored by St. Raphael Gaichanjiru Hospital, a services hub (search-confirmed)" },
-  { name: "Ithiru Center", constituency: "Kandara", ward: "Ithiru", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kakuzi/Mitubiri Center", constituency: "Gatanga", ward: "Kakuzi/Mitubiri", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Mugumo-ini Center", constituency: "Gatanga", ward: "Mugumo-ini", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kihumbu-ini Center", constituency: "Gatanga", ward: "Kihumbu-ini", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kariara Center", constituency: "Gatanga", ward: "Kariara", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kiamwangi Center", constituency: "Gatundu South", ward: "Kiamwangi", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kiganjo Center", constituency: "Gatundu South", ward: "Kiganjo", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ndarugu Center", constituency: "Gatundu South", ward: "Ndarugu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Gituamba Center", constituency: "Gatundu North", ward: "Gituamba", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Githobokoni Center", constituency: "Gatundu North", ward: "Githobokoni", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Chania Center", constituency: "Gatundu North", ward: "Chania", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Mang'u Center", constituency: "Gatundu North", ward: "Mang'u", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Murera Center", constituency: "Juja", ward: "Murera", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Theta Center", constituency: "Juja", ward: "Theta", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kalimoni Center", constituency: "Juja", ward: "Kalimoni", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kamenu Center", constituency: "Thika Town", ward: "Kamenu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Hospital Center", constituency: "Thika Town", ward: "Hospital", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Gatuanyaga Center", constituency: "Thika Town", ward: "Gatuanyaga", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ngoliba Center", constituency: "Thika Town", ward: "Ngoliba", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Gitothua Center", constituency: "Ruiru", ward: "Gitothua", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Gatongora Center", constituency: "Ruiru", ward: "Gatongora", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kahawa Wendani Center", constituency: "Ruiru", ward: "Kahawa Wendani", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kiuu Center", constituency: "Ruiru", ward: "Kiuu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Mwiki Center", constituency: "Ruiru", ward: "Mwiki", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Mwihoko Center", constituency: "Ruiru", ward: "Mwihoko", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Githiga Center", constituency: "Githunguri", ward: "Githiga", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ikinu Center", constituency: "Githunguri", ward: "Ikinu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ngewa Center", constituency: "Githunguri", ward: "Ngewa", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Komothai Center", constituency: "Githunguri", ward: "Komothai", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ting'ang'a Center", constituency: "Kiambu", ward: "Ting'ang'a", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ndumberi Center", constituency: "Kiambu", ward: "Ndumberi", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Riabai Center", constituency: "Kiambu", ward: "Riabai", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Cianda Center", constituency: "Kiambaa", ward: "Cianda", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Karuri Center", constituency: "Kiambaa", ward: "Karuri", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ndenderu Center", constituency: "Kiambaa", ward: "Ndenderu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Muchatha Center", constituency: "Kiambaa", ward: "Muchatha", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kihara Center", constituency: "Kiambaa", ward: "Kihara", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Gitaru Center", constituency: "Kabete", ward: "Gitaru", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Muguga Center", constituency: "Kabete", ward: "Muguga", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Nyadhuna Center", constituency: "Kabete", ward: "Nyadhuna", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Karai Center", constituency: "Kikuyu", ward: "Karai", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Nachu Center", constituency: "Kikuyu", ward: "Nachu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Sigona Center", constituency: "Kikuyu", ward: "Sigona", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Bibirioni Center", constituency: "Limuru", ward: "Bibirioni", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ndeiya Center", constituency: "Limuru", ward: "Ndeiya", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Limuru East Center", constituency: "Limuru", ward: "Limuru East", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Ngecha Tigoni Center", constituency: "Limuru", ward: "Ngecha Tigoni", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kinale Center", constituency: "Lari", ward: "Kinale", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Kamburu Center", constituency: "Lari", ward: "Kamburu", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-  { name: "Lari/Kirenga Center", constituency: "Lari", ward: "Lari/Kirenga", note: "Ward center — not yet field-verified; confirm exact trading center and rename." },
-];
+const SEED_SITES = [{
+  name: "Kangema Township",
+  constituency: "Kangema",
+  ward: "Muguru",
+  note: "Constituency HQ market center",
+  lat: -0.6856,
+  lng: 36.9650
+}, {
+  name: "Kanyenya-ini",
+  constituency: "Kangema",
+  ward: "Kanyenya-ini",
+  note: "Trading center"
+}, {
+  name: "Rwathia",
+  constituency: "Kangema",
+  ward: "Rwathia",
+  note: "Trading center"
+}, {
+  name: "Kiru",
+  constituency: "Mathioya",
+  ward: "Kiru",
+  note: "Trading center on Kangema-Nyeri road"
+}, {
+  name: "Kamacharia",
+  constituency: "Mathioya",
+  ward: "Kamacharia",
+  note: "Trading center"
+}, {
+  name: "Murang'a Town",
+  constituency: "Kiharu",
+  ward: "Township",
+  note: "County HQ, largest urban center",
+  lat: -0.7167,
+  lng: 37.1500
+}, {
+  name: "Mbiri",
+  constituency: "Kiharu",
+  ward: "Mbiri",
+  note: "Near Murang'a town, industrial area"
+}, {
+  name: "Kigumo Town",
+  constituency: "Kigumo",
+  ward: "Kigumo",
+  note: "Constituency HQ market"
+}, {
+  name: "Kangari",
+  constituency: "Kigumo",
+  ward: "Kangari",
+  note: "Trading center on Murang'a-Kangema road"
+}, {
+  name: "Kahumbu",
+  constituency: "Kigumo",
+  ward: "Kahumbu",
+  note: "Trading center"
+}, {
+  name: "Makuyu",
+  constituency: "Maragwa",
+  ward: "Makuyu",
+  note: "Major junction on Thika-Murang'a A2/A3 highway",
+  lat: -0.9000,
+  lng: 37.1833
+}, {
+  name: "Kenol",
+  constituency: "Maragwa",
+  ward: "Kimorori/Wempa",
+  note: "Major highway town, A2/A3 junction, high transit traffic"
+}, {
+  name: "Kambiti",
+  constituency: "Maragwa",
+  ward: "Kambiti",
+  note: "Trading center"
+}, {
+  name: "Kandara Town",
+  constituency: "Kandara",
+  ward: "Ruchu",
+  note: "Constituency HQ market"
+}, {
+  name: "Kabati",
+  constituency: "Kandara",
+  ward: "Muruka",
+  note: "Major junction town, Kandara-Thika-Murang'a routes"
+}, {
+  name: "Gatanga Town",
+  constituency: "Gatanga",
+  ward: "Gatanga",
+  note: "Constituency HQ market"
+}, {
+  name: "Ithanga",
+  constituency: "Gatanga",
+  ward: "Ithanga",
+  note: "Trading center towards Yatta/Thika"
+}, {
+  name: "Kahuti",
+  constituency: "Kigumo",
+  ward: "Kangari",
+  note: "Existing Delphine branch"
+}, {
+  name: "Karega",
+  constituency: "Kigumo",
+  ward: "Kigumo",
+  note: "Existing Delphine branch"
+}, {
+  name: "Kanyenyaini",
+  constituency: "Kangema",
+  ward: "Kanyenya-ini",
+  note: "Existing Delphine branch"
+},
+// Kiambu County known major centers
+{
+  name: "Thika Town",
+  constituency: "Thika Town",
+  ward: "Township",
+  note: "Major industrial town, Thika Superhighway/A2 junction",
+  lat: -1.0500,
+  lng: 37.0833
+}, {
+  name: "Ruiru Town",
+  constituency: "Ruiru",
+  ward: "Biashara",
+  note: "Fast-growing town on Thika Superhighway, dense population",
+  lat: -1.1483,
+  lng: 36.9604
+}, {
+  name: "Juja",
+  constituency: "Juja",
+  ward: "Juja",
+  note: "University town on Thika Superhighway, high transit traffic"
+}, {
+  name: "Kiambu Town",
+  constituency: "Kiambu",
+  ward: "Township",
+  note: "County HQ, dense urban market",
+  lat: -1.1670,
+  lng: 36.8170
+}, {
+  name: "Gatundu Town",
+  constituency: "Gatundu South",
+  ward: "Ngenda",
+  note: "Sub-county HQ market center"
+}, {
+  name: "Githunguri Town",
+  constituency: "Githunguri",
+  ward: "Githunguri",
+  note: "Dairy/coffee trading hub",
+  lat: -1.0586,
+  lng: 36.7779
+}, {
+  name: "Limuru Town",
+  constituency: "Limuru",
+  ward: "Limuru Central",
+  note: "Major town on Nairobi-Naivasha route (A104)",
+  lat: -1.1078,
+  lng: 36.6428
+}, {
+  name: "Kikuyu Town",
+  constituency: "Kikuyu",
+  ward: "Kikuyu",
+  note: "Dense urban center near Nairobi, Southern/Waiyaki Way corridor"
+}, {
+  name: "Kinoo",
+  constituency: "Kikuyu",
+  ward: "Kinoo",
+  note: "High-density Nairobi-adjacent center, Waiyaki Way"
+}, {
+  name: "Kabete",
+  constituency: "Kabete",
+  ward: "Kabete",
+  note: "Trading center near Nairobi boundary"
+}, {
+  name: "Uthiru",
+  constituency: "Kabete",
+  ward: "Uthiru",
+  note: "Dense Nairobi-adjacent center"
+}, {
+  name: "Kijabe",
+  constituency: "Lari",
+  ward: "Kijabe",
+  note: "Trading center on Nairobi-Naivasha old road"
+}, {
+  name: "Kimende",
+  constituency: "Lari",
+  ward: "Nyanduma",
+  note: "Highway trading center"
+}, {
+  name: "Kahawa Sukari",
+  constituency: "Ruiru",
+  ward: "Kahawa Sukari",
+  note: "Dense residential/commercial, near Thika Rd"
+}, {
+  name: "Witeithie",
+  constituency: "Juja",
+  ward: "Witeithie",
+  note: "Growing residential/trading center"
+},
+// --- Remaining wards without a confirmed named center yet (added as ward-anchor placeholders) ---
+{
+  name: "Gitugi Center",
+  constituency: "Mathioya",
+  ward: "Gitugi",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Wangu Center",
+  constituency: "Kiharu",
+  ward: "Wangu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Mugoiri Center",
+  constituency: "Kiharu",
+  ward: "Mugoiri",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Murarandia Center",
+  constituency: "Kiharu",
+  ward: "Murarandia",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Gaturi Center",
+  constituency: "Kiharu",
+  ward: "Gaturi",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Muthithi Center",
+  constituency: "Kigumo",
+  ward: "Muthithi",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kinyona Center",
+  constituency: "Kigumo",
+  ward: "Kinyona",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kamahuha Center",
+  constituency: "Maragwa",
+  ward: "Kamahuha",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ichagaki Center",
+  constituency: "Maragwa",
+  ward: "Ichagaki",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Nginda Center",
+  constituency: "Maragwa",
+  ward: "Nginda",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ng'araria Center",
+  constituency: "Kandara",
+  ward: "Ng'araria",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kagundu-ini",
+  constituency: "Kandara",
+  ward: "Kagundu-ini",
+  note: "Named retail/market center for the ward (search-confirmed)"
+}, {
+  name: "Gaichanjiru",
+  constituency: "Kandara",
+  ward: "Gaichanjiru",
+  note: "Ward center anchored by St. Raphael Gaichanjiru Hospital, a services hub (search-confirmed)"
+}, {
+  name: "Ithiru Center",
+  constituency: "Kandara",
+  ward: "Ithiru",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kakuzi/Mitubiri Center",
+  constituency: "Gatanga",
+  ward: "Kakuzi/Mitubiri",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Mugumo-ini Center",
+  constituency: "Gatanga",
+  ward: "Mugumo-ini",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kihumbu-ini Center",
+  constituency: "Gatanga",
+  ward: "Kihumbu-ini",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kariara Center",
+  constituency: "Gatanga",
+  ward: "Kariara",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kiamwangi Center",
+  constituency: "Gatundu South",
+  ward: "Kiamwangi",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kiganjo Center",
+  constituency: "Gatundu South",
+  ward: "Kiganjo",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ndarugu Center",
+  constituency: "Gatundu South",
+  ward: "Ndarugu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Gituamba Center",
+  constituency: "Gatundu North",
+  ward: "Gituamba",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Githobokoni Center",
+  constituency: "Gatundu North",
+  ward: "Githobokoni",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Chania Center",
+  constituency: "Gatundu North",
+  ward: "Chania",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Mang'u Center",
+  constituency: "Gatundu North",
+  ward: "Mang'u",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Murera Center",
+  constituency: "Juja",
+  ward: "Murera",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Theta Center",
+  constituency: "Juja",
+  ward: "Theta",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kalimoni Center",
+  constituency: "Juja",
+  ward: "Kalimoni",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kamenu Center",
+  constituency: "Thika Town",
+  ward: "Kamenu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Hospital Center",
+  constituency: "Thika Town",
+  ward: "Hospital",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Gatuanyaga Center",
+  constituency: "Thika Town",
+  ward: "Gatuanyaga",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ngoliba Center",
+  constituency: "Thika Town",
+  ward: "Ngoliba",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Gitothua Center",
+  constituency: "Ruiru",
+  ward: "Gitothua",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Gatongora Center",
+  constituency: "Ruiru",
+  ward: "Gatongora",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kahawa Wendani Center",
+  constituency: "Ruiru",
+  ward: "Kahawa Wendani",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kiuu Center",
+  constituency: "Ruiru",
+  ward: "Kiuu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Mwiki Center",
+  constituency: "Ruiru",
+  ward: "Mwiki",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Mwihoko Center",
+  constituency: "Ruiru",
+  ward: "Mwihoko",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Githiga Center",
+  constituency: "Githunguri",
+  ward: "Githiga",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ikinu Center",
+  constituency: "Githunguri",
+  ward: "Ikinu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ngewa Center",
+  constituency: "Githunguri",
+  ward: "Ngewa",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Komothai Center",
+  constituency: "Githunguri",
+  ward: "Komothai",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ting'ang'a Center",
+  constituency: "Kiambu",
+  ward: "Ting'ang'a",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ndumberi Center",
+  constituency: "Kiambu",
+  ward: "Ndumberi",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Riabai Center",
+  constituency: "Kiambu",
+  ward: "Riabai",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Cianda Center",
+  constituency: "Kiambaa",
+  ward: "Cianda",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Karuri Center",
+  constituency: "Kiambaa",
+  ward: "Karuri",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ndenderu Center",
+  constituency: "Kiambaa",
+  ward: "Ndenderu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Muchatha Center",
+  constituency: "Kiambaa",
+  ward: "Muchatha",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kihara Center",
+  constituency: "Kiambaa",
+  ward: "Kihara",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Gitaru Center",
+  constituency: "Kabete",
+  ward: "Gitaru",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Muguga Center",
+  constituency: "Kabete",
+  ward: "Muguga",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Nyadhuna Center",
+  constituency: "Kabete",
+  ward: "Nyadhuna",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Karai Center",
+  constituency: "Kikuyu",
+  ward: "Karai",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Nachu Center",
+  constituency: "Kikuyu",
+  ward: "Nachu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Sigona Center",
+  constituency: "Kikuyu",
+  ward: "Sigona",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Bibirioni Center",
+  constituency: "Limuru",
+  ward: "Bibirioni",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ndeiya Center",
+  constituency: "Limuru",
+  ward: "Ndeiya",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Limuru East Center",
+  constituency: "Limuru",
+  ward: "Limuru East",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ngecha Tigoni Center",
+  constituency: "Limuru",
+  ward: "Ngecha Tigoni",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kinale Center",
+  constituency: "Lari",
+  ward: "Kinale",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Kamburu Center",
+  constituency: "Lari",
+  ward: "Kamburu",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Lari/Kirenga Center",
+  constituency: "Lari",
+  ward: "Lari/Kirenga",
+  note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}];
 
 // ---------- Scoring criteria, grouped exactly per the brief ----------
-const CRITERIA_GROUPS = [
-  {
-    key: "demand",
-    label: "Demand & Traffic",
-    icon: TrendingUp,
-    weight: 25,
-    items: [
-      { key: "population", label: "Population density / trader concentration" },
-      { key: "transport", label: "Transport activity (boda bodas, matatus, private vehicles)" },
-      { key: "economic", label: "Economic activity (shops, markets, schools, businesses)" },
-    ],
-  },
-  {
-    key: "competition",
-    label: "Competition & Market Gap",
-    icon: Fuel,
-    weight: 20,
-    items: [
-      { key: "fewCompetitors", label: "Few/no existing filling stations nearby" },
-      { key: "serviceGap", label: "Service gap (riders travel far for fuel)" },
-      { key: "pricingRoom", label: "Room to be competitive without price wars" },
-    ],
-  },
-  {
-    key: "accessibility",
-    label: "Accessibility & Visibility",
-    icon: MapPin,
-    weight: 20,
-    items: [
-      { key: "roadNetwork", label: "Proximity to main roads/junctions/highways" },
-      { key: "visibility", label: "Clear roadside frontage for branding" },
-      { key: "entryExit", label: "Easy entry/exit, low congestion" },
-    ],
-  },
-  {
-    key: "infrastructure",
-    label: "Infrastructure & Growth",
-    icon: Zap,
-    weight: 15,
-    items: [
-      { key: "marketUpgrades", label: "Market undergoing expansion/upgrades" },
-      { key: "futureDev", label: "Earmarked for county growth/development" },
-      { key: "utilities", label: "Reliable electricity, water, solar potential" },
-    ],
-  },
-  {
-    key: "customerBase",
-    label: "Customer Base",
-    icon: Users,
-    weight: 12,
-    items: [
-      { key: "bodaStages", label: "High boda boda stage congregation" },
-      { key: "tradingHub", label: "Busy trading hub with daily inflow/outflow" },
-      { key: "communityReliance", label: "Community livelihood reliance on fuel" },
-    ],
-  },
-  {
-    key: "compliance",
-    label: "Compliance & Safety",
-    icon: Shield,
-    weight: 8,
-    items: [
-      { key: "approvals", label: "Ease of county licensing/zoning" },
-      { key: "safetyBuffer", label: "Adequate spacing from schools/hospitals/residences" },
-      { key: "environmental", label: "Drainage and underground tank suitability" },
-    ],
-  },
-];
-
-const ALL_ITEM_KEYS = CRITERIA_GROUPS.flatMap((g) => g.items.map((i) => i.key));
-const DEFAULT_SCORES = Object.fromEntries(ALL_ITEM_KEYS.map((k) => [k, 0]));
-
+const CRITERIA_GROUPS = [{
+  key: "demand",
+  label: "Demand & Traffic",
+  icon: TrendingUp,
+  weight: 25,
+  items: [{
+    key: "population",
+    label: "Population density / trader concentration"
+  }, {
+    key: "transport",
+    label: "Transport activity (boda bodas, matatus, private vehicles)"
+  }, {
+    key: "economic",
+    label: "Economic activity (shops, markets, schools, businesses)"
+  }]
+}, {
+  key: "competition",
+  label: "Competition & Market Gap",
+  icon: Fuel,
+  weight: 20,
+  items: [{
+    key: "fewCompetitors",
+    label: "Few/no existing filling stations nearby"
+  }, {
+    key: "serviceGap",
+    label: "Service gap (riders travel far for fuel)"
+  }, {
+    key: "pricingRoom",
+    label: "Room to be competitive without price wars"
+  }]
+}, {
+  key: "accessibility",
+  label: "Accessibility & Visibility",
+  icon: MapPin,
+  weight: 20,
+  items: [{
+    key: "roadNetwork",
+    label: "Proximity to main roads/junctions/highways"
+  }, {
+    key: "visibility",
+    label: "Clear roadside frontage for branding"
+  }, {
+    key: "entryExit",
+    label: "Easy entry/exit, low congestion"
+  }]
+}, {
+  key: "infrastructure",
+  label: "Infrastructure & Growth",
+  icon: Zap,
+  weight: 15,
+  items: [{
+    key: "marketUpgrades",
+    label: "Market undergoing expansion/upgrades"
+  }, {
+    key: "futureDev",
+    label: "Earmarked for county growth/development"
+  }, {
+    key: "utilities",
+    label: "Reliable electricity, water, solar potential"
+  }]
+}, {
+  key: "customerBase",
+  label: "Customer Base",
+  icon: Users,
+  weight: 12,
+  items: [{
+    key: "bodaStages",
+    label: "High boda boda stage congregation"
+  }, {
+    key: "tradingHub",
+    label: "Busy trading hub with daily inflow/outflow"
+  }, {
+    key: "communityReliance",
+    label: "Community livelihood reliance on fuel"
+  }]
+}, {
+  key: "compliance",
+  label: "Compliance & Safety",
+  icon: Shield,
+  weight: 8,
+  items: [{
+    key: "approvals",
+    label: "Ease of county licensing/zoning"
+  }, {
+    key: "safetyBuffer",
+    label: "Adequate spacing from schools/hospitals/residences"
+  }, {
+    key: "environmental",
+    label: "Drainage and underground tank suitability"
+  }]
+}];
+const ALL_ITEM_KEYS = CRITERIA_GROUPS.flatMap(g => g.items.map(i => i.key));
+const DEFAULT_SCORES = Object.fromEntries(ALL_ITEM_KEYS.map(k => [k, 0]));
 function makeId() {
   return "site_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
 }
@@ -488,11 +823,10 @@ function voterCountToScore(count) {
   const pct = rank / VOTER_VALUES_SORTED.length;
   return Math.min(5, Math.max(0, Math.round(pct * 5)));
 }
-
 function computeWeightedScore(scores) {
   let total = 0;
   let maxTotal = 0;
-  CRITERIA_GROUPS.forEach((group) => {
+  CRITERIA_GROUPS.forEach(group => {
     const itemCount = group.items.length;
     const groupMax = itemCount * 5;
     const groupRaw = group.items.reduce((sum, item) => sum + (scores[item.key] || 0), 0);
@@ -500,16 +834,30 @@ function computeWeightedScore(scores) {
     total += groupPct * group.weight;
     maxTotal += group.weight;
   });
-  return Math.round((total / maxTotal) * 1000) / 10; // out of 100, 1 decimal
+  return Math.round(total / maxTotal * 1000) / 10; // out of 100, 1 decimal
 }
-
 function tierFor(score) {
-  if (score >= 75) return { label: "Prime", color: "#1A6B3C", bg: "#E7F5EC" };
-  if (score >= 55) return { label: "Strong", color: "#B8860B", bg: "#FBF3DC" };
-  if (score >= 35) return { label: "Marginal", color: "#B45309", bg: "#FDF0E1" };
-  return { label: "Weak", color: "#9B2C2C", bg: "#FCE9E9" };
+  if (score >= 75) return {
+    label: "Prime",
+    color: "#1A6B3C",
+    bg: "#E7F5EC"
+  };
+  if (score >= 55) return {
+    label: "Strong",
+    color: "#B8860B",
+    bg: "#FBF3DC"
+  };
+  if (score >= 35) return {
+    label: "Marginal",
+    color: "#B45309",
+    bg: "#FDF0E1"
+  };
+  return {
+    label: "Weak",
+    color: "#9B2C2C",
+    bg: "#FCE9E9"
+  };
 }
-
 function SiteScout() {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -545,20 +893,22 @@ function SiteScout() {
     const dayBase = now < boundary ? new Date(now.getTime() - 86400000) : now;
     return dayBase.toISOString().slice(0, 10); // YYYY-MM-DD of the current visit-day
   };
-
-  const freshSeed = () =>
-    SEED_SITES.map((s) => ({
-      id: makeId(),
-      name: s.name,
-      constituency: s.constituency,
-      ward: s.ward,
-      note: s.note,
-      scores: { ...DEFAULT_SCORES },
-      bodaBodaScore: 0, // 0-5, filled in by you from what you observe on the ground
-      lat: s.lat ?? null, // only present for sources with a confirmed public coordinate
-      lng: s.lng ?? null,
-      createdAt: Date.now(),
-    }));
+  const freshSeed = () => SEED_SITES.map(s => ({
+    id: makeId(),
+    name: s.name,
+    constituency: s.constituency,
+    ward: s.ward,
+    note: s.note,
+    scores: {
+      ...DEFAULT_SCORES
+    },
+    bodaBodaScore: 0,
+    // 0-5, filled in by you from what you observe on the ground
+    lat: s.lat ?? null,
+    // only present for sources with a confirmed public coordinate
+    lng: s.lng ?? null,
+    createdAt: Date.now()
+  }));
 
   // Load from storage on mount
   useEffect(() => {
@@ -590,8 +940,7 @@ function SiteScout() {
     (async () => {
       try {
         const result = await window.storage.set(STORAGE_KEY, JSON.stringify(sites), false);
-        if (!result) setSaveError("Could not save — changes may not persist.");
-        else setSaveError(null);
+        if (!result) setSaveError("Could not save — changes may not persist.");else setSaveError(null);
       } catch (e) {
         setSaveError("Could not save — changes may not persist.");
       }
@@ -638,35 +987,42 @@ function SiteScout() {
     if (visitLogDay === null) return;
     (async () => {
       try {
-        await window.storage.set(VISIT_LOG_KEY, JSON.stringify({ day: visitLogDay, visits: visitLog }), false);
+        await window.storage.set(VISIT_LOG_KEY, JSON.stringify({
+          day: visitLogDay,
+          visits: visitLog
+        }), false);
       } catch (e) {
         // non-critical, ignore
       }
     })();
   }, [visitLog, visitLogDay]);
-
-  const markVisited = (siteId) => {
-    setVisitLog((prev) => ({ ...prev, [siteId]: true }));
+  const markVisited = siteId => {
+    setVisitLog(prev => ({
+      ...prev,
+      [siteId]: true
+    }));
   };
-
-  const unmarkVisited = (siteId) => {
-    setVisitLog((prev) => {
-      const next = { ...prev };
+  const unmarkVisited = siteId => {
+    setVisitLog(prev => {
+      const next = {
+        ...prev
+      };
       delete next[siteId];
       return next;
     });
   };
-
   const updateBodaBodaScore = (siteId, value) => {
-    setSites((prev) =>
-      prev.map((s) => (s.id === siteId ? { ...s, bodaBodaScore: Number(value) } : s))
-    );
+    setSites(prev => prev.map(s => s.id === siteId ? {
+      ...s,
+      bodaBodaScore: Number(value)
+    } : s));
   };
-
   const updateCoords = (siteId, lat, lng) => {
-    setSites((prev) =>
-      prev.map((s) => (s.id === siteId ? { ...s, lat: lat === "" ? null : Number(lat), lng: lng === "" ? null : Number(lng) } : s))
-    );
+    setSites(prev => prev.map(s => s.id === siteId ? {
+      ...s,
+      lat: lat === "" ? null : Number(lat),
+      lng: lng === "" ? null : Number(lng)
+    } : s));
   };
 
   // Load the person's own proxy URL (never a raw Google API key) on mount
@@ -680,8 +1036,7 @@ function SiteScout() {
       }
     })();
   }, []);
-
-  const saveProxyUrl = async (url) => {
+  const saveProxyUrl = async url => {
     setProxyUrl(url);
     try {
       await window.storage.set("proxy-url-v1", url, false);
@@ -694,35 +1049,57 @@ function SiteScout() {
   // call the Places API with a raw key without exposing it and hitting CORS).
   // Expected proxy contract: GET {proxyUrl}?lat=..&lng=..&radius=..&type=gas_station
   // returning the Places Nearby Search JSON response unmodified.
-  const searchNearby = async (site) => {
+  const searchNearby = async site => {
     if (!proxyUrl) {
       setShowSettings(true);
       return;
     }
     if (site.lat == null || site.lng == null) {
-      setNearbyResults((prev) => ({
+      setNearbyResults(prev => ({
         ...prev,
-        [site.id]: { loading: false, error: "Add latitude/longitude for this center first.", places: null },
+        [site.id]: {
+          loading: false,
+          error: "Add latitude/longitude for this center first.",
+          places: null
+        }
       }));
       return;
     }
-    setNearbyResults((prev) => ({ ...prev, [site.id]: { loading: true, error: null, places: null } }));
+    setNearbyResults(prev => ({
+      ...prev,
+      [site.id]: {
+        loading: true,
+        error: null,
+        places: null
+      }
+    }));
     try {
       const url = `${proxyUrl}?lat=${site.lat}&lng=${site.lng}&radius=1500&type=gas_station`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
       const data = await res.json();
-      const places = (data.results || []).map((p) => ({
+      const places = (data.results || []).map(p => ({
         name: p.name,
         address: p.vicinity || p.formatted_address || "",
         rating: p.rating,
-        openNow: p.opening_hours ? p.opening_hours.open_now : undefined,
+        openNow: p.opening_hours ? p.opening_hours.open_now : undefined
       }));
-      setNearbyResults((prev) => ({ ...prev, [site.id]: { loading: false, error: null, places } }));
-    } catch (e) {
-      setNearbyResults((prev) => ({
+      setNearbyResults(prev => ({
         ...prev,
-        [site.id]: { loading: false, error: "Could not reach proxy. Check the URL in Settings.", places: null },
+        [site.id]: {
+          loading: false,
+          error: null,
+          places
+        }
+      }));
+    } catch (e) {
+      setNearbyResults(prev => ({
+        ...prev,
+        [site.id]: {
+          loading: false,
+          error: "Could not reach proxy. Check the URL in Settings.",
+          places: null
+        }
       }));
     }
   };
@@ -730,47 +1107,57 @@ function SiteScout() {
   // Functional updater guarantees each slider drag applies on top of the latest
   // state rather than a stale snapshot, which is what caused scores to appear stuck.
   const updateScore = (siteId, itemKey, value) => {
-    setSites((prev) =>
-      prev.map((s) =>
-        s.id === siteId
-          ? { ...s, scores: { ...s.scores, [itemKey]: Number(value) } }
-          : s
-      )
-    );
+    setSites(prev => prev.map(s => s.id === siteId ? {
+      ...s,
+      scores: {
+        ...s.scores,
+        [itemKey]: Number(value)
+      }
+    } : s));
   };
 
   // Auto-fills only the "population" sub-score from ward-level registered-voter
   // data (real, sourced, but a proxy — not a field visit). Every other score,
   // including the rest of Demand & Traffic, is left exactly as the person set it.
-  const autoFillPopulation = (siteId) => {
-    setSites((prev) =>
-      prev.map((s) => {
-        if (s.id !== siteId) return s;
-        const key = `${s.constituency}||${s.ward}`;
-        const voters = WARD_VOTERS[key];
-        const score = voterCountToScore(voters);
-        if (score == null) return s;
-        return { ...s, scores: { ...s.scores, population: score } };
-      })
-    );
+  const autoFillPopulation = siteId => {
+    setSites(prev => prev.map(s => {
+      if (s.id !== siteId) return s;
+      const key = `${s.constituency}||${s.ward}`;
+      const voters = WARD_VOTERS[key];
+      const score = voterCountToScore(voters);
+      if (score == null) return s;
+      return {
+        ...s,
+        scores: {
+          ...s.scores,
+          population: score
+        }
+      };
+    }));
   };
-
   const autoFillAllPopulation = () => {
-    setSites((prev) =>
-      prev.map((s) => {
-        const key = `${s.constituency}||${s.ward}`;
-        const voters = WARD_VOTERS[key];
-        const score = voterCountToScore(voters);
-        if (score == null) return s;
-        return { ...s, scores: { ...s.scores, population: score } };
-      })
-    );
+    setSites(prev => prev.map(s => {
+      const key = `${s.constituency}||${s.ward}`;
+      const voters = WARD_VOTERS[key];
+      const score = voterCountToScore(voters);
+      if (score == null) return s;
+      return {
+        ...s,
+        scores: {
+          ...s.scores,
+          population: score
+        }
+      };
+    }));
   };
-
   const resetAllScores = () => {
-    setSites((prev) => prev.map((s) => ({ ...s, scores: { ...DEFAULT_SCORES } })));
+    setSites(prev => prev.map(s => ({
+      ...s,
+      scores: {
+        ...DEFAULT_SCORES
+      }
+    })));
   };
-
   const addSite = () => {
     if (!newSiteName.trim()) return;
     const site = {
@@ -779,35 +1166,37 @@ function SiteScout() {
       constituency: newSiteConstituency,
       ward: newSiteWard,
       note: newSiteNote.trim(),
-      scores: { ...DEFAULT_SCORES },
-      createdAt: Date.now(),
+      scores: {
+        ...DEFAULT_SCORES
+      },
+      createdAt: Date.now()
     };
-    setSites((prev) => [site, ...prev]);
+    setSites(prev => [site, ...prev]);
     setNewSiteName("");
     setNewSiteNote("");
     setShowAddForm(false);
     setActiveId(site.id);
   };
-
-  const removeSite = (id) => {
-    setSites((prev) => prev.filter((s) => s.id !== id));
+  const removeSite = id => {
+    setSites(prev => prev.filter(s => s.id !== id));
     if (activeId === id) setActiveId(null);
   };
-
   const enrichedSites = useMemo(() => {
-    return sites.map((s) => ({ ...s, score: computeWeightedScore(s.scores) }));
+    return sites.map(s => ({
+      ...s,
+      score: computeWeightedScore(s.scores)
+    }));
   }, [sites]);
-
   const filteredSites = useMemo(() => {
     let list = enrichedSites;
     if (filterCounty !== "All") {
-      list = list.filter((s) => CONSTITUENCY_TO_COUNTY[s.constituency] === filterCounty);
+      list = list.filter(s => CONSTITUENCY_TO_COUNTY[s.constituency] === filterCounty);
     }
     if (filterConstituency !== "All") {
-      list = list.filter((s) => s.constituency === filterConstituency);
+      list = list.filter(s => s.constituency === filterConstituency);
     }
     if (filterWard !== "All") {
-      list = list.filter((s) => s.ward === filterWard);
+      list = list.filter(s => s.ward === filterWard);
     }
     if (sortBy === "score") {
       list = [...list].sort((a, b) => b.score - a.score);
@@ -818,13 +1207,12 @@ function SiteScout() {
     }
     return list;
   }, [enrichedSites, filterCounty, filterConstituency, filterWard, sortBy]);
-
-  const activeSite = sites.find((s) => s.id === activeId);
+  const activeSite = sites.find(s => s.id === activeId);
 
   // Today's recommended visit: highest combined score + boda boda activity among
   // sites not yet marked visited in the current visit-day window.
   const todaysPick = useMemo(() => {
-    const candidates = enrichedSites.filter((s) => !visitLog[s.id]);
+    const candidates = enrichedSites.filter(s => !visitLog[s.id]);
     if (candidates.length === 0) return null;
     return [...candidates].sort((a, b) => {
       const aCombined = a.score + (a.bodaBodaScore || 0) * 4; // weight boda boda activity meaningfully
@@ -838,21 +1226,21 @@ function SiteScout() {
   const marketCentersByWard = useMemo(() => {
     let list = enrichedSites;
     if (filterCounty !== "All") {
-      list = list.filter((s) => CONSTITUENCY_TO_COUNTY[s.constituency] === filterCounty);
+      list = list.filter(s => CONSTITUENCY_TO_COUNTY[s.constituency] === filterCounty);
     }
     if (filterConstituency !== "All") {
-      list = list.filter((s) => s.constituency === filterConstituency);
+      list = list.filter(s => s.constituency === filterConstituency);
     }
     if (filterWard !== "All") {
-      list = list.filter((s) => s.ward === filterWard);
+      list = list.filter(s => s.ward === filterWard);
     }
     const grouped = {};
-    list.forEach((s) => {
+    list.forEach(s => {
       const key = `${s.constituency} — ${s.ward}`;
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(s);
     });
-    Object.keys(grouped).forEach((key) => {
+    Object.keys(grouped).forEach(key => {
       grouped[key].sort((a, b) => (b.bodaBodaScore || 0) - (a.bodaBodaScore || 0));
     });
     return grouped;
@@ -860,108 +1248,122 @@ function SiteScout() {
 
   // Reusable county → constituency → ward filter controls, shared by both tabs
   // so scope selection stays in sync whichever view you're on.
-  const LocationFilters = () => (
-    <>
-      <select
-        value={filterCounty}
-        onChange={(e) => {
-          setFilterCounty(e.target.value);
-          setFilterConstituency("All"); // reset constituency when county changes
-          setFilterWard("All"); // reset ward too
-        }}
-        style={{ background: "#211F1B", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 8, padding: "9px 12px", fontSize: 13.5, fontWeight: 600 }}
-      >
-        <option value="All">All counties</option>
-        {Object.keys(COUNTIES).map((county) => (
-          <option key={county} value={county}>{county} County</option>
-        ))}
-      </select>
-
-      <select
-        value={filterConstituency}
-        onChange={(e) => {
-          setFilterConstituency(e.target.value);
-          setFilterWard("All"); // reset ward when constituency changes
-        }}
-        style={{ background: "#211F1B", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 8, padding: "9px 12px", fontSize: 13.5 }}
-      >
-        <option value="All">All constituencies</option>
-        {filterCounty === "All" ? (
-          <>
-            <optgroup label="Murang'a County">
-              {MURANGA_CONSTITUENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Kiambu County">
-              {KIAMBU_CONSTITUENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </optgroup>
-          </>
-        ) : (
-          COUNTIES[filterCounty].map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))
-        )}
-      </select>
-
-      <select
-        value={filterWard}
-        onChange={(e) => setFilterWard(e.target.value)}
-        style={{ background: "#211F1B", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 8, padding: "9px 12px", fontSize: 13.5 }}
-      >
-        <option value="All">All wards</option>
-        {filterConstituency !== "All" ? (
-          // Single constituency selected: flat list of its wards
-          CONSTITUENCIES[filterConstituency].map((w) => (
-            <option key={w} value={w}>{w}</option>
-          ))
-        ) : filterCounty !== "All" ? (
-          // County selected but no constituency: group wards by constituency
-          COUNTIES[filterCounty].map((c) => (
-            <optgroup key={c} label={c}>
-              {CONSTITUENCIES[c].map((w) => (
-                <option key={`${c}-${w}`} value={w}>{w}</option>
-              ))}
-            </optgroup>
-          ))
-        ) : (
-          // Nothing selected: group by county then constituency
-          <>
-            <optgroup label="Murang'a County">
-              {MURANGA_CONSTITUENCIES.flatMap((c) =>
-                CONSTITUENCIES[c].map((w) => (
-                  <option key={`${c}-${w}`} value={w}>{c}: {w}</option>
-                ))
-              )}
-            </optgroup>
-            <optgroup label="Kiambu County">
-              {KIAMBU_CONSTITUENCIES.flatMap((c) =>
-                CONSTITUENCIES[c].map((w) => (
-                  <option key={`${c}-${w}`} value={w}>{c}: {w}</option>
-                ))
-              )}
-            </optgroup>
-          </>
-        )}
-      </select>
-    </>
-  );
-
+  const LocationFilters = () => /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
+    value: filterCounty,
+    onChange: e => {
+      setFilterCounty(e.target.value);
+      setFilterConstituency("All"); // reset constituency when county changes
+      setFilterWard("All"); // reset ward too
+    },
+    style: {
+      background: "#211F1B",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 8,
+      padding: "9px 12px",
+      fontSize: 13.5,
+      fontWeight: 600
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "All"
+  }, "All counties"), Object.keys(COUNTIES).map(county => /*#__PURE__*/React.createElement("option", {
+    key: county,
+    value: county
+  }, county, " County"))), /*#__PURE__*/React.createElement("select", {
+    value: filterConstituency,
+    onChange: e => {
+      setFilterConstituency(e.target.value);
+      setFilterWard("All"); // reset ward when constituency changes
+    },
+    style: {
+      background: "#211F1B",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 8,
+      padding: "9px 12px",
+      fontSize: 13.5
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "All"
+  }, "All constituencies"), filterCounty === "All" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("optgroup", {
+    label: "Murang'a County"
+  }, MURANGA_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))), /*#__PURE__*/React.createElement("optgroup", {
+    label: "Kiambu County"
+  }, KIAMBU_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c)))) : COUNTIES[filterCounty].map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))), /*#__PURE__*/React.createElement("select", {
+    value: filterWard,
+    onChange: e => setFilterWard(e.target.value),
+    style: {
+      background: "#211F1B",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 8,
+      padding: "9px 12px",
+      fontSize: 13.5
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "All"
+  }, "All wards"), filterConstituency !== "All" ?
+  // Single constituency selected: flat list of its wards
+  CONSTITUENCIES[filterConstituency].map(w => /*#__PURE__*/React.createElement("option", {
+    key: w,
+    value: w
+  }, w)) : filterCounty !== "All" ?
+  // County selected but no constituency: group wards by constituency
+  COUNTIES[filterCounty].map(c => /*#__PURE__*/React.createElement("optgroup", {
+    key: c,
+    label: c
+  }, CONSTITUENCIES[c].map(w => /*#__PURE__*/React.createElement("option", {
+    key: `${c}-${w}`,
+    value: w
+  }, w)))) :
+  /*#__PURE__*/
+  // Nothing selected: group by county then constituency
+  React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("optgroup", {
+    label: "Murang'a County"
+  }, MURANGA_CONSTITUENCIES.flatMap(c => CONSTITUENCIES[c].map(w => /*#__PURE__*/React.createElement("option", {
+    key: `${c}-${w}`,
+    value: w
+  }, c, ": ", w)))), /*#__PURE__*/React.createElement("optgroup", {
+    label: "Kiambu County"
+  }, KIAMBU_CONSTITUENCIES.flatMap(c => CONSTITUENCIES[c].map(w => /*#__PURE__*/React.createElement("option", {
+    key: `${c}-${w}`,
+    value: w
+  }, c, ": ", w)))))));
   if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#161513", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#D4911A", fontFamily: "Georgia, serif", fontSize: 18, letterSpacing: 1 }}>
-          Loading site register…
-        </div>
-      </div>
-    );
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        minHeight: "100vh",
+        background: "#161513",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: "#D4911A",
+        fontFamily: "Georgia, serif",
+        fontSize: 18,
+        letterSpacing: 1
+      }
+    }, "Loading site register…"));
   }
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#161513", fontFamily: "'Helvetica Neue', Arial, sans-serif", color: "#F2EEE6" }}>
-      <style>{`
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "#161513",
+      fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      color: "#F2EEE6"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, `
         * { box-sizing: border-box; }
         input[type=range] {
           -webkit-appearance: none;
@@ -997,570 +1399,1030 @@ function SiteScout() {
           outline: 2px solid #D4911A;
           outline-offset: 2px;
         }
-      `}</style>
-
-      {/* Header */}
-      <header style={{ borderBottom: "1px solid #2C2924", padding: "28px 24px 22px" }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 8, background: "#D4911A", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Fuel size={19} color="#1A1A1A" strokeWidth={2.4} />
-              </div>
-              <h1 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 700, letterSpacing: 0.2 }}>
-                Site Scout — Murang'a
-              </h1>
-            </div>
-            <p style={{ margin: "6px 0 0 44px", color: "#A69C8C", fontSize: 13.5 }}>
-              Weighted location scoring · Murang'a (7 constituencies, 35 wards) + Kiambu (12 constituencies, 60 wards)
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ fontSize: 12.5, color: "#7A7266", textAlign: "right", lineHeight: 1.5 }}>
-              <div>{sites.length} sites tracked</div>
-              <div>Delphine Enterprise Ltd</div>
-            </div>
-            <button
-              onClick={() => setShowSettings((v) => !v)}
-              title="Nearby search settings"
-              style={{ background: "none", border: "1px solid #3A3630", borderRadius: 8, padding: 8, color: "#A69C8C", cursor: "pointer", display: "flex" }}
-            >
-              <Settings size={16} />
-            </button>
-          </div>
-        </div>
-        {showSettings && (
-          <div style={{ maxWidth: 1180, margin: "16px auto 0", background: "#1A1815", border: "1px solid #2C2924", borderRadius: 12, padding: 18 }}>
-            <h3 style={{ margin: "0 0 6px", fontFamily: "Georgia, serif", fontSize: 15 }}>Nearby fuel station search</h3>
-            <p style={{ margin: "0 0 12px", fontSize: 12, color: "#7A7266", lineHeight: 1.6 }}>
-              This app never stores or calls a raw Google API key directly — that would expose it to
-              anyone who opens the page. Instead, paste the URL of your own backend proxy (a small
-              server or serverless function you control that holds the key and forwards requests to
-              Google's Places API). Leave blank to disable nearby search.
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                value={proxyUrl}
-                onChange={(e) => setProxyUrl(e.target.value)}
-                onBlur={(e) => saveProxyUrl(e.target.value)}
-                placeholder="https://your-proxy.example.com/nearby-fuel"
-                style={{ flex: 1, background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "8px 10px", fontSize: 13 }}
-              />
-            </div>
-          </div>
-        )}
-      </header>
-
-      <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px" }}>
-        {saveError && (
-          <div style={{ background: "#3A1F1F", border: "1px solid #6B3232", color: "#E8B4B4", padding: "10px 14px", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
-            {saveError}
-          </div>
-        )}
-
-        {/* Tab bar */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #2C2924" }}>
-          {[
-            { id: "sites", label: "Sites" },
-            { id: "marketCenters", label: "Market Centers" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: "none",
-                border: "none",
-                borderBottom: activeTab === tab.id ? "2px solid #D4911A" : "2px solid transparent",
-                color: activeTab === tab.id ? "#F2EEE6" : "#7A7266",
-                padding: "10px 16px",
-                fontSize: 13.5,
-                fontWeight: activeTab === tab.id ? 700 : 500,
-                cursor: "pointer",
-                marginBottom: -1,
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Today's pick banner */}
-        {todaysPick && (
-          <div style={{
-            background: "linear-gradient(135deg, #2A2115 0%, #1F1D19 100%)",
-            border: "1px solid #4A3A1F", borderRadius: 12, padding: "14px 18px",
-            marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap",
-          }}>
-            <div>
-              <div style={{ fontSize: 11, color: "#D4911A", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>
-                Recommended visit today
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{todaysPick.name}</div>
-              <div style={{ fontSize: 12, color: "#A69C8C", marginTop: 2 }}>
-                {todaysPick.constituency} · {todaysPick.ward} · score {todaysPick.score} · boda boda activity {todaysPick.bodaBodaScore || 0}/5
-              </div>
-            </div>
-            <button
-              onClick={() => markVisited(todaysPick.id)}
-              style={{ background: "#D4911A", color: "#1A1A1A", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap" }}
-            >
-              Mark visited
-            </button>
-          </div>
-        )}
-        {!todaysPick && Object.keys(visitLog).length > 0 && (
-          <div style={{ background: "#1A1815", border: "1px solid #2C2924", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, color: "#A69C8C" }}>
-            All tracked sites marked visited for this cycle. List resets at 12:00 pm.
-          </div>
-        )}
-
-        {activeTab === "sites" && (
-        <>
-        {/* Controls row */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20, alignItems: "center" }}>
-          <button
-            onClick={() => setShowAddForm((v) => !v)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: "#D4911A", color: "#1A1A1A", border: "none",
-              padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13.5, cursor: "pointer",
-            }}
-          >
-            <Plus size={16} strokeWidth={2.6} /> Add site
-          </button>
-
-          <LocationFilters />
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            style={{ background: "#211F1B", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 8, padding: "9px 12px", fontSize: 13.5 }}
-          >
-            <option value="score">Sort: Highest score</option>
-            <option value="name">Sort: Name (A–Z)</option>
-            <option value="constituency">Sort: Constituency</option>
-          </select>
-
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-            {pendingConfirm === "autofill" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 11.5, color: "#D4911A" }}>Auto-fill population for all sites?</span>
-                <button
-                  onClick={() => { autoFillAllPopulation(); setPendingConfirm(null); }}
-                  style={{ background: "#D4911A", color: "#1A1A1A", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => setPendingConfirm(null)}
-                  style={{ background: "none", border: "1px solid #3A3630", color: "#A69C8C", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setPendingConfirm("autofill")}
-                style={{ background: "none", border: "1px solid #4A3A1F", color: "#D4911A", borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-              >
-                Auto-fill population (all sites)
-              </button>
-            )}
-
-            {pendingConfirm === "reset" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 11.5, color: "#E8B4B4" }}>Reset all scores to 0?</span>
-                <button
-                  onClick={() => { resetAllScores(); setPendingConfirm(null); }}
-                  style={{ background: "#B45050", color: "#1A1A1A", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => setPendingConfirm(null)}
-                  style={{ background: "none", border: "1px solid #3A3630", color: "#A69C8C", borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setPendingConfirm("reset")}
-                style={{ background: "none", border: "1px solid #3A3630", color: "#A69C8C", borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-              >
-                Reset all scores
-              </button>
-            )}
-          </div>
-        </div>
-        <p style={{ fontSize: 11.5, color: "#5A5348", marginTop: -12, marginBottom: 16 }}>
-          "Auto-fill population" sets only the Population sub-score, using ward-level registered-voter
-          counts (2022 IEBC register) as a stand-in for population density — real, sourced data, but a
-          proxy, not a field measurement. Competition, visibility, safety, and every other factor still
-          need your own observation.
-        </p>
-
-        {/* Add form */}
-        {showAddForm && (
-          <div style={{ background: "#1F1D19", border: "1px solid #3A3630", borderRadius: 12, padding: 18, marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 16 }}>Add a candidate site</h3>
-              <button onClick={() => setShowAddForm(false)} style={{ background: "none", border: "none", color: "#7A7266", cursor: "pointer" }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-              <div>
-                <label style={{ fontSize: 12, color: "#A69C8C", display: "block", marginBottom: 5 }}>Site / center name</label>
-                <input
-                  value={newSiteName}
-                  onChange={(e) => setNewSiteName(e.target.value)}
-                  placeholder="e.g. Kiganjo junction"
-                  style={{ width: "100%", background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "8px 10px", fontSize: 13.5 }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#A69C8C", display: "block", marginBottom: 5 }}>Constituency</label>
-                <select
-                  value={newSiteConstituency}
-                  onChange={(e) => {
-                    setNewSiteConstituency(e.target.value);
-                    setNewSiteWard(CONSTITUENCIES[e.target.value][0]);
-                  }}
-                  style={{ width: "100%", background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "8px 10px", fontSize: 13.5 }}
-                >
-                  <optgroup label="Murang'a County">
-                    {MURANGA_CONSTITUENCIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Kiambu County">
-                    {KIAMBU_CONSTITUENCIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#A69C8C", display: "block", marginBottom: 5 }}>Ward</label>
-                <select
-                  value={newSiteWard}
-                  onChange={(e) => setNewSiteWard(e.target.value)}
-                  style={{ width: "100%", background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "8px 10px", fontSize: 13.5 }}
-                >
-                  {CONSTITUENCIES[newSiteConstituency].map((w) => (
-                    <option key={w} value={w}>{w}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, color: "#A69C8C", display: "block", marginBottom: 5 }}>Notes (optional)</label>
-              <input
-                value={newSiteNote}
-                onChange={(e) => setNewSiteNote(e.target.value)}
-                placeholder="e.g. Junction of C71 and feeder road, near new bus park"
-                style={{ width: "100%", background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "8px 10px", fontSize: 13.5 }}
-              />
-            </div>
-            <button
-              onClick={addSite}
-              style={{ background: "#D4911A", color: "#1A1A1A", border: "none", padding: "9px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13.5, cursor: "pointer" }}
-            >
-              Add to register
-            </button>
-          </div>
-        )}
-
-        {/* Site list + detail */}
-        <div style={{ display: "grid", gridTemplateColumns: activeSite ? "1fr 1.3fr" : "1fr", gap: 20 }}>
-          {/* List */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {filteredSites.length === 0 && (
-              <div style={{ color: "#7A7266", fontSize: 13.5, padding: 20, textAlign: "center", border: "1px dashed #3A3630", borderRadius: 10 }}>
-                No sites in this filter yet. Add one above.
-              </div>
-            )}
-            {filteredSites.map((site) => {
-              const tier = tierFor(site.score);
-              const isActive = activeId === site.id;
-              return (
-                <div
-                  key={site.id}
-                  onClick={() => setActiveId(isActive ? null : site.id)}
-                  style={{
-                    background: isActive ? "#211F1B" : "#1A1815",
-                    border: isActive ? "1px solid #D4911A" : "1px solid #2C2924",
-                    borderRadius: 10, padding: "13px 16px", cursor: "pointer",
-                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {site.name}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: "#7A7266", marginTop: 2 }}>
-                      {site.constituency} · {site.ward}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    <span style={{
-                      background: tier.bg, color: tier.color, fontSize: 11, fontWeight: 700,
-                      padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap",
-                    }}>
-                      {tier.label}
-                    </span>
-                    <span style={{ fontFamily: "Georgia, serif", fontSize: 19, fontWeight: 700, color: "#D4911A", minWidth: 42, textAlign: "right" }}>
-                      {site.score}
-                    </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeSite(site.id); }}
-                      style={{ background: "none", border: "none", color: "#5A5348", cursor: "pointer", padding: 4 }}
-                      aria-label={`Remove ${site.name}`}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                    {isActive ? <ChevronUp size={16} color="#7A7266" /> : <ChevronDown size={16} color="#7A7266" />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Detail / scoring panel */}
-          {activeSite && (
-            <div style={{ background: "#1A1815", border: "1px solid #2C2924", borderRadius: 12, padding: 20, position: "sticky", top: 20, alignSelf: "start", maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                <div>
-                  <h2 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 19 }}>{activeSite.name}</h2>
-                  <div style={{ fontSize: 12, color: "#7A7266", marginTop: 3 }}>{activeSite.constituency} constituency · {activeSite.ward} ward</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "Georgia, serif", fontSize: 30, fontWeight: 700, color: "#D4911A", lineHeight: 1 }}>
-                    {computeWeightedScore(activeSite.scores)}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: "#7A7266", marginTop: 2 }}>/ 100</div>
-                </div>
-              </div>
-              {activeSite.note && (
-                <p style={{ fontSize: 12.5, color: "#A69C8C", margin: "10px 0 0", fontStyle: "italic" }}>{activeSite.note}</p>
-              )}
-
-              <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 18 }}>
-                {CRITERIA_GROUPS.map((group) => {
-                  const Icon = group.icon;
-                  return (
-                    <div key={group.key}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <Icon size={15} color="#D4911A" />
-                        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>{group.label}</span>
-                        <span style={{ fontSize: 10.5, color: "#5A5348", marginLeft: "auto" }}>weight {group.weight}%</span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 23 }}>
-                        {group.items.map((item) => (
-                          <div key={item.key}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5 }}>
-                              <span style={{ color: "#D8D2C6" }}>{item.label}</span>
-                              <span style={{ color: "#D4911A", fontWeight: 700, minWidth: 16, textAlign: "right" }}>
-                                {activeSite.scores[item.key]}
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min={0}
-                              max={5}
-                              step={1}
-                              value={activeSite.scores[item.key]}
-                              onChange={(e) => updateScore(activeSite.id, item.key, Number(e.target.value))}
-                              style={{ width: "100%" }}
-                            />
-                            {item.key === "population" && (
-                              <button
-                                onClick={() => autoFillPopulation(activeSite.id)}
-                                style={{ marginTop: 6, background: "none", border: "1px solid #4A3A1F", color: "#D4911A", borderRadius: 6, padding: "3px 9px", fontSize: 10.5, cursor: "pointer" }}
-                              >
-                                Auto-fill from registered voters (2022 IEBC)
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-        </>
-        )}
-
-        {activeTab === "marketCenters" && (
-          <div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16, alignItems: "center" }}>
-              <LocationFilters />
-            </div>
-            <p style={{ fontSize: 12.5, color: "#7A7266", marginBottom: 18 }}>
-              Market centers grouped by ward. Set boda boda activity (0–5) from what you observe on
-              the ground — no automated source exists for this figure, so it's entered manually.
-            </p>
-            {Object.keys(marketCentersByWard).length === 0 && (
-              <div style={{ color: "#7A7266", fontSize: 13.5, padding: 20, textAlign: "center", border: "1px dashed #3A3630", borderRadius: 10 }}>
-                No market centers match the current filters.
-              </div>
-            )}
-            {Object.entries(marketCentersByWard)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([wardKey, wardSites]) => (
-                <div key={wardKey} style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#D4911A", marginBottom: 10, paddingBottom: 6, borderBottom: "1px solid #2C2924" }}>
-                    {wardKey}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {wardSites.map((site) => {
-                      const nearby = nearbyResults[site.id];
-                      const isEditingCoords = editingCoords === site.id;
-                      return (
-                      <div
-                        key={site.id}
-                        style={{
-                          background: "#1A1815", border: "1px solid #2C2924", borderRadius: 10,
-                          padding: "12px 16px",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-                          <div style={{ minWidth: 0, flex: "1 1 200px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontWeight: 600, fontSize: 14 }}>{site.name}</span>
-                              {visitLog[site.id] && (
-                                <span style={{ fontSize: 10, color: "#1A6B3C", background: "#E7F5EC", padding: "2px 7px", borderRadius: 20, fontWeight: 700 }}>
-                                  Visited
-                                </span>
-                              )}
-                            </div>
-                            {site.note && (
-                              <div style={{ fontSize: 11.5, color: "#7A7266", marginTop: 2 }}>{site.note}</div>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                            <div style={{ textAlign: "right" }}>
-                              <div style={{ fontSize: 10, color: "#7A7266", marginBottom: 2 }}>Boda boda activity</div>
-                              <input
-                                type="range"
-                                min={0}
-                                max={5}
-                                step={1}
-                                value={site.bodaBodaScore || 0}
-                                onChange={(e) => updateBodaBodaScore(site.id, e.target.value)}
-                                style={{ width: 110 }}
-                              />
-                            </div>
-                            <span style={{ fontFamily: "Georgia, serif", fontSize: 18, fontWeight: 700, color: "#D4911A", minWidth: 22, textAlign: "right" }}>
-                              {site.bodaBodaScore || 0}
-                            </span>
-                            <button
-                              onClick={() => (visitLog[site.id] ? unmarkVisited(site.id) : markVisited(site.id))}
-                              style={{
-                                background: visitLog[site.id] ? "none" : "#2C2924",
-                                border: "1px solid #3A3630", color: visitLog[site.id] ? "#7A7266" : "#F2EEE6",
-                                borderRadius: 8, padding: "6px 12px", fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap",
-                              }}
-                            >
-                              {visitLog[site.id] ? "Unmark" : "Mark visited"}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Coordinates + nearby search row */}
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2C2924", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                          {isEditingCoords ? (
-                            <>
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="lat"
-                                defaultValue={site.lat ?? ""}
-                                onBlur={(e) => updateCoords(site.id, e.target.value, site.lng ?? "")}
-                                style={{ width: 90, background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "5px 8px", fontSize: 12 }}
-                              />
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="lng"
-                                defaultValue={site.lng ?? ""}
-                                onBlur={(e) => updateCoords(site.id, site.lat ?? "", e.target.value)}
-                                style={{ width: 90, background: "#161513", color: "#F2EEE6", border: "1px solid #3A3630", borderRadius: 6, padding: "5px 8px", fontSize: 12 }}
-                              />
-                              <button
-                                onClick={() => setEditingCoords(null)}
-                                style={{ background: "none", border: "1px solid #3A3630", color: "#A69C8C", borderRadius: 6, padding: "5px 10px", fontSize: 11.5, cursor: "pointer" }}
-                              >
-                                Done
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => setEditingCoords(site.id)}
-                              style={{ background: "none", border: "none", color: "#7A7266", fontSize: 11.5, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                            >
-                              {site.lat != null && site.lng != null
-                                ? `${site.lat.toFixed(4)}, ${site.lng.toFixed(4)}`
-                                : "Add coordinates"}
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => searchNearby(site)}
-                            disabled={nearby?.loading}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 5,
-                              background: "none", border: "1px solid #3A3630", color: "#D4911A",
-                              borderRadius: 6, padding: "5px 10px", fontSize: 11.5, cursor: nearby?.loading ? "default" : "pointer",
-                              marginLeft: "auto",
-                            }}
-                          >
-                            {nearby?.loading ? <Loader2 size={12} className="spin" /> : <Search size={12} />}
-                            Find nearby fuel stations
-                          </button>
-                        </div>
-
-                        {/* Nearby search results */}
-                        {nearby && !nearby.loading && (
-                          <div style={{ marginTop: 8 }}>
-                            {nearby.error && (
-                              <div style={{ fontSize: 11.5, color: "#E8B4B4" }}>{nearby.error}</div>
-                            )}
-                            {nearby.places && nearby.places.length === 0 && (
-                              <div style={{ fontSize: 11.5, color: "#7A7266" }}>No fuel stations found within 1.5 km.</div>
-                            )}
-                            {nearby.places && nearby.places.length > 0 && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                {nearby.places.map((p, i) => (
-                                  <div key={i} style={{ fontSize: 11.5, color: "#D8D2C6", display: "flex", justifyContent: "space-between", gap: 8 }}>
-                                    <span>{p.name}{p.address ? ` — ${p.address}` : ""}</span>
-                                    {p.rating && <span style={{ color: "#7A7266", flexShrink: 0 }}>★ {p.rating}</span>}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-      </main>
-    </div>
-  );
+      `), /*#__PURE__*/React.createElement("header", {
+    style: {
+      borderBottom: "1px solid #2C2924",
+      padding: "28px 24px 22px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 1180,
+      margin: "0 auto",
+      display: "flex",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      flexWrap: "wrap",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      background: "#D4911A",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement(Fuel, {
+    size: 19,
+    color: "#1A1A1A",
+    strokeWidth: 2.4
+  })), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontFamily: "Georgia, serif",
+      fontSize: 26,
+      fontWeight: 700,
+      letterSpacing: 0.2
+    }
+  }, "Site Scout — Murang'a")), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "6px 0 0 44px",
+      color: "#A69C8C",
+      fontSize: 13.5
+    }
+  }, "Weighted location scoring · Murang'a (7 constituencies, 35 wards) + Kiambu (12 constituencies, 60 wards)")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: "#7A7266",
+      textAlign: "right",
+      lineHeight: 1.5
+    }
+  }, /*#__PURE__*/React.createElement("div", null, sites.length, " sites tracked"), /*#__PURE__*/React.createElement("div", null, "Delphine Enterprise Ltd")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSettings(v => !v),
+    title: "Nearby search settings",
+    style: {
+      background: "none",
+      border: "1px solid #3A3630",
+      borderRadius: 8,
+      padding: 8,
+      color: "#A69C8C",
+      cursor: "pointer",
+      display: "flex"
+    }
+  }, /*#__PURE__*/React.createElement(Settings, {
+    size: 16
+  })))), showSettings && /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 1180,
+      margin: "16px auto 0",
+      background: "#1A1815",
+      border: "1px solid #2C2924",
+      borderRadius: 12,
+      padding: 18
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 6px",
+      fontFamily: "Georgia, serif",
+      fontSize: 15
+    }
+  }, "Nearby fuel station search"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 12px",
+      fontSize: 12,
+      color: "#7A7266",
+      lineHeight: 1.6
+    }
+  }, "This app never stores or calls a raw Google API key directly — that would expose it to anyone who opens the page. Instead, paste the URL of your own backend proxy (a small server or serverless function you control that holds the key and forwards requests to Google's Places API). Leave blank to disable nearby search."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: proxyUrl,
+    onChange: e => setProxyUrl(e.target.value),
+    onBlur: e => saveProxyUrl(e.target.value),
+    placeholder: "https://your-proxy.example.com/nearby-fuel",
+    style: {
+      flex: 1,
+      background: "#161513",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 6,
+      padding: "8px 10px",
+      fontSize: 13
+    }
+  })))), /*#__PURE__*/React.createElement("main", {
+    style: {
+      maxWidth: 1180,
+      margin: "0 auto",
+      padding: "24px"
+    }
+  }, saveError && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#3A1F1F",
+      border: "1px solid #6B3232",
+      color: "#E8B4B4",
+      padding: "10px 14px",
+      borderRadius: 8,
+      fontSize: 13,
+      marginBottom: 16
+    }
+  }, saveError), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 4,
+      marginBottom: 20,
+      borderBottom: "1px solid #2C2924"
+    }
+  }, [{
+    id: "sites",
+    label: "Sites"
+  }, {
+    id: "marketCenters",
+    label: "Market Centers"
+  }].map(tab => /*#__PURE__*/React.createElement("button", {
+    key: tab.id,
+    onClick: () => setActiveTab(tab.id),
+    style: {
+      background: "none",
+      border: "none",
+      borderBottom: activeTab === tab.id ? "2px solid #D4911A" : "2px solid transparent",
+      color: activeTab === tab.id ? "#F2EEE6" : "#7A7266",
+      padding: "10px 16px",
+      fontSize: 13.5,
+      fontWeight: activeTab === tab.id ? 700 : 500,
+      cursor: "pointer",
+      marginBottom: -1
+    }
+  }, tab.label))), todaysPick && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "linear-gradient(135deg, #2A2115 0%, #1F1D19 100%)",
+      border: "1px solid #4A3A1F",
+      borderRadius: 12,
+      padding: "14px 18px",
+      marginBottom: 20,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#D4911A",
+      fontWeight: 700,
+      letterSpacing: 0.5,
+      textTransform: "uppercase",
+      marginBottom: 4
+    }
+  }, "Recommended visit today"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 700
+    }
+  }, todaysPick.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "#A69C8C",
+      marginTop: 2
+    }
+  }, todaysPick.constituency, " · ", todaysPick.ward, " · score ", todaysPick.score, " · boda boda activity ", todaysPick.bodaBodaScore || 0, "/5")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => markVisited(todaysPick.id),
+    style: {
+      background: "#D4911A",
+      color: "#1A1A1A",
+      border: "none",
+      padding: "8px 16px",
+      borderRadius: 8,
+      fontWeight: 700,
+      fontSize: 12.5,
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, "Mark visited")), !todaysPick && Object.keys(visitLog).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#1A1815",
+      border: "1px solid #2C2924",
+      borderRadius: 12,
+      padding: "14px 18px",
+      marginBottom: 20,
+      fontSize: 13,
+      color: "#A69C8C"
+    }
+  }, "All tracked sites marked visited for this cycle. List resets at 12:00 pm."), activeTab === "sites" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 10,
+      marginBottom: 20,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddForm(v => !v),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      background: "#D4911A",
+      color: "#1A1A1A",
+      border: "none",
+      padding: "9px 16px",
+      borderRadius: 8,
+      fontWeight: 700,
+      fontSize: 13.5,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement(Plus, {
+    size: 16,
+    strokeWidth: 2.6
+  }), " Add site"), /*#__PURE__*/React.createElement(LocationFilters, null), /*#__PURE__*/React.createElement("select", {
+    value: sortBy,
+    onChange: e => setSortBy(e.target.value),
+    style: {
+      background: "#211F1B",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 8,
+      padding: "9px 12px",
+      fontSize: 13.5
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "score"
+  }, "Sort: Highest score"), /*#__PURE__*/React.createElement("option", {
+    value: "name"
+  }, "Sort: Name (A–Z)"), /*#__PURE__*/React.createElement("option", {
+    value: "constituency"
+  }, "Sort: Constituency")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginLeft: "auto",
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, pendingConfirm === "autofill" ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: "#D4911A"
+    }
+  }, "Auto-fill population for all sites?"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      autoFillAllPopulation();
+      setPendingConfirm(null);
+    },
+    style: {
+      background: "#D4911A",
+      color: "#1A1A1A",
+      border: "none",
+      borderRadius: 6,
+      padding: "6px 12px",
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: "pointer"
+    }
+  }, "Confirm"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPendingConfirm(null),
+    style: {
+      background: "none",
+      border: "1px solid #3A3630",
+      color: "#A69C8C",
+      borderRadius: 6,
+      padding: "6px 12px",
+      fontSize: 12,
+      cursor: "pointer"
+    }
+  }, "Cancel")) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPendingConfirm("autofill"),
+    style: {
+      background: "none",
+      border: "1px solid #4A3A1F",
+      color: "#D4911A",
+      borderRadius: 8,
+      padding: "7px 12px",
+      fontSize: 12,
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, "Auto-fill population (all sites)"), pendingConfirm === "reset" ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: "#E8B4B4"
+    }
+  }, "Reset all scores to 0?"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      resetAllScores();
+      setPendingConfirm(null);
+    },
+    style: {
+      background: "#B45050",
+      color: "#1A1A1A",
+      border: "none",
+      borderRadius: 6,
+      padding: "6px 12px",
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: "pointer"
+    }
+  }, "Confirm"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPendingConfirm(null),
+    style: {
+      background: "none",
+      border: "1px solid #3A3630",
+      color: "#A69C8C",
+      borderRadius: 6,
+      padding: "6px 12px",
+      fontSize: 12,
+      cursor: "pointer"
+    }
+  }, "Cancel")) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPendingConfirm("reset"),
+    style: {
+      background: "none",
+      border: "1px solid #3A3630",
+      color: "#A69C8C",
+      borderRadius: 8,
+      padding: "7px 12px",
+      fontSize: 12,
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, "Reset all scores"))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 11.5,
+      color: "#5A5348",
+      marginTop: -12,
+      marginBottom: 16
+    }
+  }, "\"Auto-fill population\" sets only the Population sub-score, using ward-level registered-voter counts (2022 IEBC register) as a stand-in for population density — real, sourced data, but a proxy, not a field measurement. Competition, visibility, safety, and every other factor still need your own observation."), showAddForm && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#1F1D19",
+      border: "1px solid #3A3630",
+      borderRadius: 12,
+      padding: 18,
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: 0,
+      fontFamily: "Georgia, serif",
+      fontSize: 16
+    }
+  }, "Add a candidate site"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddForm(false),
+    style: {
+      background: "none",
+      border: "none",
+      color: "#7A7266",
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement(X, {
+    size: 18
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: 12,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 12,
+      color: "#A69C8C",
+      display: "block",
+      marginBottom: 5
+    }
+  }, "Site / center name"), /*#__PURE__*/React.createElement("input", {
+    value: newSiteName,
+    onChange: e => setNewSiteName(e.target.value),
+    placeholder: "e.g. Kiganjo junction",
+    style: {
+      width: "100%",
+      background: "#161513",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 6,
+      padding: "8px 10px",
+      fontSize: 13.5
+    }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 12,
+      color: "#A69C8C",
+      display: "block",
+      marginBottom: 5
+    }
+  }, "Constituency"), /*#__PURE__*/React.createElement("select", {
+    value: newSiteConstituency,
+    onChange: e => {
+      setNewSiteConstituency(e.target.value);
+      setNewSiteWard(CONSTITUENCIES[e.target.value][0]);
+    },
+    style: {
+      width: "100%",
+      background: "#161513",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 6,
+      padding: "8px 10px",
+      fontSize: 13.5
+    }
+  }, /*#__PURE__*/React.createElement("optgroup", {
+    label: "Murang'a County"
+  }, MURANGA_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))), /*#__PURE__*/React.createElement("optgroup", {
+    label: "Kiambu County"
+  }, KIAMBU_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 12,
+      color: "#A69C8C",
+      display: "block",
+      marginBottom: 5
+    }
+  }, "Ward"), /*#__PURE__*/React.createElement("select", {
+    value: newSiteWard,
+    onChange: e => setNewSiteWard(e.target.value),
+    style: {
+      width: "100%",
+      background: "#161513",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 6,
+      padding: "8px 10px",
+      fontSize: 13.5
+    }
+  }, CONSTITUENCIES[newSiteConstituency].map(w => /*#__PURE__*/React.createElement("option", {
+    key: w,
+    value: w
+  }, w))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 12,
+      color: "#A69C8C",
+      display: "block",
+      marginBottom: 5
+    }
+  }, "Notes (optional)"), /*#__PURE__*/React.createElement("input", {
+    value: newSiteNote,
+    onChange: e => setNewSiteNote(e.target.value),
+    placeholder: "e.g. Junction of C71 and feeder road, near new bus park",
+    style: {
+      width: "100%",
+      background: "#161513",
+      color: "#F2EEE6",
+      border: "1px solid #3A3630",
+      borderRadius: 6,
+      padding: "8px 10px",
+      fontSize: 13.5
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: addSite,
+    style: {
+      background: "#D4911A",
+      color: "#1A1A1A",
+      border: "none",
+      padding: "9px 18px",
+      borderRadius: 8,
+      fontWeight: 700,
+      fontSize: 13.5,
+      cursor: "pointer"
+    }
+  }, "Add to register")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: activeSite ? "1fr 1.3fr" : "1fr",
+      gap: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, filteredSites.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#7A7266",
+      fontSize: 13.5,
+      padding: 20,
+      textAlign: "center",
+      border: "1px dashed #3A3630",
+      borderRadius: 10
+    }
+  }, "No sites in this filter yet. Add one above."), filteredSites.map(site => {
+    const tier = tierFor(site.score);
+    const isActive = activeId === site.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: site.id,
+      onClick: () => setActiveId(isActive ? null : site.id),
+      style: {
+        background: isActive ? "#211F1B" : "#1A1815",
+        border: isActive ? "1px solid #D4911A" : "1px solid #2C2924",
+        borderRadius: 10,
+        padding: "13px 16px",
+        cursor: "pointer",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        fontSize: 14.5,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }
+    }, site.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: "#7A7266",
+        marginTop: 2
+      }
+    }, site.constituency, " · ", site.ward)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: tier.bg,
+        color: tier.color,
+        fontSize: 11,
+        fontWeight: 700,
+        padding: "3px 9px",
+        borderRadius: 20,
+        whiteSpace: "nowrap"
+      }
+    }, tier.label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "Georgia, serif",
+        fontSize: 19,
+        fontWeight: 700,
+        color: "#D4911A",
+        minWidth: 42,
+        textAlign: "right"
+      }
+    }, site.score), /*#__PURE__*/React.createElement("button", {
+      onClick: e => {
+        e.stopPropagation();
+        removeSite(site.id);
+      },
+      style: {
+        background: "none",
+        border: "none",
+        color: "#5A5348",
+        cursor: "pointer",
+        padding: 4
+      },
+      "aria-label": `Remove ${site.name}`
+    }, /*#__PURE__*/React.createElement(Trash2, {
+      size: 15
+    })), isActive ? /*#__PURE__*/React.createElement(ChevronUp, {
+      size: 16,
+      color: "#7A7266"
+    }) : /*#__PURE__*/React.createElement(ChevronDown, {
+      size: 16,
+      color: "#7A7266"
+    })));
+  })), activeSite && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#1A1815",
+      border: "1px solid #2C2924",
+      borderRadius: 12,
+      padding: 20,
+      position: "sticky",
+      top: 20,
+      alignSelf: "start",
+      maxHeight: "calc(100vh - 40px)",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: 0,
+      fontFamily: "Georgia, serif",
+      fontSize: 19
+    }
+  }, activeSite.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "#7A7266",
+      marginTop: 3
+    }
+  }, activeSite.constituency, " constituency · ", activeSite.ward, " ward")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "right"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "Georgia, serif",
+      fontSize: 30,
+      fontWeight: 700,
+      color: "#D4911A",
+      lineHeight: 1
+    }
+  }, computeWeightedScore(activeSite.scores)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: "#7A7266",
+      marginTop: 2
+    }
+  }, "/ 100"))), activeSite.note && /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12.5,
+      color: "#A69C8C",
+      margin: "10px 0 0",
+      fontStyle: "italic"
+    }
+  }, activeSite.note), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 18,
+      display: "flex",
+      flexDirection: "column",
+      gap: 18
+    }
+  }, CRITERIA_GROUPS.map(group => {
+    const Icon = group.icon;
+    return /*#__PURE__*/React.createElement("div", {
+      key: group.key
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      size: 15,
+      color: "#D4911A"
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 13,
+        fontWeight: 700,
+        letterSpacing: 0.3
+      }
+    }, group.label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10.5,
+        color: "#5A5348",
+        marginLeft: "auto"
+      }
+    }, "weight ", group.weight, "%")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        paddingLeft: 23
+      }
+    }, group.items.map(item => /*#__PURE__*/React.createElement("div", {
+      key: item.key
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 12.5,
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#D8D2C6"
+      }
+    }, item.label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#D4911A",
+        fontWeight: 700,
+        minWidth: 16,
+        textAlign: "right"
+      }
+    }, activeSite.scores[item.key])), /*#__PURE__*/React.createElement("input", {
+      type: "range",
+      min: 0,
+      max: 5,
+      step: 1,
+      value: activeSite.scores[item.key],
+      onChange: e => updateScore(activeSite.id, item.key, Number(e.target.value)),
+      style: {
+        width: "100%"
+      }
+    }), item.key === "population" && /*#__PURE__*/React.createElement("button", {
+      onClick: () => autoFillPopulation(activeSite.id),
+      style: {
+        marginTop: 6,
+        background: "none",
+        border: "1px solid #4A3A1F",
+        color: "#D4911A",
+        borderRadius: 6,
+        padding: "3px 9px",
+        fontSize: 10.5,
+        cursor: "pointer"
+      }
+    }, "Auto-fill from registered voters (2022 IEBC)")))));
+  }))))), activeTab === "marketCenters" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 10,
+      marginBottom: 16,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement(LocationFilters, null)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12.5,
+      color: "#7A7266",
+      marginBottom: 18
+    }
+  }, "Market centers grouped by ward. Set boda boda activity (0–5) from what you observe on the ground — no automated source exists for this figure, so it's entered manually."), Object.keys(marketCentersByWard).length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#7A7266",
+      fontSize: 13.5,
+      padding: 20,
+      textAlign: "center",
+      border: "1px dashed #3A3630",
+      borderRadius: 10
+    }
+  }, "No market centers match the current filters."), Object.entries(marketCentersByWard).sort(([a], [b]) => a.localeCompare(b)).map(([wardKey, wardSites]) => /*#__PURE__*/React.createElement("div", {
+    key: wardKey,
+    style: {
+      marginBottom: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      fontWeight: 700,
+      color: "#D4911A",
+      marginBottom: 10,
+      paddingBottom: 6,
+      borderBottom: "1px solid #2C2924"
+    }
+  }, wardKey), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, wardSites.map(site => {
+    const nearby = nearbyResults[site.id];
+    const isEditingCoords = editingCoords === site.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: site.id,
+      style: {
+        background: "#1A1815",
+        border: "1px solid #2C2924",
+        borderRadius: 10,
+        padding: "12px 16px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 14,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0,
+        flex: "1 1 200px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 600,
+        fontSize: 14
+      }
+    }, site.name), visitLog[site.id] && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: "#1A6B3C",
+        background: "#E7F5EC",
+        padding: "2px 7px",
+        borderRadius: 20,
+        fontWeight: 700
+      }
+    }, "Visited")), site.note && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: "#7A7266",
+        marginTop: 2
+      }
+    }, site.note)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "right"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#7A7266",
+        marginBottom: 2
+      }
+    }, "Boda boda activity"), /*#__PURE__*/React.createElement("input", {
+      type: "range",
+      min: 0,
+      max: 5,
+      step: 1,
+      value: site.bodaBodaScore || 0,
+      onChange: e => updateBodaBodaScore(site.id, e.target.value),
+      style: {
+        width: 110
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "Georgia, serif",
+        fontSize: 18,
+        fontWeight: 700,
+        color: "#D4911A",
+        minWidth: 22,
+        textAlign: "right"
+      }
+    }, site.bodaBodaScore || 0), /*#__PURE__*/React.createElement("button", {
+      onClick: () => visitLog[site.id] ? unmarkVisited(site.id) : markVisited(site.id),
+      style: {
+        background: visitLog[site.id] ? "none" : "#2C2924",
+        border: "1px solid #3A3630",
+        color: visitLog[site.id] ? "#7A7266" : "#F2EEE6",
+        borderRadius: 8,
+        padding: "6px 12px",
+        fontSize: 11.5,
+        cursor: "pointer",
+        whiteSpace: "nowrap"
+      }
+    }, visitLog[site.id] ? "Unmark" : "Mark visited"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: "1px solid #2C2924",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap"
+      }
+    }, isEditingCoords ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      step: "any",
+      placeholder: "lat",
+      defaultValue: site.lat ?? "",
+      onBlur: e => updateCoords(site.id, e.target.value, site.lng ?? ""),
+      style: {
+        width: 90,
+        background: "#161513",
+        color: "#F2EEE6",
+        border: "1px solid #3A3630",
+        borderRadius: 6,
+        padding: "5px 8px",
+        fontSize: 12
+      }
+    }), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      step: "any",
+      placeholder: "lng",
+      defaultValue: site.lng ?? "",
+      onBlur: e => updateCoords(site.id, site.lat ?? "", e.target.value),
+      style: {
+        width: 90,
+        background: "#161513",
+        color: "#F2EEE6",
+        border: "1px solid #3A3630",
+        borderRadius: 6,
+        padding: "5px 8px",
+        fontSize: 12
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setEditingCoords(null),
+      style: {
+        background: "none",
+        border: "1px solid #3A3630",
+        color: "#A69C8C",
+        borderRadius: 6,
+        padding: "5px 10px",
+        fontSize: 11.5,
+        cursor: "pointer"
+      }
+    }, "Done")) : /*#__PURE__*/React.createElement("button", {
+      onClick: () => setEditingCoords(site.id),
+      style: {
+        background: "none",
+        border: "none",
+        color: "#7A7266",
+        fontSize: 11.5,
+        cursor: "pointer",
+        padding: 0,
+        textDecoration: "underline"
+      }
+    }, site.lat != null && site.lng != null ? `${site.lat.toFixed(4)}, ${site.lng.toFixed(4)}` : "Add coordinates"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => searchNearby(site),
+      disabled: nearby?.loading,
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        background: "none",
+        border: "1px solid #3A3630",
+        color: "#D4911A",
+        borderRadius: 6,
+        padding: "5px 10px",
+        fontSize: 11.5,
+        cursor: nearby?.loading ? "default" : "pointer",
+        marginLeft: "auto"
+      }
+    }, nearby?.loading ? /*#__PURE__*/React.createElement(Loader2, {
+      size: 12,
+      className: "spin"
+    }) : /*#__PURE__*/React.createElement(Search, {
+      size: 12
+    }), "Find nearby fuel stations")), nearby && !nearby.loading && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8
+      }
+    }, nearby.error && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: "#E8B4B4"
+      }
+    }, nearby.error), nearby.places && nearby.places.length === 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: "#7A7266"
+      }
+    }, "No fuel stations found within 1.5 km."), nearby.places && nearby.places.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 4
+      }
+    }, nearby.places.map((p, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        fontSize: 11.5,
+        color: "#D8D2C6",
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", null, p.name, p.address ? ` — ${p.address}` : ""), p.rating && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#7A7266",
+        flexShrink: 0
+      }
+    }, "★ ", p.rating))))));
+  })))))));
 }
-
-
-// Mount
-const root = ReactDOM.createRoot(document.getElementById("root"));
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(SiteScout));
 </script>
 </body>
