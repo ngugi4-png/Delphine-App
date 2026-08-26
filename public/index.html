@@ -2710,32 +2710,46 @@ function loadVendors() {
   }).catch(function(e){if(el('vendorList'))el('vendorList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 function _billLineHtml(i) {
-  // Build one line item row
   var branchOpts = BRANCHES.map(function(b){
     return '<option value="'+b+'">'+b+'</option>';
   }).join('');
+  var builtIn = [
+    {name:'Petrol (PMS)',unit:'L'},{name:'2T Motor Oil',unit:'pcs'},
+    {name:'2T-Kupima',unit:'L'},{name:'Used Oil',unit:'L'},{name:'Shell Advance',unit:'pcs'}
+  ];
+  var custom = (window.CUSTOM_PRODUCTS||[]);
+  var allProds = builtIn.concat(custom.map(function(p){return {name:p.name,unit:p.unit||'pcs'};}));
+  var prodOpts = '<option value="">-- Select Product --</option>'
+    + allProds.map(function(p){
+        return '<option value="'+p.name+'" data-unit="'+p.unit+'">'+p.name+'</option>';
+      }).join('')
+    + '<option value="__other__">Other (type below)</option>';
   return '<div class="bill-line" id="billLine_'+i+'" style="'
     +'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:10px;'
     +'padding-bottom:10px;border-bottom:1px solid var(--border)">'
-    // Description
-    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Description / Product</label>'
-    +'<input type="text" id="blDesc_'+i+'" placeholder="e.g. Petrol PMS" oninput="billCalc()"></div>'
-    // Branch
+    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Product</label>'
+    +'<select id="blDesc_'+i+'" onchange="billDescChange('+i+')" style="font-size:0.78rem">'+prodOpts+'</select>'
+    +'<input type="text" id="blDescOther_'+i+'" placeholder="Product name" '
+    +'style="display:none;margin-top:4px;font-size:0.78rem" oninput="billCalc()"></div>'
     +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Branch</label>'
     +'<select id="blBranch_'+i+'"><option value="">All</option>'+branchOpts+'</select></div>'
-    // Qty
     +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Qty</label>'
     +'<input type="number" id="blQty_'+i+'" value="1" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
-    // Unit price
     +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit Price (KSh)</label>'
     +'<input type="number" id="blPrice_'+i+'" value="0" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
-    // Remove button
-    +'<button type="button" onclick="removeBillLine('+i+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">✕</button>'
+    +'<button type="button" onclick="removeBillLine('+i+')" '
+    +'style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">\u2715</button>'
     +'</div>';
 }
 
-var _billLineCount = 0;
-
+function billDescChange(i) {
+  var sel=document.getElementById('blDesc_'+i);
+  var oth=document.getElementById('blDescOther_'+i);
+  if(!sel)return;
+  if(sel.value==='__other__'){if(oth){oth.style.display='block';oth.focus();}}
+  else{if(oth)oth.style.display='none';}
+  billCalc();
+}
 function addBillLine() {
   _billLineCount++;
   var c = document.getElementById('billLines');
@@ -5111,94 +5125,62 @@ var TEMPLATES = {
   sales: {
     filename: 'delphine-daily-sales-template.csv',
     headers: [
-      'date','branch','shift','staff_name',
-      'pump_opening_metre','pump_closing_metre','litres_sold','petrol_price_per_litre',
-      'pump_revenue',
-      'p2t_qty','p2t_unit_price','p2t_total',
-      'p2tk_qty','p2tk_unit_price','p2tk_total',
-      'puoil_qty','puoil_unit_price','puoil_total',
-      'pshell_qty','pshell_unit_price','pshell_total',
-      'grand_total','cash_collected','mpesa_collected',
-      'opening_float','closing_float','notes'
+      'Date','Branch',
+      'Opening Price Reading','Closing Price Reading','Petrol Sales',
+      '2T QTY','2T Kupima','2T Sales',
+      'Used Oil QTY','Used Oil Sales',
+      'Shell Advance QTY','Amount',
+      'Total Sales Amount',
+      'Liters Reading','Closing Liter Reading',
+      'Total Liters Sold','Liters Sold','Sales Rate'
     ],
     example: [
-      '2024-01-15','Kahuti','Morning','John Kamau',
-      '12450.5','12623.8','173.3','215.00',
-      '37279.50',
-      '2','250','500',
-      '0','0','0',
-      '0','0','0',
-      '1','420','420',
-      '38199.50','30000','8199.50',
-      '5000','4800','Normal shift'
+      '8/1/2026','Kahuti',
+      '39977597.33','39990721.20','8531',
+      '0.00','0.00','0.0',
+      '0.00','0.00',
+      '0','0.00',
+      '8531',
+      '213516.64','213577.68',
+      '39.63','39.77','214.50'
     ],
     notes: [
-      '# DELPHINE ENTERPRISE LIMITED — Daily Sales Report Template',
-      '# Columns:',
-      '#   date: YYYY-MM-DD format',
-      '#   branch: Kahuti | Karega | Kanyenyaini (or your custom branch name)',
-      '#   shift: Morning | Afternoon | Evening | Night',
-      '#   pump_opening_metre / pump_closing_metre: metre reading in litres',
-      '#   litres_sold: closing_metre - opening_metre',
-      '#   petrol_price_per_litre: selling price on that day',
-      '#   pump_revenue: litres_sold x petrol_price_per_litre',
-      '#   p2t/p2tk/puoil/pshell: qty sold, unit price, total for each product',
-      '#   grand_total: pump_revenue + all product totals',
-      '#   cash_collected / mpesa_collected: how payment was received',
-      '#   opening_float / closing_float: cash float at start and end of shift',
+      '# DELPHINE ENTERPRISE LIMITED - Daily Sales Report Template',
+      '# Fill one row per day per branch. Delete these comment lines before importing.',
+      '#',
+      '# Date: 8/1/2026 or 2026-08-01',
+      '# Branch: Kahuti | Karega | Kanyenyaini',
+      '# Opening/Closing Price Reading: cumulative pump KSh meter reading',
+      '# Petrol Sales: revenue from petrol (Closing - Opening price reading)',
+      '# 2T QTY: quantity of 2T Motor Oil sold',
+      '# 2T Kupima: quantity of 2T-Kupima sold',
+      '# 2T Sales: total revenue from 2T products',
+      '# Used Oil QTY: quantity of Used Oil sold',
+      '# Used Oil Sales: revenue from Used Oil',
+      '# Shell Advance QTY: quantity of Shell Advance sold',
+      '# Amount: revenue from Shell Advance',
+      '# Total Sales Amount: sum of all revenues',
+      '# Liters Reading: pump litre meter at start of day',
+      '# Closing Liter Reading: pump litre meter at end of day',
+      '# Total Liters Sold: Closing - Opening litre reading',
+      '# Liters Sold: net litres dispensed',
+      '# Sales Rate: petrol selling price per litre (e.g. 214.50)',
       '# DELETE THESE COMMENT LINES BEFORE IMPORTING'
     ]
   },
   purchases: {
     filename: 'delphine-vendor-purchases-template.csv',
-    headers: [
-      'date','vendor_name','invoice_reference',
-      'product','branch','unit','quantity','unit_price','total_amount',
-      'payment_terms','notes'
-    ],
-    example: [
-      '2024-01-15','Kenya Pipeline Co.','INV-2024-001',
-      'Petrol (PMS)','Kahuti','L','5000','198.00','990000',
-      'On Delivery','Regular monthly delivery'
-    ],
-    notes: [
-      '# DELPHINE ENTERPRISE LIMITED — Vendor Purchases Template',
-      '# Columns:',
-      '#   date: YYYY-MM-DD format (delivery date)',
-      '#   vendor_name: must match vendor name in system (or will create new)',
-      '#   invoice_reference: vendor invoice number',
-      '#   product: Petrol (PMS) | 2T Motor Oil | 2T-Kupima | Used Oil | Shell Advance',
-      '#   branch: Kahuti | Karega | Kanyenyaini | All Branches',
-      '#   unit: L (litres) | pcs (pieces)',
-      '#   quantity: amount delivered',
-      '#   unit_price: cost price per unit (KSh)',
-      '#   total_amount: quantity x unit_price',
-      '#   payment_terms: On Delivery | 7 Days | 30 Days | COD',
-      '# ONE ROW PER LINE ITEM — use multiple rows for multi-product deliveries',
-      '# DELETE THESE COMMENT LINES BEFORE IMPORTING'
-    ]
+    headers: ['Date','Vendor_Name','Invoice_Reference','Product','Branch','Unit','Quantity','Unit_Price_KSh','Total_Amount_KSh','Payment_Terms','Notes'],
+    example: ['2026-08-01','Kenya Pipeline Co.','INV-2026-001','Petrol (PMS)','Kahuti','L','5000','198.00','990000','On Delivery','Monthly delivery'],
+    notes: ['# DELPHINE ENTERPRISE LIMITED - Vendor Purchases Template','# DELETE COMMENT LINES BEFORE IMPORTING']
   },
   expenses: {
     filename: 'delphine-expenses-template.csv',
-    headers: [
-      'date','branch','category','amount','notes'
-    ],
-    example: [
-      '2024-01-15','Kahuti','Maintenance','3500','Generator service'
-    ],
-    notes: [
-      '# DELPHINE ENTERPRISE LIMITED — Expenses Template',
-      '# Columns:',
-      '#   date: YYYY-MM-DD format',
-      '#   branch: Kahuti | Karega | Kanyenyaini',
-      '#   category: Fuel | Maintenance | Salaries | Utilities | Supplies | Other',
-      '#   amount: expense amount in KSh',
-      '#   notes: description of the expense',
-      '# DELETE THESE COMMENT LINES BEFORE IMPORTING'
-    ]
+    headers: ['Date','Branch','Category','Amount_KSh','Notes'],
+    example: ['2026-08-01','Kahuti','Maintenance','3500','Generator service'],
+    notes: ['# DELPHINE ENTERPRISE LIMITED - Expenses Template']
   }
-};
-
+}
 function downloadTemplate(type) {
   var t = TEMPLATES[type];
   if (!t) return;
@@ -5304,35 +5286,51 @@ function runImport() {
     headers.forEach(function(h,i){ obj[h] = row[i]||''; });
 
     if (type === 'sales') {
+      // Parse date: 8/1/2026 -> 2026-08-01
+      var rawDate = obj['Date']||obj['date']||'';
+      if (rawDate.includes('/')) {
+        var dp=rawDate.split('/');
+        if(dp.length===3) rawDate=dp[2]+'-'+String(dp[0]).padStart(2,'0')+'-'+String(dp[1]).padStart(2,'0');
+      }
+      var petrolSales  = parseFloat(obj['Petrol Sales'])||0;
+      var p2tQty       = parseFloat(obj['2T QTY'])||0;
+      var p2tkQty      = parseFloat(obj['2T Kupima'])||0;
+      var p2tSales     = parseFloat(obj['2T Sales'])||0;
+      var usedOilQty   = parseFloat(obj['Used Oil QTY'])||0;
+      var usedOilSales = parseFloat(obj['Used Oil Sales'])||0;
+      var shellQty     = parseFloat(obj['Shell Advance QTY'])||0;
+      var shellAmt     = parseFloat(obj['Amount'])||0;
+      var totalSales   = parseFloat(obj['Total Sales Amount'])||0;
+      var litersOpen   = parseFloat(obj['Liters Reading'])||0;
+      var litersClose  = parseFloat(obj['Closing Liter Reading'])||0;
+      var totalLiters  = parseFloat(obj['Total Liters Sold'])||0;
+      var litersSold   = parseFloat(obj['Liters Sold'])||0;
+      var salesRate    = parseFloat(obj['Sales Rate'])||0;
+      var openPrice    = parseFloat(obj['Opening Price Reading'])||0;
+      var closePrice   = parseFloat(obj['Closing Price Reading'])||0;
+      var rowBranch    = obj['Branch']||obj['branch']||branch;
       var ref = db.collection('reports').doc();
       batch.set(ref, {
-        date:            obj.date||'',
-        branch:          obj.branch||branch,
-        shift:           obj.shift||'Morning',
-        staffName:       obj.staff_name||'',
-        approvalStatus:  'pending',
-        source:          'import',
+        date:           rawDate,
+        branch:         rowBranch,
+        shift:          'Day',
+        staffName:      'Imported',
+        approvalStatus: 'pending',
+        source:         'import',
         pump: {
-          metre: {
-            open: parseFloat(obj.pump_opening_metre)||0,
-            close: parseFloat(obj.pump_closing_metre)||0,
-            sold: parseFloat(obj.litres_sold)||0
-          },
-          display: { sold: parseFloat(obj.pump_revenue)||0 }
+          metre:        { open:litersOpen, close:litersClose, sold:totalLiters||litersSold },
+          priceReading: { open:openPrice, close:closePrice },
+          display:      { sold:petrolSales }
         },
+        petrolPrice: salesRate,
         products: {
-          p2t:   { qty: parseFloat(obj.p2t_qty)||0,   unitPrice: parseFloat(obj.p2t_unit_price)||0,   total: parseFloat(obj.p2t_total)||0 },
-          p2tk:  { qty: parseFloat(obj.p2tk_qty)||0,  unitPrice: parseFloat(obj.p2tk_unit_price)||0,  total: parseFloat(obj.p2tk_total)||0 },
-          puoil: { qty: parseFloat(obj.puoil_qty)||0, unitPrice: parseFloat(obj.puoil_unit_price)||0, total: parseFloat(obj.puoil_total)||0 },
-          pshell:{ qty: parseFloat(obj.pshell_qty)||0,unitPrice: parseFloat(obj.pshell_unit_price)||0,total: parseFloat(obj.pshell_total)||0 }
+          p2t:   { qty:p2tQty,    total:p2tSales },
+          p2tk:  { qty:p2tkQty,   total:0 },
+          puoil: { qty:usedOilQty,total:usedOilSales },
+          pshell:{ qty:shellQty,  total:shellAmt }
         },
-        grandTotal:     parseFloat(obj.grand_total)||0,
-        cashCollected:  parseFloat(obj.cash_collected)||0,
-        mpesaCollected: parseFloat(obj.mpesa_collected)||0,
-        openingFloat:   parseFloat(obj.opening_float)||0,
-        closingFloat:   parseFloat(obj.closing_float)||0,
-        notes:          obj.notes||'',
-        createdAt:      now, importedAt: now
+        grandTotal:  totalSales||(petrolSales+p2tSales+usedOilSales+shellAmt),
+        createdAt:   now, importedAt:now
       });
     } else if (type === 'purchases') {
       var ref2 = db.collection('purchaseOrders').doc();
