@@ -1927,13 +1927,90 @@ auth.onAuthStateChanged(function(user) {
 // ═══════════════════════════════════════════════════════════════
 // ADMIN INIT
 // ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// WACC ENGINE
+// ═══════════════════════════════════════════════════════════════
+var PRODUCT_NAME_MAP = {
+  'Petrol (PMS)':'petrol','Petrol':'petrol','PMS':'petrol',
+  '2T Motor Oil':'p2t','2T Oil':'p2t',
+  '2T-Kupima':'p2tk','Kupima':'p2tk',
+  'Used Oil':'puoil',
+  'Shell Advance':'pshell','Shell':'pshell'
+};
+var WACC_CACHE = {};
+
+function calculateWACC(branch, callback) {
+  db.collection('purchaseOrders').where('status','==','received').get()
+    .then(function(snap){
+      var accum={};
+      snap.forEach(function(d){
+        var po=d.data();
+        (po.lineItems||[]).forEach(function(line){
+          var lineBranch=line.branch==='All Branches'?null:line.branch;
+          if(branch&&lineBranch&&lineBranch!==branch) return;
+          var key=null, desc=(line.description||'').trim();
+          if(PRODUCT_NAME_MAP[desc]) key=PRODUCT_NAME_MAP[desc];
+          else Object.keys(PRODUCT_NAME_MAP).forEach(function(n){
+            if(!key&&desc.toLowerCase().includes(n.toLowerCase()))key=PRODUCT_NAME_MAP[n];
+          });
+          if(!key) return;
+          var qty=parseFloat(line.qty)||0, price=parseFloat(line.unitPrice)||0;
+          if(!qty||!price) return;
+          var branches=lineBranch?[lineBranch]:BRANCHES;
+          branches.forEach(function(b){
+            if(!accum[b])accum[b]={};
+            if(!accum[b][key])accum[b][key]={totalCost:0,totalQty:0};
+            var sq=lineBranch?qty:qty/BRANCHES.length;
+            accum[b][key].totalCost+=sq*price; accum[b][key].totalQty+=sq;
+          });
+        });
+      });
+      var result={};
+      Object.keys(accum).forEach(function(b){
+        result[b]={};
+        Object.keys(accum[b]).forEach(function(k){
+          var a=accum[b][k]; result[b][k]=a.totalQty>0?a.totalCost/a.totalQty:0;
+        });
+      });
+      WACC_CACHE=result;
+      if(callback)callback(branch?(result[branch]||{}):result);
+    }).catch(function(e){console.warn('[WACC]',e.message);if(callback)callback({});});
+}
+
+
+var _scoutStore={};
+var scoutStorage={
+  get:function(k){return Promise.resolve(_scoutStore[k]!=null?{value:_scoutStore[k]}:null);},
+  set:function(k,v){_scoutStore[k]=v;return Promise.resolve({value:v});},
+  delete:function(k){delete _scoutStore[k];return Promise.resolve({deleted:true});},
+  list:function(){return Promise.resolve({keys:Object.keys(_scoutStore)});}
+};
+function initSiteScout(){
+  var r=document.getElementById('scoutRoot');
+  if(!r||window._scoutMounted)return;
+  if(!window.React||!window.ReactDOM){
+    r.innerHTML='<div style="color:#E8B4B4;padding:20px">React CDN not loaded — check internet connection.</div>';
+    return;
+  }
+  window._scoutMounted=true;
+  window.storage=scoutStorage;
+  try{
+    if(typeof SiteScout!=='function')throw new Error('SiteScout not defined');
+    ReactDOM.createRoot(r).render(React.createElement(SiteScout));
+  }catch(e){
+    r.innerHTML='<div style="color:#E8B4B4;padding:20px;font-family:monospace">Error: '+e.message+'</div>';
+    console.error(e);
+  }
+}
+
 function loadAdminInit() {
   // Background: populate dropdowns and cache
   populateBranchDropdowns();
   loadBranchesFromDB();
   loadCustomProductsCache();
   loadPricesCache();
-  calculateWACC(null, function(w){ WACC_CACHE = w; });
+  if (typeof calculateWACC === 'function') calculateWACC(null, function(w){ WACC_CACHE = w; });
 
   // Immediately show Dashboard as homepage
   goToDashboard();
@@ -3628,7 +3705,7 @@ function receivePOAsBill(poId) {
       });
     }).then(function() {
       // Recalculate WACC cache
-      calculateWACC(null, function(w){ WACC_CACHE = w; });
+      if (typeof calculateWACC === 'function') calculateWACC(null, function(w){ WACC_CACHE = w; });
       toast('✓ Received! Bill created automatically in Vendors & Bills.','ok');
       loadPurchases();
     }).catch(function(e){ toast('Error: '+e.message,'err'); });
@@ -5409,81 +5486,6 @@ function exportVendorReportPDF() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// WACC ENGINE
-// ═══════════════════════════════════════════════════════════════
-var PRODUCT_NAME_MAP = {
-  'Petrol (PMS)':'petrol','Petrol':'petrol','PMS':'petrol',
-  '2T Motor Oil':'p2t','2T Oil':'p2t',
-  '2T-Kupima':'p2tk','Kupima':'p2tk',
-  'Used Oil':'puoil',
-  'Shell Advance':'pshell','Shell':'pshell'
-};
-var WACC_CACHE = {};
-
-function calculateWACC(branch, callback) {
-  db.collection('purchaseOrders').where('status','==','received').get()
-    .then(function(snap){
-      var accum={};
-      snap.forEach(function(d){
-        var po=d.data();
-        (po.lineItems||[]).forEach(function(line){
-          var lineBranch=line.branch==='All Branches'?null:line.branch;
-          if(branch&&lineBranch&&lineBranch!==branch) return;
-          var key=null, desc=(line.description||'').trim();
-          if(PRODUCT_NAME_MAP[desc]) key=PRODUCT_NAME_MAP[desc];
-          else Object.keys(PRODUCT_NAME_MAP).forEach(function(n){
-            if(!key&&desc.toLowerCase().includes(n.toLowerCase()))key=PRODUCT_NAME_MAP[n];
-          });
-          if(!key) return;
-          var qty=parseFloat(line.qty)||0, price=parseFloat(line.unitPrice)||0;
-          if(!qty||!price) return;
-          var branches=lineBranch?[lineBranch]:BRANCHES;
-          branches.forEach(function(b){
-            if(!accum[b])accum[b]={};
-            if(!accum[b][key])accum[b][key]={totalCost:0,totalQty:0};
-            var sq=lineBranch?qty:qty/BRANCHES.length;
-            accum[b][key].totalCost+=sq*price; accum[b][key].totalQty+=sq;
-          });
-        });
-      });
-      var result={};
-      Object.keys(accum).forEach(function(b){
-        result[b]={};
-        Object.keys(accum[b]).forEach(function(k){
-          var a=accum[b][k]; result[b][k]=a.totalQty>0?a.totalCost/a.totalQty:0;
-        });
-      });
-      WACC_CACHE=result;
-      if(callback)callback(branch?(result[branch]||{}):result);
-    }).catch(function(e){console.warn('[WACC]',e.message);if(callback)callback({});});
-}
-
-
-var _scoutStore={};
-var scoutStorage={
-  get:function(k){return Promise.resolve(_scoutStore[k]!=null?{value:_scoutStore[k]}:null);},
-  set:function(k,v){_scoutStore[k]=v;return Promise.resolve({value:v});},
-  delete:function(k){delete _scoutStore[k];return Promise.resolve({deleted:true});},
-  list:function(){return Promise.resolve({keys:Object.keys(_scoutStore)});}
-};
-function initSiteScout(){
-  var r=document.getElementById('scoutRoot');
-  if(!r||window._scoutMounted)return;
-  if(!window.React||!window.ReactDOM){
-    r.innerHTML='<div style="color:#E8B4B4;padding:20px">React CDN not loaded — check internet connection.</div>';
-    return;
-  }
-  window._scoutMounted=true;
-  window.storage=scoutStorage;
-  try{
-    if(typeof SiteScout!=='function')throw new Error('SiteScout not defined');
-    ReactDOM.createRoot(r).render(React.createElement(SiteScout));
-  }catch(e){
-    r.innerHTML='<div style="color:#E8B4B4;padding:20px;font-family:monospace">Error: '+e.message+'</div>';
-    console.error(e);
-  }
-}
 // ═══════════════════════════════════════════════════════════════
 // KILL SERVICE WORKERS (they block Firebase)
 // ═══════════════════════════════════════════════════════════════
