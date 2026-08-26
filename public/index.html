@@ -737,57 +737,54 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- VENDORS & BILLS -->
   <div id="tabVend" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Vendors &amp; Bills</h2>
-    <div class="g12">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Vendors &amp; Bills</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="generateVendorReport()">&#128196; Vendor Report</button>
+        <button class="btn btn-gold btn-sm" onclick="openAddVendor()">+ Add Vendor</button>
+      </div>
+    </div>
+
+    <!-- Vendor table -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title">Vendors</div>
+      <div id="vendorList"><div class="empty">Loading&#8230;</div></div>
+    </div>
+
+    <!-- Bills -->
+    <div class="g21">
       <div>
         <div class="card">
-          <div class="card-title">Add Vendor</div>
-          <div class="field"><label>Vendor Name</label><input type="text" id="vendorName"></div>
-          <div class="field"><label>Contact</label><input type="text" id="vendorContact"></div>
-          <button class="btn btn-gold btn-sm" onclick="saveVendor()">Save Vendor</button>
-        </div>
-        <div class="card">
-          <div class="card-title">Vendors</div>
-          <div id="vendorList"><div class="empty">No vendors.</div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div class="card-title" style="margin:0">Bills</div>
+            <button class="btn btn-ghost btn-xs" onclick="loadBillList()">&#8635; Refresh</button>
+          </div>
+          <div id="billList"><div class="empty">No bills yet.</div></div>
         </div>
       </div>
       <div>
         <div class="card">
-          <div class="card-title">Record Bill</div>
-
-          <!-- Bill header -->
+          <div class="card-title" id="billFormTitle">Record Bill</div>
+          <input type="hidden" id="billEditId">
           <div class="g2">
             <div class="field"><label>Vendor</label><select id="billVendor"></select></div>
             <div class="field"><label>Date</label><input type="date" id="billDate"></div>
           </div>
-          <div class="field"><label>Invoice / Reference No.</label><input type="text" id="billRef" placeholder="Optional"></div>
+          <div class="field"><label>Invoice / Reference</label><input type="text" id="billRef" placeholder="Optional"></div>
           <div class="field"><label>Notes</label><input type="text" id="billNote" placeholder="Optional"></div>
-
-          <!-- Line items -->
-          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px">Line Items</div>
-
-          <div id="billLines">
-            <!-- Line rows inserted here by JS -->
-          </div>
-
-          <button class="btn btn-ghost btn-sm" onclick="addBillLine()" style="margin-bottom:14px">+ Add Line Item</button>
-
-          <!-- Bill total -->
-          <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;padding:10px 0;border-top:1px solid var(--border);margin-bottom:12px">
+          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Line Items</div>
+          <div id="billLines"></div>
+          <button class="btn btn-ghost btn-sm" onclick="addBillLine()" style="margin-bottom:14px">+ Add Line</button>
+          <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-bottom:12px">
             <span style="font-size:0.72rem;color:var(--text3)">Bill Total:</span>
             <span id="billTotal" style="font-size:1.1rem;font-weight:700;color:var(--gold);font-family:var(--mono)">KSh 0</span>
           </div>
-
-          <button class="btn btn-gold btn-sm btn-full" onclick="saveBill()">Save Bill</button>
-        </div>
-        <div class="card">
-          <div class="card-title">Recent Bills</div>
-          <div id="billList"><div class="empty">No bills.</div></div>
+          <button class="btn btn-gold btn-sm btn-full" id="billSaveBtn" onclick="saveBill()">Save Bill</button>
+          <button class="btn btn-ghost btn-sm btn-full" id="billCancelEdit" style="display:none;margin-top:6px" onclick="cancelBillEdit()">Cancel Edit</button>
         </div>
       </div>
     </div>
   </div>
-
   <!-- CREATE REPORT -->
   <div id="tabCreateReport" class="adm-panel">
     <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Create Report</h2>
@@ -1965,14 +1962,14 @@ function loadAdminInit() {
 }
 
 function goToDashboard() {
-  // Hide all panels, sub-navs, deactivate tabs
-  document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
-  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
-  document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-  // Show dashboard (it is .adm-dash not .adm-panel so not hidden above)
-  var dash = el('tabDash');
-  if (dash) dash.style.display = 'block';
-  loadDashboard();
+  setTimeout(function() {
+    document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
+    document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+    document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+    var dash = el('tabDash');
+    if (dash) dash.style.display = 'block';
+    loadDashboard();
+  }, 60);
 }
 
 function populateBranchDropdowns() {
@@ -2539,6 +2536,9 @@ function downloadCSV(rows, filename) {
 // VENDORS & BILLS
 // ═══════════════════════════════════════════════════════════════
 // ═══════════ VENDOR CRUD ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// VENDOR CRUD
+// ═══════════════════════════════════════════════════════════════
 var _editVendorId = null;
 
 function openAddVendor() {
@@ -2546,21 +2546,28 @@ function openAddVendor() {
   openModal('Add Vendor',
     '<div class="field"><label>Vendor Name *</label><input type="text" id="mvName" placeholder="e.g. Kenya Pipeline"></div>'
     +'<div class="field"><label>Contact Person</label><input type="text" id="mvContact"></div>'
-    +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone" placeholder="+254..."></div>'
-    +'<div class="field"><label>Email</label><input type="email" id="mvEmail"></div></div>'
-    +'<div class="field"><label>Notes</label><input type="text" id="mvNotes"></div>',
-    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Save Vendor</button>');
+    +'<div class="g2">'
+    +'<div class="field"><label>Phone</label><input type="tel" id="mvPhone" placeholder="+254..."></div>'
+    +'<div class="field"><label>Email</label><input type="email" id="mvEmail"></div>'
+    +'</div>'
+    +'<div class="field"><label>Address / Notes</label><input type="text" id="mvNotes"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Save Vendor</button>'
+  );
+  setTimeout(function(){ var e=document.getElementById('mvName'); if(e)e.focus(); },150);
 }
 
 function openEditVendor(id,name,contact,phone,email,notes) {
   _editVendorId = id;
-  openModal('Edit Vendor — '+name,
+  openModal('Edit Vendor \u2014 '+name,
     '<div class="field"><label>Vendor Name *</label><input type="text" id="mvName" value="'+name+'"></div>'
     +'<div class="field"><label>Contact Person</label><input type="text" id="mvContact" value="'+contact+'"></div>'
-    +'<div class="g2"><div class="field"><label>Phone</label><input type="tel" id="mvPhone" value="'+phone+'"></div>'
-    +'<div class="field"><label>Email</label><input type="email" id="mvEmail" value="'+email+'"></div></div>'
-    +'<div class="field"><label>Notes</label><input type="text" id="mvNotes" value="'+notes+'"></div>',
-    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Update Vendor</button>');
+    +'<div class="g2">'
+    +'<div class="field"><label>Phone</label><input type="tel" id="mvPhone" value="'+phone+'"></div>'
+    +'<div class="field"><label>Email</label><input type="email" id="mvEmail" value="'+email+'"></div>'
+    +'</div>'
+    +'<div class="field"><label>Address / Notes</label><input type="text" id="mvNotes" value="'+notes+'"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveVendorModal()">Update Vendor</button>'
+  );
 }
 
 function saveVendorModal() {
@@ -2574,44 +2581,149 @@ function saveVendorModal() {
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
   var p = _editVendorId
     ? db.collection('vendors').doc(_editVendorId).update(data)
-    : db.collection('vendors').add(Object.assign({},data,{createdAt:firebase.firestore.FieldValue.serverTimestamp()}));
+    : db.collection('vendors').add(Object.assign({},data,
+        {createdAt:firebase.firestore.FieldValue.serverTimestamp()}));
   p.then(function(){
     toast((_editVendorId?'Vendor updated':'Vendor added')+': '+name,'ok');
-    closeModal(); loadVendors();
+    closeModal();
+    loadVendors();
   }).catch(function(e){ toast('Error saving vendor: '+e.message,'err'); });
 }
 
 function saveVendor() { saveVendorModal(); }
 
 function deleteVendor(id,name) {
-  if(!confirm('Delete "'+name+'"? Bills will remain.')) return;
+  if(!confirm('Delete "'+name+'"?\nBills will remain.')) return;
   db.collection('vendors').doc(id).delete().then(function(){
     toast('Vendor deleted','ok'); loadVendors();
   }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
-function updateInventoryFromBill(lineItems, multiplier) {
-  lineItems.forEach(function(l){
-    if (!l.description||!l.branch||!l.qty) return;
-    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9_]/gi,'_');
-    var ref = db.collection('inventory').doc(docId);
-    db.runTransaction(function(tx){
-      return tx.get(ref).then(function(snap){
-        var cur = snap.exists?(snap.data().qty||0):0;
-        tx.set(ref,{branch:l.branch,product:l.description,
-          qty:Math.max(0,cur+(parseFloat(l.qty)||0)*multiplier),
-          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-      });
-    }).catch(function(){});
+// ═══════════════════════════════════════════════════════════════
+// BILL LINE ITEMS — with product dropdown
+// ═══════════════════════════════════════════════════════════════
+var _billLineCount = 0;
+
+function _billLineHtml(i) {
+  var productOpts = '<option value="">-- Product --</option>'
+    + '<option value="Petrol (PMS)" data-unit="L">Petrol (PMS)</option>'
+    + '<option value="2T Motor Oil" data-unit="pcs">2T Motor Oil</option>'
+    + '<option value="2T-Kupima" data-unit="L">2T-Kupima</option>'
+    + '<option value="Used Oil" data-unit="L">Used Oil</option>'
+    + '<option value="Shell Advance" data-unit="pcs">Shell Advance</option>'
+    + '<option value="Other">Other / Custom</option>';
+  // Add custom products from cache
+  if (window.CUSTOM_PRODUCTS) {
+    CUSTOM_PRODUCTS.forEach(function(p){
+      productOpts += '<option value="'+p.name+'" data-unit="'+(p.unit||'pcs')+'">'+p.name+'</option>';
+    });
+  }
+  return '<div class="bill-line" id="billLine_'+i+'" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:6px;margin-bottom:8px;align-items:center">'
+    +'<div>'
+    +'<select id="blDesc_'+i+'" onchange="billProductChange('+i+')" style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;color:var(--text);font-size:0.78rem">'
+    +productOpts
+    +'</select>'
+    +'<input type="text" id="blDescOther_'+i+'" placeholder="Product name" style="display:none;margin-top:4px;width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;color:var(--text);font-size:0.78rem">'
+    +'</div>'
+    +'<select id="blBranch_'+i+'" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;color:var(--text);font-size:0.72rem;width:100%">'
+    +BRANCHES.map(function(b){return '<option value="'+b+'">'+b+'</option>';}).join('')
+    +'</select>'
+    +'<input type="number" id="blQty_'+i+'" placeholder="Qty" min="0" step="0.01" oninput="billCalc()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;color:var(--text);font-size:0.78rem;font-family:var(--mono);width:100%">'
+    +'<input type="number" id="blPrice_'+i+'" placeholder="Unit Price" min="0" step="0.01" oninput="billCalc()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;color:var(--text);font-size:0.78rem;font-family:var(--mono);width:100%">'
+    +'<button onclick="removeBillLine('+i+')" style="background:var(--red);border:none;border-radius:4px;color:#fff;padding:6px 10px;cursor:pointer;font-size:0.75rem">\xd7</button>'
+    +'</div>';
+}
+
+function billProductChange(i) {
+  var sel = document.getElementById('blDesc_'+i);
+  var other = document.getElementById('blDescOther_'+i);
+  if (!sel) return;
+  if (sel.value === 'Other') {
+    if (other) other.style.display = 'block';
+  } else {
+    if (other) other.style.display = 'none';
+  }
+}
+
+function addBillLine() {
+  _billLineCount++;
+  var bl = document.getElementById('billLines');
+  if (!bl) return;
+  var div = document.createElement('div');
+  div.innerHTML = _billLineHtml(_billLineCount);
+  bl.appendChild(div.firstChild);
+}
+
+function removeBillLine(i) {
+  var row = document.getElementById('billLine_'+i);
+  if (row) row.remove();
+  billCalc();
+}
+
+function billCalc() {
+  var total = 0;
+  document.querySelectorAll('.bill-line').forEach(function(row){
+    var id = row.id.replace('billLine_','');
+    var qty   = parseFloat((document.getElementById('blQty_'+id)||{}).value)||0;
+    var price = parseFloat((document.getElementById('blPrice_'+id)||{}).value)||0;
+    total += qty*price;
   });
-  calculateWACC(null,function(w){WACC_CACHE=w;});
+  var bt = document.getElementById('billTotal');
+  if (bt) bt.textContent = 'KSh '+total.toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VENDORS + BILLS LOAD
+// ═══════════════════════════════════════════════════════════════
+
+function loadVendors() {
+  db.collection('vendors').get().then(function(snap){
+    var c = el('vendorList'), vs = el('billVendor');
+    if (vs) { while(vs.options.length) vs.remove(0); }
+
+    if (snap.empty) {
+      if (c) c.innerHTML = '<div class="empty">No vendors yet \u2014 click <b>+ Add Vendor</b> above.</div>';
+    } else {
+      var rows = '';
+      snap.forEach(function(d){
+        var v = d.data();
+        var sn=(v.name||'').replace(/['"<>]/g,'');
+        var sc=(v.contact||'').replace(/['"<>]/g,'');
+        var sp=(v.phone||'').replace(/['"<>]/g,'');
+        var se=(v.email||'').replace(/['"<>]/g,'');
+        var so=(v.notes||'').replace(/['"<>]/g,'');
+        rows += '<tr>'
+          +'<td style="font-weight:600">'+(v.name||'')+'</td>'
+          +'<td>'+(v.contact||'\u2014')+'</td>'
+          +'<td>'+(v.phone||'\u2014')+'</td>'
+          +'<td>'+(v.email||'\u2014')+'</td>'
+          +'<td style="display:flex;gap:4px">'
+          +'<button class="btn btn-blue btn-xs" onclick="openEditVendor(\''+d.id+'\',\''+sn+'\',\''+sc+'\',\''+sp+'\',\''+se+'\',\''+so+'\')">Edit</button>'
+          +'<button class="btn btn-red btn-xs" onclick="deleteVendor(\''+d.id+'\',\''+sn+'\')">Delete</button>'
+          +'</td></tr>';
+        if (vs) {
+          var o=document.createElement('option'); o.value=d.id; o.textContent=v.name; vs.appendChild(o);
+        }
+      });
+      if (c) c.innerHTML = '<table class="tbl"><thead><tr>'
+        +'<th>Vendor</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th>'
+        +'</tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+
+    var bd = el('billDate'); if (bd&&!bd.value) bd.valueAsDate = new Date();
+    var bl = document.getElementById('billLines');
+    if (bl && !bl.children.length) { _billLineCount=0; addBillLine(); }
+    loadBillList();
+  }).catch(function(e){
+    if (el('vendorList')) el('vendorList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';
+  });
 }
 
 function loadBillList() {
-  var bc=el('billList'); if(!bc) return;
-  bc.innerHTML='<div class="empty">Loading\u2026</div>';
-  db.collection('bills').limit(60).get().then(function(bSnap){
-    if(bSnap.empty){bc.innerHTML='<div class="empty">No bills yet.</div>';return;}
+  var bc = el('billList'); if (!bc) return;
+  bc.innerHTML = '<div class="empty">Loading\u2026</div>';
+  db.collection('bills').limit(50).get().then(function(bSnap){
+    if (bSnap.empty) { bc.innerHTML='<div class="empty">No bills yet.</div>'; return; }
     var items=[]; bSnap.forEach(function(d){items.push({id:d.id,b:d.data()});});
     items.sort(function(a,b){return (b.b.date||'').localeCompare(a.b.date||'');});
     var h='';
@@ -2620,152 +2732,225 @@ function loadBillList() {
       var lines=b.lineItems||[{description:b.description||'\u2014',branch:b.branch||'\u2014',qty:1,unitPrice:b.amount||0,amount:b.amount||0}];
       h+='<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden">'
         +'<div style="background:var(--s2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
-        +'<div><span style="font-weight:600;font-size:0.78rem">'+(b.vendorName||b.date||'\u2014')+'</span>'
+        +'<div>'
+        +'<span style="font-weight:600;font-size:0.78rem">'+(b.vendorName||'\u2014')+'</span>'
         +' <span style="font-size:0.62rem;color:var(--text3)">'+b.date+'</span>'
-        +(b.reference?' <span style="font-size:0.6rem;color:var(--text3)">Ref: '+b.reference+'</span>':'')+'</div>'
+        +(b.reference?' <span style="font-size:0.6rem;color:var(--text3)">Ref: '+b.reference+'</span>':'')
+        +'</div>'
         +'<div style="display:flex;align-items:center;gap:6px">'
         +'<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'+fmt(b.totalAmount||b.amount||0)+'</span>'
         +'<button class="btn btn-blue btn-xs" onclick="editBill(\''+item.id+'\')">Edit</button>'
         +'<button class="btn btn-red btn-xs" onclick="deleteBill(\''+item.id+'\')">Delete</button>'
         +'</div></div>'
-        +'<table class="tbl" style="margin:0"><thead><tr><th>Product</th><th>Branch</th>'
-        +'<th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th>'
+        +'<table class="tbl" style="margin:0"><thead><tr>'
+        +'<th>Product</th><th>Branch</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th>'
         +'</tr></thead><tbody>';
       lines.forEach(function(l){
         h+='<tr><td>'+(l.description||'\u2014')+'</td><td>'+(l.branch||'\u2014')+'</td>'
-          +'<td class="num">'+(l.qty||1)+'</td><td class="num">'+fmt(l.unitPrice||0)+'</td>'
+          +'<td class="num">'+(l.qty||1)+'</td>'
+          +'<td class="num">'+fmt(l.unitPrice||0)+'</td>'
           +'<td class="num">'+fmt(l.amount||0)+'</td></tr>';
       });
       h+='</tbody></table></div>';
     });
-    bc.innerHTML=h;
-  }).catch(function(e){bc.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+    bc.innerHTML = h;
+  }).catch(function(e){ bc.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// INVENTORY UPDATE FROM BILL
+// ═══════════════════════════════════════════════════════════════
+function updateInventoryFromBill(lineItems, multiplier) {
+  lineItems.forEach(function(l){
+    if (!l.description||!l.branch||!l.qty) return;
+    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9]/gi,'_');
+    var ref = db.collection('inventory').doc(docId);
+    db.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        var cur = snap.exists?(snap.data().qty||0):0;
+        var newQty = Math.max(0, cur + (parseFloat(l.qty)||0)*multiplier);
+        tx.set(ref,{branch:l.branch,product:l.description,qty:newQty,
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      });
+    }).catch(function(e){ console.warn('Inventory update error:',e.message); });
+  });
+  calculateWACC(null, function(w){ WACC_CACHE=w; });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BILL EDIT / DELETE / SAVE
+// ═══════════════════════════════════════════════════════════════
 function editBill(id) {
   db.collection('bills').doc(id).get().then(function(snap){
-    if(!snap.exists){toast('Bill not found','err');return;}
-    var b=snap.data();
+    if (!snap.exists) { toast('Bill not found','err'); return; }
+    var b = snap.data();
     var vd=el('billVendor'); if(vd) vd.value=b.vendorId||'';
     var bd=el('billDate');   if(bd) bd.value=b.date||'';
     var br=el('billRef');    if(br) br.value=b.reference||'';
     var bn=el('billNote');   if(bn) bn.value=b.notes||'';
-    var bei=el('billEditId');if(bei) bei.value=id;
+    var bei=el('billEditId'); if(bei) bei.value=id;
     var bl=document.getElementById('billLines');
-    if(bl){bl.innerHTML='';_billLineCount=0;}
+    if(bl){bl.innerHTML=''; _billLineCount=0;}
     (b.lineItems||[]).forEach(function(line){
       _billLineCount++;
       var div=document.createElement('div');
       div.innerHTML=_billLineHtml(_billLineCount);
       if(bl) bl.appendChild(div.firstChild);
-      (function(i,l){setTimeout(function(){
+      (function(i,l){ setTimeout(function(){
         var d=document.getElementById('blDesc_'+i);
-        if(d){for(var k=0;k<d.options.length;k++){if(d.options[k].value===l.description){d.selectedIndex=k;break;}}}
-        var br2=document.getElementById('blBranch_'+i);if(br2)br2.value=l.branch||'';
-        var qt=document.getElementById('blQty_'+i);if(qt)qt.value=l.qty||1;
-        var pr=document.getElementById('blPrice_'+i);if(pr)pr.value=l.unitPrice||0;
+        if(d){ for(var k=0;k<d.options.length;k++){
+          if(d.options[k].value===l.description){d.selectedIndex=k;break;}
+        }}
+        var br2=document.getElementById('blBranch_'+i); if(br2) br2.value=l.branch||'';
+        var qt=document.getElementById('blQty_'+i);     if(qt)  qt.value=l.qty||1;
+        var pr=document.getElementById('blPrice_'+i);   if(pr)  pr.value=l.unitPrice||0;
         billCalc();
-      },60);}(_billLineCount,line));
+      },80);}(_billLineCount,line));
     });
-    var ft=el('billFormTitle');if(ft)ft.textContent='Edit Bill';
-    var sb=el('billSaveBtn');  if(sb)sb.textContent='Update Bill';
-    var ce=el('billCancelEdit');if(ce)ce.style.display='block';
-    var f=document.getElementById('billLines');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});
+    var ft=el('billFormTitle'); if(ft) ft.textContent='Edit Bill';
+    var sb=el('billSaveBtn');   if(sb) sb.textContent='Update Bill';
+    var ce=el('billCancelEdit');if(ce) ce.style.display='block';
+    var f=document.getElementById('billLines');
+    if(f) f.scrollIntoView({behavior:'smooth',block:'start'});
     toast('Bill loaded for editing','ok');
-  }).catch(function(e){toast('Error: '+e.message,'err');});
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
 function cancelBillEdit() {
-  var bei=el('billEditId');if(bei)bei.value='';
-  var ft=el('billFormTitle');if(ft)ft.textContent='Record Bill';
-  var sb=el('billSaveBtn');  if(sb)sb.textContent='Save Bill';
-  var ce=el('billCancelEdit');if(ce)ce.style.display='none';
-  var bl=document.getElementById('billLines');if(bl){bl.innerHTML='';_billLineCount=0;addBillLine();}
-  var br=el('billRef');if(br)br.value='';
-  var bn=el('billNote');if(bn)bn.value='';
-  var bt=el('billTotal');if(bt)bt.textContent='KSh 0';
+  var bei=el('billEditId'); if(bei) bei.value='';
+  var ft=el('billFormTitle'); if(ft) ft.textContent='Record Bill';
+  var sb=el('billSaveBtn');   if(sb) sb.textContent='Save Bill';
+  var ce=el('billCancelEdit');if(ce) ce.style.display='none';
+  var bl=document.getElementById('billLines');
+  if(bl){bl.innerHTML=''; _billLineCount=0; addBillLine();}
+  var bt=el('billTotal'); if(bt) bt.textContent='KSh 0';
 }
 
 function deleteBill(id) {
-  if(!confirm('Delete this bill?\nInventory will NOT be automatically reversed.'))return;
+  if(!confirm('Delete this bill?\nNote: inventory quantities will NOT be automatically reversed.')) return;
   db.collection('bills').doc(id).delete().then(function(){
-    toast('Bill deleted','ok');loadBillList();
-  }).catch(function(e){toast('Error: '+e.message,'err');});
-}
-
-function loadVendors() {
-  db.collection('vendors').get().then(function(snap){
-    var c=el('vendorList'),vs=el('billVendor');
-    if(vs){while(vs.options.length)vs.remove(0);}
-    if(snap.empty){
-      if(c)c.innerHTML='<div class="empty">No vendors yet \u2014 click <b>+ Add Vendor</b> above.</div>';
-    } else {
-      var rows='';
-      snap.forEach(function(d){
-        var v=d.data();
-        var sn=(v.name||'').replace(/['"<>]/g,'');
-        var sc=(v.contact||'').replace(/['"<>]/g,'');
-        var sp=(v.phone||'').replace(/['"<>]/g,'');
-        var se=(v.email||'').replace(/['"<>]/g,'');
-        var so=(v.notes||'').replace(/['"<>]/g,'');
-        rows+='<tr><td style="font-weight:600">'+(v.name||'')+'</td>'
-          +'<td>'+(v.contact||'\u2014')+'</td><td>'+(v.phone||'\u2014')+'</td><td>'+(v.email||'\u2014')+'</td>'
-          +'<td style="display:flex;gap:4px">'
-          +'<button class="btn btn-blue btn-xs" onclick="openEditVendor(\''+d.id+'\',\''+sn+'\',\''+sc+'\',\''+sp+'\',\''+se+'\',\''+so+'\')">Edit</button>'
-          +'<button class="btn btn-red btn-xs" onclick="deleteVendor(\''+d.id+'\',\''+sn+'\')">Delete</button>'
-          +'</td></tr>';
-        if(vs){var o=document.createElement('option');o.value=d.id;o.textContent=v.name;vs.appendChild(o);}
-      });
-      if(c)c.innerHTML='<table class="tbl"><thead><tr><th>Vendor</th><th>Contact</th>'
-        +'<th>Phone</th><th>Email</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
-    }
-    var bd=el('billDate');if(bd&&!bd.value)bd.valueAsDate=new Date();
-    var bl=document.getElementById('billLines');
-    if(bl&&!bl.children.length){_billLineCount=0;addBillLine();}
-    loadBillList();
-  }).catch(function(e){if(el('vendorList'))el('vendorList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+    toast('Bill deleted','ok'); loadBillList();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
 function saveBill() {
-  var vendorEl=document.getElementById('billVendor');
-  var vendor=vendorEl?vendorEl.value:'';
-  var vendorName=vendorEl&&vendorEl.selectedIndex>=0?vendorEl.options[vendorEl.selectedIndex].text:'';
-  var date=(el('billDate')||{}).value||'';
-  var ref=(el('billRef')||{}).value||'';
-  var note=(el('billNote')||{}).value||'';
-  var editId=(el('billEditId')||{}).value||'';
-  if(!date){toast('Select a date','err');return;}
-  var lineItems=[],billTotal=0;
+  var vendorEl = el('billVendor');
+  var vendor     = vendorEl ? vendorEl.value : '';
+  var vendorName = vendorEl&&vendorEl.selectedIndex>=0 ? vendorEl.options[vendorEl.selectedIndex].text : '';
+  var date    = (el('billDate')||{}).value||'';
+  var ref     = (el('billRef')||{}).value||'';
+  var note    = (el('billNote')||{}).value||'';
+  var editId  = (el('billEditId')||{}).value||'';
+  if (!date) { toast('Select a date','err'); return; }
+  var lineItems=[], billTotal=0;
   var bl=document.getElementById('billLines');
-  if(!bl||!bl.querySelectorAll('.bill-line').length){toast('Add at least one line item','err');return;}
+  if (!bl||!bl.querySelectorAll('.bill-line').length){ toast('Add at least one line item','err'); return; }
   bl.querySelectorAll('.bill-line').forEach(function(row){
-    var id=row.id.replace('billLine_','');
-    var descSel=document.getElementById('blDesc_'+id);
-    var descVal=descSel?descSel.value:'';
-    var desc=descVal==='Other'?((document.getElementById('blDescOther_'+id)||{}).value||'').trim():descVal;
-    var branch=(document.getElementById('blBranch_'+id)||{}).value||'';
-    var qty=parseFloat((document.getElementById('blQty_'+id)||{}).value)||0;
-    var price=parseFloat((document.getElementById('blPrice_'+id)||{}).value)||0;
-    var amount=qty*price;
-    if(!desc||!qty)return;
+    var id = row.id.replace('billLine_','');
+    var descSel = document.getElementById('blDesc_'+id);
+    var descVal = descSel ? descSel.value : '';
+    var desc = descVal==='Other'
+      ? ((document.getElementById('blDescOther_'+id)||{}).value||'').trim()
+      : descVal;
+    var branch  = (document.getElementById('blBranch_'+id)||{}).value||'';
+    var qty     = parseFloat((document.getElementById('blQty_'+id)||{}).value)||0;
+    var price   = parseFloat((document.getElementById('blPrice_'+id)||{}).value)||0;
+    var amount  = qty*price;
+    if (!desc||!qty) return;
     lineItems.push({description:desc,branch:branch,qty:qty,unitPrice:price,amount:amount});
-    billTotal+=amount;
+    billTotal += amount;
   });
-  if(!lineItems.length){toast('Fill in at least one line item','err');return;}
-  var now=firebase.firestore.FieldValue.serverTimestamp();
-  var data={vendorId:vendor,vendorName:vendorName,date:date,reference:ref,notes:note,
+  if (!lineItems.length){ toast('Fill in at least one product line','err'); return; }
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  var data = {vendorId:vendor,vendorName:vendorName,date:date,reference:ref,notes:note,
     lineItems:lineItems,totalAmount:billTotal,amount:billTotal,
-    branch:lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ')||'Multiple',
-    description:lineItems.map(function(l){return l.description;}).join(', '),updatedAt:now};
-  var p=editId
-    ?db.collection('bills').doc(editId).update(data)
-    :db.collection('bills').add(Object.assign({},data,{createdAt:now}));
+    branch:lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ')||'',
+    description:lineItems.map(function(l){return l.description;}).join(', '),
+    updatedAt:now};
+  var p = editId
+    ? db.collection('bills').doc(editId).update(data)
+    : db.collection('bills').add(Object.assign({},data,{createdAt:now}));
   p.then(function(){
-    updateInventoryFromBill(lineItems,1);
+    updateInventoryFromBill(lineItems, 1);
     toast((editId?'Bill updated':'Bill saved')+' \u2014 KSh '+billTotal.toLocaleString(),'ok');
     cancelBillEdit();
     loadBillList();
-  }).catch(function(e){toast('Error: '+e.message,'err');});
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VENDOR REPORT
+// ═══════════════════════════════════════════════════════════════
+function generateVendorReport() {
+  // Load all vendors + their bills, render a summary report
+  Promise.all([
+    db.collection('vendors').get(),
+    db.collection('bills').get()
+  ]).then(function(results){
+    var vSnap=results[0], bSnap=results[1];
+    var vendorMap={};
+    vSnap.forEach(function(d){vendorMap[d.id]=Object.assign({id:d.id,total:0,billCount:0,bills:[]},d.data());});
+
+    bSnap.forEach(function(d){
+      var b=d.data();
+      if (vendorMap[b.vendorId]) {
+        vendorMap[b.vendorId].total += b.totalAmount||b.amount||0;
+        vendorMap[b.vendorId].billCount++;
+        vendorMap[b.vendorId].bills.push({date:b.date,amount:b.totalAmount||b.amount||0,ref:b.reference||''});
+      }
+    });
+
+    var vendors = Object.values(vendorMap);
+    vendors.sort(function(a,b){return b.total-a.total;});
+
+    var grandTotal = vendors.reduce(function(s,v){return s+v.total;},0);
+    var rows = vendors.map(function(v){
+      return '<tr><td style="font-weight:600">'+(v.name||'\u2014')+'</td>'
+        +'<td>'+(v.contact||'\u2014')+'</td>'
+        +'<td>'+(v.phone||'\u2014')+'</td>'
+        +'<td class="num">'+v.billCount+'</td>'
+        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(v.total)+'</td>'
+        +'</tr>';
+    }).join('');
+
+    openModal('Vendor Report \u2014 All Time',
+      '<div style="margin-bottom:12px;display:flex;justify-content:space-between">'
+      +'<span style="font-size:0.72rem;color:var(--text3)">'+vendors.length+' vendors | '+bSnap.size+' bills</span>'
+      +'<span style="font-weight:700;color:var(--gold)">Grand Total: '+fmt(grandTotal)+'</span>'
+      +'</div>'
+      +'<div style="overflow-x:auto;max-height:60vh;overflow-y:auto">'
+      +'<table class="tbl"><thead><tr>'
+      +'<th>Vendor</th><th>Contact</th><th>Phone</th><th class="num">Bills</th><th class="num">Total Spent</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table></div>',
+      '<button class="btn btn-gold btn-sm" onclick="exportVendorReportPDF()">Export PDF</button>'
+    );
+  }).catch(function(e){ toast('Error generating report: '+e.message,'err'); });
+}
+
+function exportVendorReportPDF() {
+  ensurePDFPlugin(function(){
+    try {
+      var doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      var W = doc.internal.pageSize.getWidth();
+      doc.setFillColor(13,13,13); doc.rect(0,0,W,22,'F');
+      doc.setTextColor(200,146,42); doc.setFontSize(14); doc.setFont('helvetica','bold');
+      doc.text('DELPHINE ENTERPRISE LIMITED',14,10);
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(160,152,128);
+      doc.text('Vendor Report \u2014 Generated: '+new Date().toLocaleString(),14,17);
+      var tbl = document.querySelector('#modalContent table');
+      if (!tbl) { toast('Generate report first','err'); return; }
+      var headers=[]; tbl.querySelectorAll('thead th').forEach(function(th){headers.push(th.textContent.trim());});
+      var rows=[]; tbl.querySelectorAll('tbody tr').forEach(function(tr){
+        var r=[]; tr.querySelectorAll('td').forEach(function(td){r.push(td.textContent.trim());}); if(r.length)rows.push(r);
+      });
+      doc.autoTable({head:[headers],body:rows,startY:26,theme:'grid',
+        headStyles:{fillColor:[200,146,42],textColor:[0,0,0],fontStyle:'bold',fontSize:9},
+        bodyStyles:{fontSize:8,textColor:[30,30,30]},
+        alternateRowStyles:{fillColor:[245,245,245]},margin:{left:14,right:14}});
+      doc.save('vendor-report-'+new Date().toISOString().split('T')[0]+'.pdf');
+      toast('PDF downloaded','ok');
+    } catch(e){ toast('PDF error: '+e.message,'err'); }
+  });
 }
 
 
