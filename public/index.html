@@ -1744,7 +1744,7 @@ var PANEL_TO_TAB = {
   tabPurchases:    'mOps',
   tabDipStick:     'mOps',      tabDelivery:  'mOps',
   tabPumpCal:      'mOps',
-  tabBranchSummary:'mSummary',
+  tabBranchSummary:'mSummary', tabScout:'mScout',
   tabExpenses:     'mFinance',  tabDebts:        'mFinance',
   tabPriceHistory: 'mFinance',  tabPayroll:      'mFinance',
   tabSupplierPay:  'mFinance',  tabCOGS: 'mFinance',
@@ -1785,6 +1785,11 @@ function mainTab(btn, navId) {
 
   if (navId === 'mSummary') {
     showPanel('tabBranchSummary');
+    return;
+  }
+  // mScout: single-panel section — show directly
+  if (navId === 'mScout') {
+    showPanel('tabScout');
     return;
   }
   var sn = el('subNav_'+navId);
@@ -1855,6 +1860,7 @@ function panelInit(panelId) {
     case 'tabTargets':      initTargets();       break;
     case 'tabComparison':   loadComparison();    break;
     case 'tabStaffPerf':    loadStaffPerf();     break;
+    case 'tabScout': /* iframe loads sitescout.html */ break;
     default: break;
   }
 }
