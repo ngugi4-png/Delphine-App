@@ -3649,10 +3649,10 @@ function loadPurchases() {
         + '<span class="badge '+statusColor+'">'+o.status+'</span>'
         + '<span style="font-weight:700;font-family:var(--mono);color:var(--gold)">'
         + fmt(o.totalAmount)+'</span>'
-        + '<button class="btn btn-green btn-xs" onclick="markPOReceived(\''+o.id+'\')" '
-        + 'title="Mark as received">✓ Received</button>'
-        + '<button class="btn btn-red btn-xs" onclick="cancelPO(\''+o.id+'\')" '
-        + 'title="Cancel">✕</button>'
+        + (o.status==='pending' ? '<button class="btn btn-blue btn-xs" onclick="editPO(\''+o.id+'\')">✎ Edit</button>' : '')
+        + '<button class="btn btn-green btn-xs" onclick="receivePOAsBill(\''+o.id+'\')" title="Receive">✓ Receive</button>'
+        + (o.status==='pending' ? '<button class="btn btn-ghost btn-xs" onclick="cancelPO(\''+o.id+'\')">✕</button>' : '')
+        + '<button class="btn btn-red btn-xs" onclick="deletePO(\''+o.id+'\')" title="Delete">Del</button>'
         + '</div></div>'
         // Line items table
         + '<table class="tbl" style="margin:0"><thead><tr>'
