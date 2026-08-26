@@ -3,31 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#C8922A">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Delphine">
-<title>Delphine — Station Manager</title>
-
-<!-- Fonts -->
+<title>Delphine Enterprise</title>
+<link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-<!-- Firebase 9 compat -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<!-- React for Site Scout -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-<!-- jsPDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<!-- Tesseract OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-
 <style>
+
 /* ═══════════════════════════════════════════════════
    DESIGN TOKENS
 ═══════════════════════════════════════════════════ */
@@ -427,12 +419,13 @@ a { color: var(--gold); text-decoration: none; }
 /* ── SITE SCOUT OVERRIDES ─────────────────────────── */
 #tabScout input[type=range]{-webkit-appearance:none;height:6px;border-radius:3px;background:#3A3630;outline:none}
 #tabScout input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#D4911A;cursor:pointer;border:2px solid #161513}
+
+/* Site Scout range inputs */
+#tabScout input[type=range]{-webkit-appearance:none;height:6px;border-radius:3px;background:#3A3630;outline:none;width:100%}
+#tabScout input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#D4911A;cursor:pointer;border:2px solid #161513}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 </head>
 <body>
-
 <!-- ═══════════════════════════════════════════════
      AUTH SCREEN
 ═══════════════════════════════════════════════ -->
@@ -1611,8 +1604,8 @@ a { color: var(--gold); text-decoration: none; }
      TOAST
 ═══════════════════════════════════════════════ -->
 <div id="toast"></div>
-
 <script>
+
 // ═══════════════════════════════════════════════════════════════
 // FIREBASE INIT
 // ═══════════════════════════════════════════════════════════════
@@ -4755,6 +4748,56 @@ function loadBranchesFromDB() {
   }).catch(function(){});
 }
 
+
+var PRODUCT_NAME_MAP = {
+  'Petrol (PMS)': 'petrol', 'Petrol': 'petrol', 'PMS': 'petrol',
+  '2T Motor Oil': 'p2t', '2T Oil': 'p2t',
+  '2T-Kupima': 'p2tk', 'Kupima': 'p2tk',
+  'Used Oil': 'puoil',
+  'Shell Advance': 'pshell', 'Shell': 'pshell'
+};
+var WACC_CACHE = {};
+
+function calculateWACC(branch, callback) {
+  db.collection('purchaseOrders').where('status','==','received').get()
+    .then(function(snap) {
+      var accum = {};
+      snap.forEach(function(d) {
+        var po = d.data();
+        (po.lineItems||[]).forEach(function(line) {
+          var lineBranch = line.branch === 'All Branches' ? null : line.branch;
+          if (branch && lineBranch && lineBranch !== branch) return;
+          var productKey = null;
+          var desc = (line.description||'').trim();
+          if (PRODUCT_NAME_MAP[desc]) productKey = PRODUCT_NAME_MAP[desc];
+          else { Object.keys(PRODUCT_NAME_MAP).forEach(function(n){
+            if (!productKey && desc.toLowerCase().includes(n.toLowerCase())) productKey=PRODUCT_NAME_MAP[n];
+          }); }
+          if (!productKey) return;
+          var qty = parseFloat(line.qty)||0;
+          var price = parseFloat(line.unitPrice)||0;
+          if (!qty||!price) return;
+          var branches = lineBranch ? [lineBranch] : BRANCHES;
+          branches.forEach(function(b){
+            if (!accum[b]) accum[b] = {};
+            if (!accum[b][productKey]) accum[b][productKey] = {totalCost:0,totalQty:0};
+            var splitQty = lineBranch ? qty : qty/BRANCHES.length;
+            accum[b][productKey].totalCost += splitQty*price;
+            accum[b][productKey].totalQty  += splitQty;
+          });
+        });
+      });
+      var result = {};
+      Object.keys(accum).forEach(function(b){
+        result[b]={};
+        Object.keys(accum[b]).forEach(function(k){
+          var a=accum[b][k]; result[b][k]=a.totalQty>0?a.totalCost/a.totalQty:0;
+        });
+      });
+      WACC_CACHE = result;
+      if (callback) callback(branch?(result[branch]||{}):result);
+    }).catch(function(e){ console.warn('[WACC]',e.message); if(callback)callback({}); });
+}
 // ═══════════════════════════════════════════════════════════════
 // COGS TRANSFERS — WACC-based calculation from daily sales
 // ═══════════════════════════════════════════════════════════════
@@ -5363,59 +5406,67 @@ if ('serviceWorker' in navigator) {
   });
   caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); });
 }
-</script>
 
-<!-- ═══ SITE SCOUT REACT APP ════════════════════════════════════ -->
-<script>
-// Site Scout storage shim — uses window.sessionStorage to avoid
-// colliding with main app's localStorage keys
+
+// Site Scout storage (in-memory, resets on page reload)
 var _scoutStore = {};
 var scoutStorage = {
-  get:  function(k){ return Promise.resolve(_scoutStore[k]!=null?{value:_scoutStore[k]}:null); },
-  set:  function(k,v){ _scoutStore[k]=v; return Promise.resolve({value:v}); },
-  delete:function(k){ delete _scoutStore[k]; return Promise.resolve({deleted:true}); },
-  list: function(){ return Promise.resolve({keys:Object.keys(_scoutStore)}); }
+  get:    function(k){ return Promise.resolve(_scoutStore[k]!=null?{value:_scoutStore[k]}:null); },
+  set:    function(k,v){ _scoutStore[k]=v; return Promise.resolve({value:v}); },
+  delete: function(k){ delete _scoutStore[k]; return Promise.resolve({deleted:true}); },
+  list:   function(){ return Promise.resolve({keys:Object.keys(_scoutStore)}); }
 };
 
 function initSiteScout() {
-  var root = document.getElementById('scoutRoot');
-  if (!root || window._scoutMounted) return;
-  window._scoutMounted = true;
+  var rootEl = document.getElementById('scoutRoot');
+  if (!rootEl || window._scoutMounted) return;
   if (!window.React || !window.ReactDOM) {
-    root.innerHTML = '<div style="color:#E8B4B4;padding:20px">React not loaded. Check internet connection.</div>';
+    rootEl.innerHTML = '<div style="color:#E8B4B4;padding:20px">React not available.</div>';
     return;
   }
+  window._scoutMounted = true;
+  window.storage = scoutStorage;
   try {
-    mountScoutApp(window.React, window.ReactDOM, scoutStorage);
+    // SiteScout component defined in second script block
+    if (typeof SiteScout !== 'function') throw new Error('SiteScout component not loaded');
+    var scoutReactRoot = ReactDOM.createRoot(rootEl);
+    scoutReactRoot.render(React.createElement(SiteScout));
   } catch(e) {
-    root.innerHTML = '<div style="color:#E8B4B4;padding:20px;font-family:monospace">Scout error: '+e.message+'<br><small>'+e.stack+'</small></div>';
-    console.error('Scout error:', e);
+    rootEl.innerHTML = '<div style="color:#E8B4B4;padding:20px;font-family:monospace">'
+      + 'Error: '+e.message+'</div>';
+    console.error('Site Scout error:', e);
   }
 }
 
-function mountScoutApp(React, ReactDOM, storage) {
-  var useState = React.useState;
-  var useEffect = React.useEffect;
-  var useMemo = React.useMemo;
-  window.storage = storage; // scout code uses window.storage
-  
-function _icon(sz,col,sw,path){return React.createElement('svg',{width:sz||16,height:sz||16,viewBox:'0 0 24 24',fill:'none',stroke:col||'currentColor',strokeWidth:sw||2,strokeLinecap:'round',strokeLinejoin:'round',style:{display:'inline-block',verticalAlign:'middle',flexShrink:0}},React.createElement('g',{dangerouslySetInnerHTML:{__html:path}}));}
+</script>
+<!-- Site Scout React component (pre-transpiled) -->
+<script>
+
+var _scoutIcons = {};
+function _icon(sz,col,sw,path){
+  return React.createElement('svg',{
+    width:sz||16,height:sz||16,viewBox:'0 0 24 24',fill:'none',
+    stroke:col||'currentColor',strokeWidth:sw||2,
+    strokeLinecap:'round',strokeLinejoin:'round',
+    style:{display:'inline-block',verticalAlign:'middle',flexShrink:0}
+  },React.createElement('g',{dangerouslySetInnerHTML:{__html:path}}));
+}
 var MapPin=function(p){return _icon(p.size,p.color,p.strokeWidth,'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>');};
 var TrendingUp=function(p){return _icon(p.size,p.color,p.strokeWidth,'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');};
-var Users=function(p){return _icon(p.size,p.color,p.strokeWidth,'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');};
+var Users=function(p){return _icon(p.size,p.color,p.strokeWidth,'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>');};
 var Shield=function(p){return _icon(p.size,p.color,p.strokeWidth,'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>');};
 var Zap=function(p){return _icon(p.size,p.color,p.strokeWidth,'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>');};
 var Plus=function(p){return _icon(p.size,p.color,p.strokeWidth,'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>');};
-var Trash2=function(p){return _icon(p.size,p.color,p.strokeWidth,'<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>');};
+var Trash2=function(p){return _icon(p.size,p.color,p.strokeWidth,'<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>');};
 var ChevronDown=function(p){return _icon(p.size,p.color,p.strokeWidth,'<polyline points="6 9 12 15 18 9"/>');};
 var ChevronUp=function(p){return _icon(p.size,p.color,p.strokeWidth,'<polyline points="18 15 12 9 6 15"/>');};
-var Fuel=function(p){return _icon(p.size,p.color,p.strokeWidth,'<line x1="3" y1="22" x2="15" y2="22"/><line x1="4" y1="9" x2="14" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>');};
+var Fuel=function(p){return _icon(p.size,p.color,p.strokeWidth,'<line x1="3" y1="22" x2="15" y2="22"/><line x1="4" y1="9" x2="14" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/>');};
 var X=function(p){return _icon(p.size,p.color,p.strokeWidth,'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>');};
 var Search=function(p){return _icon(p.size,p.color,p.strokeWidth,'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>');};
 var Settings=function(p){return _icon(p.size,p.color,p.strokeWidth,'<circle cx="12" cy="12" r="3"/>');};
-var Loader2=function(p){return _icon(p.size,p.color,p.strokeWidth,'<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>');};
+var Loader2=function(p){return _icon(p.size,p.color,p.strokeWidth,'<line x1="12" y1="2" x2="12" y2="6"/>');};
 
-  // React hooks available from outer scope
+// React hooks available from outer scope
 // icons defined below
 
 // ---------- Seed data: Murang'a + Kiambu County administrative wards ----------
@@ -7787,13 +7838,6 @@ function SiteScout() {
     }, "★ ", p.rating))))));
   })))))));
 }
-  var scoutRoot = document.getElementById('scoutRoot');
-  if (scoutRoot && !scoutRoot._reactRoot) {
-    scoutRoot._reactRoot = ReactDOM.createRoot(scoutRoot);
-    scoutRoot._reactRoot.render(React.createElement(SiteScout));
-  }
-}
 </script>
-
 </body>
 </html>
