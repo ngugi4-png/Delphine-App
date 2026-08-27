@@ -2023,13 +2023,16 @@ function loadAdminInit() {
 }
 
 function goToDashboard() {
-  document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
-  document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
-  document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
-  var dash = el('tabDash');
-  if (dash) dash.style.display = 'block';
-  loadDashboard();
+  setTimeout(function() {
+    document.querySelectorAll('.adm-panel').forEach(function(p){ p.style.display='none'; });
+    document.querySelectorAll('.adm-sub-nav').forEach(function(n){ n.style.display='none'; });
+    document.querySelectorAll('.adm-tab').forEach(function(t){ t.classList.remove('active'); });
+    var dash = el('tabDash');
+    if (dash) dash.style.display = 'block';
+    loadDashboard();
+  }, 60);
 }
+
 function populateBranchDropdowns() {
   var selects = ['apprBranchFilter','dsrBranch','plBranch','expBranch',
                  'billBranch','cr_branch','importBranch','trendBranch',
@@ -3755,6 +3758,17 @@ function editPO(poId) {
     toast('PO loaded — edit and save','ok');
     var f=document.getElementById('poLines');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});
   }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+
+function cancelPO(id) {
+  if (!confirm('Cancel this purchase order?')) return;
+  db.collection('purchaseOrders').doc(id).update({
+    status:   'cancelled',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Purchase Order cancelled','ok');
+    loadPurchases();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
 function cancelPO(id) {
