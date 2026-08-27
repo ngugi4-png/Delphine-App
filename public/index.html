@@ -2336,27 +2336,73 @@ function bulkDeleteReports() {
   var ids = Array.from(document.querySelectorAll('.appr-chk:checked')).map(function(c){return c.value;});
   if(!ids.length){toast('Select reports to delete','err');return;}
   if(!confirm('Delete '+ids.length+' report(s)? This cannot be undone.'))return;
-  var batch=db.batch();
-  ids.forEach(function(id){ batch.delete(db.collection('reports').doc(id)); });
-  batch.commit().then(function(){
-    toast('Deleted '+ids.length+' report(s)','ok');
-    loadApprovals();
-  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+
+  var total = ids.length;
+  var deleted = 0;
+  var errors = 0;
+  var bd = el('btnBulkDelete');
+  if(bd) bd.textContent = 'Deleting...';
+
+  // Delete in chunks of 400 (under Firestore 500 limit)
+  function deleteChunk(chunk, cb) {
+    var batch = db.batch();
+    chunk.forEach(function(id){
+      batch.delete(db.collection('reports').doc(id));
+    });
+    batch.commit().then(function(){
+      deleted += chunk.length;
+      cb(null);
+    }).catch(function(e){
+      // Fallback: delete individually
+      var promises = chunk.map(function(id){
+        return db.collection('reports').doc(id).delete()
+          .then(function(){deleted++;})
+          .catch(function(){errors++;});
+      });
+      Promise.all(promises).then(function(){ cb(null); });
+    });
+  }
+
+  var chunks = [];
+  for(var i=0;i<ids.length;i+=400) chunks.push(ids.slice(i,i+400));
+
+  function processNext(i) {
+    if(i >= chunks.length) {
+      toast('Deleted '+deleted+' report(s)'+(errors?' ('+errors+' errors)':''),'ok');
+      loadApprovals();
+      return;
+    }
+    deleteChunk(chunks[i], function(){ processNext(i+1); });
+  }
+  processNext(0);
 }
 
 function bulkApproveReports() {
   var ids = Array.from(document.querySelectorAll('.appr-chk:checked')).map(function(c){return c.value;});
   if(!ids.length){toast('Select reports to approve','err');return;}
   if(!confirm('Approve '+ids.length+' report(s)?'))return;
-  var batch=db.batch();
-  var now=firebase.firestore.FieldValue.serverTimestamp();
-  ids.forEach(function(id){
-    batch.update(db.collection('reports').doc(id),{approvalStatus:'approved',approvedAt:now,approvedBy:currentUser.email});
-  });
-  batch.commit().then(function(){
-    toast('Approved '+ids.length+' report(s)','ok');
-    loadApprovals();
-  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  var approved = 0;
+
+  function approveChunk(chunk, cb) {
+    var batch = db.batch();
+    chunk.forEach(function(id){
+      batch.update(db.collection('reports').doc(id),{
+        approvalStatus:'approved', approvedAt:now,
+        approvedBy: currentUser ? currentUser.email : 'admin'
+      });
+    });
+    batch.commit().then(function(){ approved+=chunk.length; cb(); })
+      .catch(function(e){ toast('Batch error: '+e.message,'err'); cb(); });
+  }
+
+  var chunks = [];
+  for(var i=0;i<ids.length;i+=400) chunks.push(ids.slice(i,i+400));
+  function next(i) {
+    if(i>=chunks.length){toast('Approved '+approved+' report(s)','ok');loadApprovals();return;}
+    approveChunk(chunks[i],function(){next(i+1);});
+  }
+  next(0);
 }
 function setStatus(id, status) {
   db.collection('reports').doc(id).update({approvalStatus:status,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
