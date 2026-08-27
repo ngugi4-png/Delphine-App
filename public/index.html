@@ -519,7 +519,6 @@ a { color: var(--gold); text-decoration: none; }
 
   <div id="subNav_mReports" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabSalesReport','mReports')">Sales Report</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPL','mReports')">P&amp;L</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabMonthlyClose','mReports')">Monthly Closing</button>
@@ -537,7 +536,6 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPurchases','mOps')">Purchase Orders</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabInventory','mOps')">Inventory</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
   </div>
   <div id="subNav_mSummary" class="adm-sub-nav"></div>
@@ -609,46 +607,6 @@ a { color: var(--gold); text-decoration: none; }
   </div>
 
   <!-- APPROVALS -->
-  <!-- SALES REPORT -->
-  <div id="tabSalesReport" class="adm-panel">
-    <div style="margin-bottom:16px">
-      <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px">Sales Report</h2>
-      <!-- Quick period buttons -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('today')">Today</button>
-        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('week')">This Week</button>
-        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('month')">This Month</button>
-        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('year')">This Year</button>
-        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('custom')">Custom</button>
-      </div>
-      <!-- Filters -->
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
-        <select id="srBranch" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
-          <option value="">All Branches</option>
-        </select>
-        <select id="srProduct" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
-          <option value="">All Products</option>
-          <option value="petrol">Petrol (PMS)</option>
-          <option value="p2t">2T Motor Oil</option>
-          <option value="p2tk">2T Kupima</option>
-          <option value="puoil">Used Oil</option>
-          <option value="pshell">Shell Advance</option>
-        </select>
-        <div id="srCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="date" id="srFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
-          <span style="font-size:0.72rem;color:var(--text3)">to</span>
-          <input type="date" id="srTo" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
-        </div>
-        <button class="btn btn-gold btn-sm" onclick="loadSalesReport()">&#8635; Load</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Sales Report','srTable','sales-report.pdf')">&#8615; PDF</button>
-      </div>
-    </div>
-    <!-- Summary KPIs -->
-    <div class="g4" id="srKpis" style="margin-bottom:16px"></div>
-    <!-- Table -->
-    <div id="srContent"><div class="empty">Select a period and click Load.</div></div>
-  </div>
-
   <div id="tabAppr" class="adm-panel">
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
@@ -874,119 +832,6 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
-  <!-- INVENTORY -->
-  <div id="tabInv" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Inventory</h2>
-    <div id="invContent"><div class="empty">Loading…</div></div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">Price Settings</div>
-      <div id="priceSettings"></div>
-    </div>
-  </div>
-
-  <!-- VENDORS & BILLS -->
-  <div id="tabVend" class="adm-panel">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <h2 style="font-size:1rem;font-weight:700">Vendors &amp; Bills</h2>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="generateVendorReport()">&#128196; Vendor Report</button>
-        <button class="btn btn-gold btn-sm" onclick="openAddVendor()">+ Add Vendor</button>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-title">Vendors</div>
-      <div id="vendorList"><div class="empty">Loading&#8230;</div></div>
-    </div>
-    <div class="g21">
-      <div>
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div class="card-title" style="margin:0">Bills</div>
-            <button class="btn btn-ghost btn-xs" onclick="loadBillList()">&#8635; Refresh</button>
-          </div>
-          <div id="billList"><div class="empty">No bills yet.</div></div>
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <div class="card-title" id="billFormTitle">Record Bill</div>
-          <input type="hidden" id="billEditId">
-          <div class="g2">
-            <div class="field"><label>Vendor</label><select id="billVendor"></select></div>
-            <div class="field"><label>Date</label><input type="date" id="billDate"></div>
-          </div>
-          <div class="field"><label>Invoice / Reference</label><input type="text" id="billRef" placeholder="Optional"></div>
-          <div class="field"><label>Notes</label><input type="text" id="billNote" placeholder="Optional"></div>
-          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Line Items</div>
-          <div id="billLines"></div>
-          <button class="btn btn-ghost btn-sm" onclick="addBillLine()" style="margin-bottom:14px">+ Add Line</button>
-          <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);margin-bottom:12px">
-            <span style="font-size:0.72rem;color:var(--text3)">Bill Total:</span>
-            <span id="billTotal" style="font-size:1.1rem;font-weight:700;color:var(--gold);font-family:var(--mono)">KSh 0</span>
-          </div>
-          <button class="btn btn-gold btn-sm btn-full" id="billSaveBtn" onclick="saveBill()">Save Bill</button>
-          <button class="btn btn-ghost btn-sm btn-full" id="billCancelEdit" style="display:none;margin-top:6px" onclick="cancelBillEdit()">Cancel Edit</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- CREATE REPORT -->
-  <div id="tabCreateReport" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Create Report</h2>
-    <div class="card" style="max-width:640px">
-      <div class="card-title">Manual Report Entry</div>
-      <div class="g2">
-        <div class="field"><label>Branch</label><select id="cr_branch"></select></div>
-        <div class="field"><label>Date</label><input type="date" id="cr_date"></div>
-        <div class="field"><label>Shift</label>
-          <select id="cr_shift">
-            <option>Full Day</option>
-          </select>
-        </div>
-        <div class="field"><label>Staff Name</label><input type="text" id="cr_staff"></div>
-      </div>
-      <div class="rg-label">Pump Readings</div>
-      <div class="g2">
-        <div class="field"><label>Metre Opening (L)</label><input type="number" id="cr_mo" step="0.01"></div>
-        <div class="field"><label>Metre Closing (L)</label><input type="number" id="cr_mc" step="0.01"></div>
-        <div class="field"><label>Display Opening (KSh)</label><input type="number" id="cr_do" step="0.01"></div>
-        <div class="field"><label>Display Closing (KSh)</label><input type="number" id="cr_dc" step="0.01" oninput="crCalc()"></div>
-      </div>
-      <div class="rg-label">Other Products</div>
-      <div class="g4">
-        <div class="field"><label>2T Oil (pcs)</label><input type="number" id="cr_p2t" value="0" step="1" oninput="crCalc()"></div>
-        <div class="field"><label>2T-Kupima (L)</label><input type="number" id="cr_p2tk" value="0" step="0.01" oninput="crCalc()"></div>
-        <div class="field"><label>Used Oil (L)</label><input type="number" id="cr_puoil" value="0" step="0.01" oninput="crCalc()"></div>
-        <div class="field"><label>Shell Adv (pcs)</label><input type="number" id="cr_pshell" value="0" step="1" oninput="crCalc()"></div>
-      </div>
-      <div class="rg-label">Cash</div>
-      <div class="g2">
-        <div class="field"><label>Cash Deposited (KSh)</label><input type="number" id="cr_deposit" value="0" step="0.01" oninput="crCalc()"></div>
-        <div class="field"><label>Expenses (KSh)</label><input type="number" id="cr_expenses" value="0" step="0.01" oninput="crCalc()"></div>
-      </div>
-      <div class="field"><label>Notes</label><textarea id="cr_notes" rows="2"></textarea></div>
-      <div id="cr_summary" style="margin:12px 0;padding:12px;background:var(--s2);border-radius:6px;font-size:0.72rem;color:var(--text2);display:none"></div>
-      <button class="btn btn-gold" onclick="saveAdminReport()">Save Report</button>
-    </div>
-  </div>
-
-  <!-- INVENTORY -->
-  <div id="tabInventory" class="adm-panel">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <h2 style="font-size:1rem;font-weight:700">Inventory</h2>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="loadInventory()">&#8635; Refresh</button>
-        <button class="btn btn-gold btn-sm" onclick="openSetStock()">+ Set Opening Stock</button>
-      </div>
-    </div>
-    <div class="field" style="max-width:200px;margin-bottom:16px">
-      <label>Filter Branch</label>
-      <select id="invBranchFilter" onchange="loadInventory()" style="width:100%">
-        <option value="">All Branches</option>
-      </select>
-    </div>
-    <div id="invList"><div class="empty">Loading&#8230;</div></div>
-  </div>
   <!-- IMPORT -->
   <div id="tabImport" class="adm-panel">
     <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Import Data</h2>
@@ -1917,7 +1762,7 @@ var PANEL_TO_TAB = {
   tabPurchases:    'mOps',
   tabDipStick:     'mOps',      tabDelivery:  'mOps',
   tabPumpCal:      'mOps',
-  tabBranchSummary:'mSummary', tabSalesReport:'mReports', tabScout:'mScout',
+  tabBranchSummary:'mSummary', tabScout:'mScout',
   tabExpenses:     'mFinance',  tabDebts:        'mFinance',
   tabPriceHistory: 'mFinance',  tabPayroll:      'mFinance',
   tabSupplierPay:  'mFinance',  tabCOGS: 'mFinance',
@@ -1993,7 +1838,6 @@ function showPanel(panelId) {
 // Panel init — runs once per panel open
 function panelInit(panelId) {
   switch(panelId) {
-    case 'tabSalesReport': initSalesReport(); break;
     case 'tabAppr':
       var _ab=el('apprBranchFilter');
       if(_ab&&_ab.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;_ab.appendChild(o);});}
@@ -5924,25 +5768,217 @@ function exportVendorReportPDF() {
 
 // ═══════════════════════════════════════════════════════════════
 
-// ═══ INVENTORY AUTO-SYNC ═══
+// ═══════════════════════════════════════════════════════════════
+// INVENTORY AUTO-SYNC
+// ═══════════════════════════════════════════════════════════════
+function updateInventoryFromReport(reportData, mult) {
+  var branch = reportData.branch;
+  if (!branch) return;
+  var updates = [];
+  var lit = (reportData.pump && reportData.pump.metre && reportData.pump.metre.sold) || 0;
+  if (lit > 0) updates.push({product:'Petrol (PMS)', branch:branch, qty:lit});
+  var pm = [{key:'p2t',name:'2T Motor Oil'},{key:'p2tk',name:'2T-Kupima'},
+            {key:'puoil',name:'Used Oil'},{key:'pshell',name:'Shell Advance'}];
+  var prods = reportData.products || {};
+  pm.forEach(function(p){
+    var q = (prods[p.key] && prods[p.key].qty) || 0;
+    if (q > 0) updates.push({product:p.name, branch:branch, qty:q});
+  });
+  updates.forEach(function(u){
+    var docId = (u.branch+'_'+u.product).replace(/[^a-z0-9]/gi,'_');
+    var ref = db.collection('inventory').doc(docId);
+    db.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        var cur = snap.exists ? (snap.data().qty||0) : 0;
+        tx.set(ref,{branch:u.branch,product:u.product,
+          qty: cur - (u.qty * mult),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      });
+    }).catch(function(e){console.warn('Inv sync:',e.message);});
+  });
+}
 
-// ═══ INVENTORY UI ═══
+function syncInventoryFromPurchase(billData) {
+  (billData.lineItems||[]).forEach(function(l){
+    if (!l.description||!l.branch||!l.qty) return;
+    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9]/gi,'_');
+    var ref = db.collection('inventory').doc(docId);
+    db.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        var cur = snap.exists ? (snap.data().qty||0) : 0;
+        tx.set(ref,{branch:l.branch,product:l.description,
+          qty:Math.max(0,cur+parseFloat(l.qty)),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      });
+    }).catch(function(e){console.warn('Purchase inv:',e.message);});
+  });
+}
 
+// ═══════════════════════════════════════════════════════════════
+// INVENTORY MANAGEMENT UI
+// ═══════════════════════════════════════════════════════════════
+function loadInventory() {
+  var c = el('invList'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading\u2026</div>';
+  var bf = el('invBranchFilter');
+  if (bf && bf.options.length<=1) {
+    BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bf.appendChild(o);});
+  }
+  var branch = (bf||{}).value||'';
+  db.collection('inventory').get().then(function(snap){
+    var items=[];
+    snap.forEach(function(d){items.push(Object.assign({id:d.id},d.data()));});
+    if (branch) items=items.filter(function(i){return i.branch===branch;});
+    items.sort(function(a,b){return (a.branch+a.product).localeCompare(b.branch+b.product);});
+    if (!items.length){
+      c.innerHTML='<div class="empty">No inventory records. Use <b>+ Set Opening Stock</b> to begin.</div>';
+      return;
+    }
+    var byBranch={};
+    items.forEach(function(i){if(!byBranch[i.branch])byBranch[i.branch]=[];byBranch[i.branch].push(i);});
+    var html2='';
+    Object.keys(byBranch).sort().forEach(function(b){
+      html2+='<div class="card" style="margin-bottom:16px"><div class="card-title">'+b+'</div>'
+        +'<table class="tbl"><thead><tr><th>Product</th><th class="num">Qty/L</th><th>Status</th><th></th></tr></thead><tbody>';
+      byBranch[b].forEach(function(item){
+        var qty=typeof item.qty==='number'?item.qty:0;
+        var col=qty>5000?'var(--green)':qty>0?'var(--gold)':'var(--red)';
+        var status=qty>5000?'OK':qty>0?'Low':qty<0?'Deficit':'Empty';
+        html2+='<tr><td style="font-weight:500">'+(item.product||item.id)+'</td>'
+          +'<td class="num" style="color:'+col+';font-weight:700;font-family:var(--mono)">'+qty.toFixed(qty%1===0?0:2)+'</td>'
+          +'<td><span style="color:'+col+';font-size:0.72rem;font-weight:600">'+status+'</span></td>'
+          +'<td><button class="btn btn-blue btn-xs" onclick="openAdjustStock(\''+item.id+'\','+qty+')">Adjust</button></td></tr>';
+      });
+      html2+='</tbody></table></div>';
+    });
+    c.innerHTML=html2;
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+}
 
+function openSetStock() {
+  var brOpts=BRANCHES.map(function(b){return '<option value="'+b+'">'+b+'</option>';}).join('');
+  var prOpts=['Petrol (PMS)','2T Motor Oil','2T-Kupima','Used Oil','Shell Advance']
+    .map(function(p){return '<option value="'+p+'">'+p+'</option>';}).join('');
+  openModal('Set Opening Stock',
+    '<div class="field"><label>Branch</label><select id="ossBranch">'+brOpts+'</select></div>'
+    +'<div class="field"><label>Product</label><select id="ossProduct">'+prOpts+'</select></div>'
+    +'<div class="field"><label>Quantity / Litres</label><input type="number" id="ossQty" min="0" step="0.01"></div>'
+    +'<div class="field"><label>Notes</label><input type="text" id="ossNotes" placeholder="e.g. Opening stock 1 Aug 2026"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveOpeningStock()">Save</button>');
+}
 
+function openAdjustStock(docId, currentQty) {
+  openModal('Adjust Stock - '+docId.replace(/_/g,' '),
+    '<div class="field"><label>Current Qty</label><input type="number" id="adjCurrent" value="'+currentQty+'" readonly style="opacity:0.6"></div>'
+    +'<div class="field"><label>New Qty</label><input type="number" id="adjNew" value="'+currentQty+'" step="0.01"></div>'
+    +'<div class="field"><label>Reason</label><input type="text" id="adjReason" placeholder="e.g. Physical stock count"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveStockAdjust(\''+docId+'\')">Save Adjustment</button>');
+}
 
+function saveOpeningStock() {
+  var branch=gv('ossBranch'),product=gv('ossProduct');
+  var qty=parseFloat(gv('ossQty'))||0,notes=gv('ossNotes');
+  if(!branch||!product){toast('Select branch and product','err');return;}
+  var docId=(branch+'_'+product).replace(/[^a-z0-9]/gi,'_');
+  db.collection('inventory').doc(docId).set({
+    branch:branch,product:product,qty:qty,notes:notes,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true}).then(function(){
+    toast('Stock set: '+branch+' '+product+' = '+qty,'ok');
+    closeModal();loadInventory();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
 
+function saveStockAdjust(docId) {
+  var newQty=parseFloat(gv('adjNew'))||0,reason=gv('adjReason')||'Manual adjustment';
+  db.collection('inventory').doc(docId).update({
+    qty:newQty,notes:reason,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Stock updated to '+newQty,'ok');
+    closeModal();loadInventory();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
 
+// ═══════════════════════════════════════════════════════════════
+// SALES REPORT
+// ═══════════════════════════════════════════════════════════════
+function initSalesReport() {
+  var sb=el('srBranch');
+  if(sb&&sb.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;sb.appendChild(o);});}
+  srSetPeriod('month');
+}
 
+function srSetPeriod(p) {
+  var now=new Date(),to=todayStr(),from='';
+  var cd=el('srCustomRange');
+  if(cd)cd.style.display='none';
+  if(p==='today'){from=to;}
+  else if(p==='week'){var d=new Date(now);d.setDate(d.getDate()-d.getDay());from=d.toISOString().slice(0,10);}
+  else if(p==='month'){from=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';}
+  else if(p==='year'){from=now.getFullYear()+'-01-01';}
+  else if(p==='custom'){if(cd)cd.style.display='flex';return;}
+  var f=el('srFrom'),t=el('srTo');
+  if(f)f.value=from;if(t)t.value=to;
+  loadSalesReport();
+}
 
-
-
-// ═══ SALES REPORT ═══
-
-
-
-
-
+function loadSalesReport() {
+  var from=(el('srFrom')||{}).value||'';
+  var to=(el('srTo')||{}).value||'';
+  var branch=(el('srBranch')||{}).value||'';
+  var product=(el('srProduct')||{}).value||'';
+  var c=el('srContent'),kpis=el('srKpis');
+  if(!c)return;
+  if(!from){c.innerHTML='<div class="empty">Select a period above.</div>';return;}
+  c.innerHTML='<div class="empty">Loading\u2026</div>';
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
+  if(branch)q=q.where('branch','==',branch);
+  q.get().then(function(snap){
+    var rows=[];
+    snap.forEach(function(d){rows.push(d.data());});
+    rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var totRev=0,totLit=0,totP2t=0,totPuoil=0,totPshell=0,totGrand=0;
+    rows.forEach(function(r){
+      totRev  +=(r.pump&&r.pump.display&&r.pump.display.sold)||0;
+      totLit  +=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      totP2t  +=((r.products&&r.products.p2t&&r.products.p2t.total)||0)+((r.products&&r.products.p2tk&&r.products.p2tk.total)||0);
+      totPuoil+=(r.products&&r.products.puoil&&r.products.puoil.total)||0;
+      totPshell+=(r.products&&r.products.pshell&&r.products.pshell.total)||0;
+      totGrand+=r.grandTotal||0;
+    });
+    if(kpis)kpis.innerHTML=
+      '<div class="stat-tile"><div class="st-label">Total Revenue</div><div class="st-val" style="font-size:1.2rem">'+fmt(totGrand)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" style="font-size:1.2rem">'+totLit.toFixed(1)+'L</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Petrol Rev</div><div class="st-val" style="font-size:1.2rem">'+fmt(totRev)+'</div></div>'
+      +'<div class="stat-tile"><div class="st-label">Reports</div><div class="st-val" style="font-size:1.2rem">'+rows.length+'</div></div>';
+    if(!rows.length){c.innerHTML='<div class="empty">No approved reports found. Check filters or approve reports first.</div>';return;}
+    var showAll=!product;
+    var h='<div style="overflow-x:auto"><table class="tbl" id="srTable"><thead><tr><th>Date</th><th>Branch</th>'
+      +(showAll||product==='petrol'?'<th class="num">Petrol Rev</th>':'')
+      +(showAll?'<th class="num">Litres</th>':'')
+      +(showAll||product==='p2t'||product==='p2tk'?'<th class="num">2T Oil</th>':'')
+      +(showAll||product==='puoil'?'<th class="num">Used Oil</th>':'')
+      +(showAll||product==='pshell'?'<th class="num">Shell Adv</th>':'')
+      +'<th class="num">Total</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var pr=(r.pump&&r.pump.display&&r.pump.display.sold)||0;
+      var lt=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      var p2=((r.products&&r.products.p2t&&r.products.p2t.total)||0)+((r.products&&r.products.p2tk&&r.products.p2tk.total)||0);
+      var pu=(r.products&&r.products.puoil&&r.products.puoil.total)||0;
+      var ps=(r.products&&r.products.pshell&&r.products.pshell.total)||0;
+      h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td>'
+        +(showAll||product==='petrol'?'<td class="num">'+fmt(pr)+'</td>':'')
+        +(showAll?'<td class="num">'+lt.toFixed(1)+'L</td>':'')
+        +(showAll||product==='p2t'||product==='p2tk'?'<td class="num">'+fmt(p2)+'</td>':'')
+        +(showAll||product==='puoil'?'<td class="num">'+fmt(pu)+'</td>':'')
+        +(showAll||product==='pshell'?'<td class="num">'+fmt(ps)+'</td>':'')
+        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(r.grandTotal||0)+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    c.innerHTML=h;
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+}
 
 // KILL SERVICE WORKERS (they block Firebase)
 // ═══════════════════════════════════════════════════════════════
