@@ -2236,18 +2236,35 @@ function loadApprovals() {
   var from   = gv('apprFrom')||'';
   var to     = gv('apprTo')||'';
 
-  // Build query — only filter by date/branch server-side (status needs special handling for 'all')
+  // Server-side: only one field to avoid composite index requirement
+  // Branch, source, status filtered client-side
   var q = db.collection('reports');
-  if (from) q = q.where('date','>=',from);
-  if (to)   q = q.where('date','<=',to);
-  if (branch) q = q.where('branch','==',branch);
-  // Status: only add server-side filter when specific value selected
-  if (status) q = q.where('approvalStatus','==',status);
+  if (from && to && !status) {
+    // Date range only
+    q = q.where('date','>=',from).where('date','<=',to);
+  } else if (status && !from) {
+    // Status only
+    q = q.where('approvalStatus','==',status);
+  } else if (status) {
+    // Status + date range (needs index) — filter date client-side
+    q = q.where('approvalStatus','==',status);
+  } else if (from) {
+    q = q.where('date','>=',from).where('date','<=',to);
+  }
 
   q.limit(300).get().then(function(snap){
     var docs=[]; snap.forEach(function(d){docs.push(d);});
 
-    // Client-side source filter
+    // Client-side filters: branch, source, date (when status query skips date)
+    if (branch) {
+      docs = docs.filter(function(d){ return d.data().branch === branch; });
+    }
+    if (from) {
+      docs = docs.filter(function(d){ return (d.data().date||'') >= from; });
+    }
+    if (to) {
+      docs = docs.filter(function(d){ return (d.data().date||'') <= to; });
+    }
     if (source) {
       docs = docs.filter(function(d){
         var s = d.data().source||'';
