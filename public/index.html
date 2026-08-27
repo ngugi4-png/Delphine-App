@@ -608,10 +608,17 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- APPROVALS -->
   <div id="tabAppr" class="adm-panel">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <h2 style="font-size:1rem;font-weight:700">Approvals</h2>
-      <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Approvals Report','apprTbl','approvals.pdf')">Export PDF</button>
-      <div style="display:flex;gap:8px">
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <h2 style="font-size:1rem;font-weight:700">Reports</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Reports','apprTbl','reports.pdf')">PDF</button>
+          <button class="btn btn-red btn-sm" id="btnBulkDelete" style="display:none" onclick="bulkDeleteReports()">&#128465; Delete Selected</button>
+          <button class="btn btn-green btn-sm" id="btnBulkApprove" style="display:none" onclick="bulkApproveReports()">&#10003; Approve Selected</button>
+        </div>
+      </div>
+      <!-- Filters -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <select id="apprBranchFilter" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
           <option value="">All Branches</option>
         </select>
@@ -619,11 +626,22 @@ a { color: var(--gold); text-decoration: none; }
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
-          <option value="">All</option>
+          <option value="">All Status</option>
         </select>
+        <select id="apprSourceFilter" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="">All Sources</option>
+          <option value="import">Imported Only</option>
+          <option value="manual">Manual Only</option>
+        </select>
+        <input type="date" id="apprFrom" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <input type="date" id="apprTo" onchange="loadApprovals()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <button class="btn btn-gold btn-sm" onclick="loadApprovals()">&#8635; Load</button>
+        <label style="font-size:0.72rem;color:var(--text3);display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="apprSelectAll" onchange="toggleSelectAll(this)"> Select All
+        </label>
       </div>
     </div>
-    <div id="apprList"><div class="empty">Loading…</div></div>
+    <div id="apprList"><div class="empty">Select filters and click Load.</div></div>
   </div>
 
   <!-- DAILY SALES -->
@@ -1820,7 +1838,16 @@ function showPanel(panelId) {
 // Panel init — runs once per panel open
 function panelInit(panelId) {
   switch(panelId) {
-    case 'tabAppr':         loadApprovals();     break;
+    case 'tabAppr':
+      var _ab=el('apprBranchFilter');
+      if(_ab&&_ab.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;_ab.appendChild(o);});}
+      // Default: current month, all status
+      var _af=el('apprFrom'),_at=el('apprTo');
+      if(_af&&!_af.value){var _now=new Date();_af.value=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-01';}
+      if(_at&&!_at.value){_at.value=todayStr();}
+      var _asf=el('apprStatusFilter'); if(_asf) _asf.value='';
+      loadApprovals();
+      break;
     case 'tabSales':        initDSR();           break;
     case 'tabPL':           initPL();            break;
     case 'tabStock':        loadStock();         break;
@@ -2202,39 +2229,118 @@ function loadDashboard() {
 // ═══════════════════════════════════════════════════════════════
 function loadApprovals() {
   var c=el('apprList'); if(!c) return;
-  c.innerHTML='<div class="empty">Loading…</div>';
-  var status=gv('apprStatusFilter')||'pending';
-  var branch=gv('apprBranchFilter');
-  var q=db.collection('reports').where('approvalStatus','==',status);
-  if(branch) q=q.where('branch','==',branch);
-  q.limit(100).get().then(function(snap){
-    var _docs=[]; snap.forEach(function(d){_docs.push(d);}); 
-    _docs.sort(function(a,b){var ta=a.data().createdAt,tb=b.data().createdAt;
-      if(!ta||!tb)return 0;return tb.seconds-ta.seconds;});
-    snap={forEach:function(fn){_docs.forEach(fn);},size:_docs.length,empty:!_docs.length};
-    if(snap.empty){c.innerHTML='<div class="empty">No reports found.</div>';return;}
-    var html='<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th>Shift</th><th>Staff</th>'
-      +'<th class="num">Litres</th><th class="num">Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
-    snap.forEach(function(d){
-      var r=d.data(); var id=d.id;
-      var sc=r.approvalStatus==='approved'?'badge-green':r.approvalStatus==='rejected'?'badge-red':'badge-gold';
-      html+='<tr>'
-        +'<td>'+r.date+'</td><td>'+r.branch+'</td><td>'+(r.shift||'-')+'</td><td>'+r.staffName+'</td>'
-        +'<td class="num">'+((r.pump&&r.pump.metre&&r.pump.metre.sold)||0).toFixed(1)+'</td>'
-        +'<td class="num">'+fmt(r.grandTotal)+'</td>'
+  c.innerHTML='<div class="empty">Loading\u2026</div>';
+  var status = gv('apprStatusFilter')||'';
+  var branch = gv('apprBranchFilter')||'';
+  var source = gv('apprSourceFilter')||'';
+  var from   = gv('apprFrom')||'';
+  var to     = gv('apprTo')||'';
+
+  // Build query — only filter by date/branch server-side (status needs special handling for 'all')
+  var q = db.collection('reports');
+  if (from) q = q.where('date','>=',from);
+  if (to)   q = q.where('date','<=',to);
+  if (branch) q = q.where('branch','==',branch);
+  // Status: only add server-side filter when specific value selected
+  if (status) q = q.where('approvalStatus','==',status);
+
+  q.limit(300).get().then(function(snap){
+    var docs=[]; snap.forEach(function(d){docs.push(d);});
+
+    // Client-side source filter
+    if (source) {
+      docs = docs.filter(function(d){
+        var s = d.data().source||'';
+        return source==='import' ? s==='import' : s!=='import';
+      });
+    }
+
+    // Sort by date desc
+    docs.sort(function(a,b){ return (b.data().date||'').localeCompare(a.data().date||''); });
+
+    // Update bulk action buttons visibility
+    var hasImported = docs.some(function(d){return d.data().source==='import';});
+    var bd=el('btnBulkDelete'), ba=el('btnBulkApprove');
+    if(bd) bd.style.display = docs.length ? 'inline-block' : 'none';
+    if(ba) ba.style.display = docs.some(function(d){return d.data().approvalStatus!=='approved';}) ? 'inline-block' : 'none';
+
+    if(!docs.length){c.innerHTML='<div class="empty">No reports found. Try changing filters or date range.</div>';return;}
+
+    var html = '<table class="tbl" id="apprTbl"><thead><tr>'
+      +'<th style="width:32px"><input type="checkbox" id="apprChkAll" onchange="toggleSelectAll(this)"></th>'
+      +'<th>Date</th><th>Branch</th><th>Shift</th><th>Staff</th>'
+      +'<th class="num">Litres</th><th class="num">Total</th>'
+      +'<th>Status</th><th>Source</th><th>Actions</th>'
+      +'</tr></thead><tbody>';
+
+    docs.forEach(function(d){
+      var r=d.data(), id=d.id;
+      var sc = r.approvalStatus==='approved'?'badge-green':r.approvalStatus==='rejected'?'badge-red':'badge-gold';
+      var lit = (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      var srcBadge = r.source==='import'?'<span class="badge badge-blue" style="font-size:0.55rem">imported</span>':'manual';
+      html += '<tr>'
+        +'<td><input type="checkbox" class="appr-chk" value="'+id+'" onchange="updateBulkButtons()"></td>'
+        +'<td>'+r.date+'</td>'
+        +'<td>'+r.branch+'</td>'
+        +'<td>'+(r.shift||'-')+'</td>'
+        +'<td>'+(r.staffName||'-')+'</td>'
+        +'<td class="num">'+lit.toFixed(1)+'L</td>'
+        +'<td class="num">'+fmt(r.grandTotal||0)+'</td>'
         +'<td><span class="badge '+sc+'">'+r.approvalStatus+'</span></td>'
+        +'<td>'+srcBadge+'</td>'
         +'<td style="display:flex;gap:4px">'
-        +(r.approvalStatus!=='approved'?'<button class="btn btn-green btn-xs" onclick="setStatus(\''+id+'\',\'approved\')">✓ Approve</button>':'')
-        +(r.approvalStatus!=='rejected'?'<button class="btn btn-red btn-xs" onclick="setStatus(\''+id+'\',\'rejected\')">✗ Reject</button>':'')
-        +'<button class="btn btn-ghost btn-xs" onclick="deleteReport(\''+id+'\')">🗑</button>'
+        +(r.approvalStatus!=='approved'?'<button class="btn btn-green btn-xs" onclick="setStatus(\''+id+'\',\'approved\')">&#10003;</button>':'')
+        +(r.approvalStatus!=='rejected'?'<button class="btn btn-red btn-xs" onclick="setStatus(\''+id+'\',\'rejected\')">&#10005;</button>':'')
+        +'<button class="btn btn-ghost btn-xs" onclick="deleteReport(\''+id+'\')">&#128465;</button>'
         +'</td></tr>';
     });
-    html+='</tbody></table>';
-    c.innerHTML=html;
-  }
-    .catch(function(e){ _dbErr('query', e); }));
+    html += '</tbody></table>';
+    c.innerHTML = html;
+  }).catch(function(e){
+    c.innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'<br><small>Try adding a date range filter to reduce results.</small></div>';
+  });
 }
 
+function toggleSelectAll(chk) {
+  document.querySelectorAll('.appr-chk').forEach(function(c){ c.checked=chk.checked; });
+  updateBulkButtons();
+}
+
+function updateBulkButtons() {
+  var checked = document.querySelectorAll('.appr-chk:checked').length;
+  var bd=el('btnBulkDelete'), ba=el('btnBulkApprove');
+  if(bd) bd.style.display = checked ? 'inline-block' : 'none';
+  if(ba) ba.style.display = checked ? 'inline-block' : 'none';
+  if(bd) bd.textContent = '\uD83D\uDDD1 Delete Selected ('+checked+')';
+  if(ba) ba.textContent = '\u2713 Approve Selected ('+checked+')';
+}
+
+function bulkDeleteReports() {
+  var ids = Array.from(document.querySelectorAll('.appr-chk:checked')).map(function(c){return c.value;});
+  if(!ids.length){toast('Select reports to delete','err');return;}
+  if(!confirm('Delete '+ids.length+' report(s)? This cannot be undone.'))return;
+  var batch=db.batch();
+  ids.forEach(function(id){ batch.delete(db.collection('reports').doc(id)); });
+  batch.commit().then(function(){
+    toast('Deleted '+ids.length+' report(s)','ok');
+    loadApprovals();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function bulkApproveReports() {
+  var ids = Array.from(document.querySelectorAll('.appr-chk:checked')).map(function(c){return c.value;});
+  if(!ids.length){toast('Select reports to approve','err');return;}
+  if(!confirm('Approve '+ids.length+' report(s)?'))return;
+  var batch=db.batch();
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  ids.forEach(function(id){
+    batch.update(db.collection('reports').doc(id),{approvalStatus:'approved',approvedAt:now,approvedBy:currentUser.email});
+  });
+  batch.commit().then(function(){
+    toast('Approved '+ids.length+' report(s)','ok');
+    loadApprovals();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
 function setStatus(id, status) {
   db.collection('reports').doc(id).update({approvalStatus:status,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){ toast('Report '+status,'ok'); loadApprovals(); });
