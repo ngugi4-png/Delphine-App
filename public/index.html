@@ -2276,10 +2276,9 @@ function loadApprovals() {
     docs.sort(function(a,b){ return (b.data().date||'').localeCompare(a.data().date||''); });
 
     // Update bulk action buttons visibility
-    var hasImported = docs.some(function(d){return d.data().source==='import';});
     var bd=el('btnBulkDelete'), ba=el('btnBulkApprove');
     if(bd) bd.style.display = docs.length ? 'inline-block' : 'none';
-    if(ba) ba.style.display = docs.some(function(d){return d.data().approvalStatus!=='approved';}) ? 'inline-block' : 'none';
+    if(ba) ba.style.display = docs.length ? 'inline-block' : 'none';
 
     if(!docs.length){c.innerHTML='<div class="empty">No reports found. Try changing filters or date range.</div>';return;}
 
@@ -2334,7 +2333,10 @@ function bulkDeleteReports() {
   var checkboxes = document.querySelectorAll('.appr-chk:checked');
   var ids = [];
   checkboxes.forEach(function(cb){ ids.push(cb.value); });
-  if (!ids.length) { toast('Check at least one report first', 'err'); return; }
+  if (!ids.length) {
+    document.querySelectorAll('.appr-chk').forEach(function(cb){ ids.push(cb.value); });
+  }
+  if (!ids.length) { toast('No reports visible','err'); return; }
   if (!confirm('Permanently delete ' + ids.length + ' report(s)? Cannot be undone.')) return;
 
   var btn = el('btnBulkDelete');
@@ -2362,7 +2364,10 @@ function bulkApproveReports() {
   var checkboxes = document.querySelectorAll('.appr-chk:checked');
   var ids = [];
   checkboxes.forEach(function(cb){ ids.push(cb.value); });
-  if (!ids.length) { toast('Check at least one report first', 'err'); return; }
+  if (!ids.length) {
+    document.querySelectorAll('.appr-chk').forEach(function(cb){ ids.push(cb.value); });
+  }
+  if (!ids.length) { toast('No reports visible','err'); return; }
   if (!confirm('Approve ' + ids.length + ' report(s)?')) return;
 
   var btn = el('btnBulkApprove');
@@ -2387,6 +2392,18 @@ function bulkApproveReports() {
   next();
 }
 
+
+function setStatus(id, status) {
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  var data = {approvalStatus:status, updatedAt:now};
+  if (status==='approved') {
+    data.approvedAt = now;
+    data.approvedBy = currentUser ? currentUser.email : 'admin';
+  }
+  db.collection('reports').doc(id).update(data)
+    .then(function(){ toast('Report '+status,'ok'); loadApprovals(); })
+    .catch(function(e){ toast('Error: '+e.message,'err'); });
+}
 
 function deleteReport(id) {
   if(!confirm('Delete this report?')) return;
