@@ -536,6 +536,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPurchases','mOps')">Purchase Orders</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabInventory','mOps')">Inventory</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
   </div>
   <div id="subNav_mSummary" class="adm-sub-nav"></div>
@@ -832,6 +833,23 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
+  <!-- INVENTORY -->
+  <div id="tabInventory" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Inventory</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadInventory()">&#8635; Refresh</button>
+        <button class="btn btn-gold btn-sm" onclick="openSetStock()">+ Set Opening Stock</button>
+      </div>
+    </div>
+    <div class="field" style="max-width:200px;margin-bottom:16px">
+      <label>Filter Branch</label>
+      <select id="invBranchFilter" onchange="loadInventory()" style="width:100%">
+        <option value="">All Branches</option>
+      </select>
+    </div>
+    <div id="invList"><div class="empty">Loading&#8230;</div></div>
+  </div>
   <!-- IMPORT -->
   <div id="tabImport" class="adm-panel">
     <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Import Data</h2>
@@ -4712,150 +4730,29 @@ function loadStaffPerf() {
 // ═══════════════════════════════════════════════════════════════
 function loadDashboardExtras() {
   var LOW = 5000, month = new Date().toISOString().slice(0,7);
-  // Low stock
+  // Low stock widget — reads per-product inventory docs
   var ls = el('dashLowStock');
   if (ls) ls.innerHTML = '<div class="empty">Checking\u2026</div>';
   Promise.all(BRANCHES.map(function(b){
-    return db.collection('inventory').doc(b).get()
-      .then(function(s){ return {branch:b,d:s.exists?s.data():{}}; })
-      .catch(function(){ return {branch:b,d:{}}; });
+    var docId = (b+'_Petrol__PMS_');
+    return db.collection('inventory').doc(docId).get()
+      .then(function(s){ return {branch:b, qty:s.exists?(s.data().qty||0):null}; })
+      .catch(function(){ return {branch:b, qty:null}; });
   })).then(function(results){
     if (!ls) return;
-    var rows='';
+    var rows = '';
     results.forEach(function(r){
-      var petrol=r.d.petrol||r.d.qty||0;
-      var col=petrol>=LOW?'var(--green)':petrol>0?'var(--red)':'var(--text3)';
-      var icon=petrol>=LOW?'\u2713':petrol>0?'\u26a0':'\u2014';
-      rows+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
+      var noData = r.qty === null;
+      var qty = r.qty || 0;
+      var col = noData?'var(--text3)': qty>=LOW?'var(--green)':qty>=0?'var(--red)':'var(--amber,#e09c00)';
+      var icon = noData?'\u2014': qty>=LOW?'\u2713':'\u26a0';
+      var label = noData?'No stock data':qty.toFixed(0)+'L'+(qty<0?' (deficit)':'');
+      rows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
         +'<span style="font-size:0.75rem;font-weight:500">'+r.branch+'</span>'
-        +'<span style="font-weight:700;font-family:var(--mono);color:'+col+'">'+icon+' '+petrol.toFixed(0)+'L</span></div>';
+        +'<span style="font-weight:700;font-family:var(--mono);color:'+col+'">'+icon+' '+label+'</span></div>';
     });
-    ls.innerHTML = rows||'<div class="empty">No inventory data yet</div>';
+    ls.innerHTML = rows || '<div class="empty">No inventory data yet</div>';
   }).catch(function(){ if(ls) ls.innerHTML='<div class="empty">\u2014</div>'; });
-  // Targets
-  var dt = el('dashTargets');
-  if (dt) dt.innerHTML = '<div class="empty">Loading\u2026</div>';
-  db.collection('reports').where('date','>=',month+'-01').where('date','<=',month+'-31').get()
-    .then(function(rSnap){
-      var actual={};
-      rSnap.forEach(function(d){ var r=d.data(); if(r.approvalStatus!=='approved') return; actual[r.branch]=(actual[r.branch]||0)+(r.grandTotal||0); });
-      db.collection('targets').doc(month).get().then(function(tSnap){
-        var targets=tSnap.exists?tSnap.data():{};
-        if (!dt) return;
-        var rows2='';
-        BRANCHES.forEach(function(b){
-          var target=targets[b+'_revenue']||targets[b]||0;
-          var act=actual[b]||0;
-          var pct=target>0?Math.min(100,(act/target*100)).toFixed(0):0;
-          var col=pct>=100?'var(--green)':pct>=70?'var(--gold)':'var(--red)';
-          rows2+='<div style="margin-bottom:12px">'
-            +'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px">'
-            +'<span style="font-weight:500">'+b+'</span>'
-            +'<span style="font-family:var(--mono)">'+fmt(act)+' / '+(target?fmt(target):'No target')+'</span></div>'
-            +'<div style="background:var(--s2);border-radius:4px;height:8px;overflow:hidden">'
-            +'<div style="height:8px;border-radius:4px;background:'+col+';width:'+pct+'%;transition:width 0.6s"></div>'
-            +'</div></div>';
-        });
-        dt.innerHTML=rows2||'<div class="empty">No targets set. Add via Settings \u2192 Targets.</div>';
-      }).catch(function(){ if(dt) dt.innerHTML='<div class="empty">\u2014</div>'; });
-    }).catch(function(){ if(dt) dt.innerHTML='<div class="empty">\u2014</div>'; });
-}
-function loadProducts() {
-  var c = document.getElementById('productList');
-  if (!c) return;
-  db.collection('products').get().then(function(snap) {
-    var h = '';
-
-    // Show built-in products first
-    h += '<div class="info-note" style="margin-bottom:10px">Built-in products (always available):</div>';
-    var builtIn = [
-      {name:'Petrol (PMS)',  unit:'L',   category:'fuel'},
-      {name:'2T Motor Oil',  unit:'pcs', category:'lubricant'},
-      {name:'2T-Kupima',     unit:'L',   category:'lubricant'},
-      {name:'Used Oil',      unit:'L',   category:'lubricant'},
-      {name:'Shell Advance', unit:'pcs', category:'lubricant'}
-    ];
-    builtIn.forEach(function(p) {
-      h += '<div class="u-row">'
-        + '<div class="u-info" style="flex:1">'
-        + '<span class="u-name">'+p.name+'</span>'
-        + '<span class="badge badge-gold" style="margin:0 6px">'+p.unit+'</span>'
-        + '<span class="badge badge-blue">'+p.category+'</span>'
-        + '</div>'
-        + '<span class="badge badge-green">Built-in</span>'
-        + '</div>';
-    });
-
-    if (!snap.empty) {
-      h += '<div class="info-note" style="margin:12px 0 8px">Custom products:</div>';
-      CUSTOM_PRODUCTS = [];
-      snap.forEach(function(d) {
-        var p = d.data(); p.id = d.id;
-        CUSTOM_PRODUCTS.push(p);
-        h += '<div class="u-row">'
-          + '<div class="u-info" style="flex:1">'
-          + '<span class="u-name">'+p.name+'</span>'
-          + '<span class="badge badge-gold" style="margin:0 6px">'+p.unit+'</span>'
-          + '<span class="badge badge-blue">'+p.category+'</span>'
-          + (p.price ? '<span class="u-email" style="margin-left:6px">KSh '+p.price+'/'+p.unit+'</span>' : '')
-          + '</div>'
-          + '<button class="btn btn-red btn-xs" onclick="deleteProduct(\''+d.id+'\',\''+p.name.replace(/'/g,'')+'\')">Remove</button>'
-          + '</div>';
-      });
-    }
-
-    c.innerHTML = h;
-    // Rebuild product dropdowns with custom products included
-    rebuildProductDropdowns();
-  }).catch(function(e) {
-    c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>';
-  });
-}
-
-function saveProduct() {
-  var name     = (document.getElementById('prodName')||{}).value.trim();
-  var unit     = (document.getElementById('prodUnit')||{}).value     || 'L';
-  var category = (document.getElementById('prodCategory')||{}).value || 'other';
-  var price    = parseFloat((document.getElementById('prodPrice')||{}).value) || 0;
-  var track    = (document.getElementById('prodTrack')||{}).value    || 'yes';
-  var notes    = (document.getElementById('prodNotes')||{}).value    || '';
-
-  if (!name) { toast('Enter a product name', 'err'); return; }
-
-  db.collection('products').add({
-    name: name, unit: unit, category: category,
-    price: price, trackInventory: track === 'yes', notes: notes,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(function() {
-    toast('Product saved: '+name, 'ok');
-    ['prodName','prodNotes','prodPrice'].forEach(function(id) {
-      var el = document.getElementById(id); if (el) el.value = '';
-    });
-    loadProducts();
-  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
-}
-
-function deleteProduct(id, name) {
-  if (!confirm('Remove product "'+name+'"?')) return;
-  db.collection('products').doc(id).delete().then(function() {
-    toast('Product removed', 'ok');
-    loadProducts();
-  }).catch(function(e) { toast('Error: '+e.message, 'err'); });
-}
-
-// Rebuild all product dropdowns to include custom products
-function rebuildProductDropdowns() {
-  var builtInOpts = [
-    {value:'Petrol (PMS)',  unit:'L'},
-    {value:'2T Motor Oil',  unit:'pcs'},
-    {value:'2T-Kupima',     unit:'L'},
-    {value:'Used Oil',      unit:'L'},
-    {value:'Shell Advance', unit:'pcs'}
-  ];
-  var allOpts = builtInOpts.concat(CUSTOM_PRODUCTS.map(function(p) {
-    return {value: p.name, unit: p.unit};
-  }));
-  allOpts.push({value:'Other', unit:''});
 
   // Find all product dropdowns in PO lines and Bill lines
   document.querySelectorAll('[id^="poDesc_"],[id^="blDesc_"]').forEach(function(sel) {
@@ -5815,6 +5712,87 @@ function syncInventoryFromPurchase(billData) {
       });
     }).catch(function(e){console.warn('Purchase inv:',e.message);});
   });
+}
+
+
+function loadInventory() {
+  var c=el('invList'); if(!c) return;
+  c.innerHTML='<div class="empty">Loading…</div>';
+  var bf=el('invBranchFilter');
+  if(bf&&bf.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bf.appendChild(o);});}
+  var branch=(bf||{}).value||'';
+  db.collection('inventory').get().then(function(snap){
+    var items=[];
+    snap.forEach(function(d){items.push(Object.assign({id:d.id},d.data()));});
+    if(branch) items=items.filter(function(i){return i.branch===branch;});
+    items.sort(function(a,b){return (a.branch+a.product).localeCompare(b.branch+b.product);});
+    if(!items.length){c.innerHTML='<div class="empty">No inventory records. Set opening stock or approve sales reports to begin.</div>';return;}
+    var byBranch={};
+    items.forEach(function(i){if(!byBranch[i.branch])byBranch[i.branch]=[];byBranch[i.branch].push(i);});
+    var html='';
+    Object.keys(byBranch).sort().forEach(function(b){
+      html+='<div class="card" style="margin-bottom:16px"><div class="card-title">'+b+'</div>'
+        +'<table class="tbl"><thead><tr><th>Product</th><th class="num">Qty</th><th>Status</th><th></th></tr></thead><tbody>';
+      byBranch[b].forEach(function(item){
+        var qty=item.qty||0;
+        var col=qty>5000?'var(--green)':qty>0?'var(--gold)':'var(--red)';
+        var status=qty>5000?'OK':qty>0?'Low':qty<0?'Deficit':'Empty';
+        html+='<tr>'
+          +'<td style="font-weight:500">'+(item.product||item.id)+'</td>'
+          +'<td class="num" style="color:'+col+';font-weight:700;font-family:var(--mono)">'+qty.toFixed(qty%1===0?0:2)+'</td>'
+          +'<td><span style="color:'+col+';font-size:0.72rem;font-weight:600">'+status+'</span></td>'
+          +'<td><button class="btn btn-blue btn-xs" onclick="openAdjustStock(\''+item.id+'\',\''+
+            (item.product||'').replace(/\'/g,'')+'\',' + qty + ')">Adjust</button></td></tr>';
+      });
+      html+='</tbody></table></div>';
+    });
+    c.innerHTML=html;
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+}
+
+function openSetStock() {
+  var brOpts=BRANCHES.map(function(b){return '<option value="'+b+'">'+b+'</option>';}).join('');
+  var prOpts=['Petrol (PMS)','2T Motor Oil','2T-Kupima','Used Oil','Shell Advance']
+    .map(function(p){return '<option value="'+p+'">'+p+'</option>';}).join('');
+  openModal('Set Opening Stock',
+    '<div class="field"><label>Branch</label><select id="ossBranch">'+brOpts+'</select></div>'
+    +'<div class="field"><label>Product</label><select id="ossProduct">'+prOpts+'</select></div>'
+    +'<div class="field"><label>Quantity / Litres</label><input type="number" id="ossQty" min="0" step="0.01"></div>'
+    +'<div class="field"><label>Notes</label><input type="text" id="ossNotes" placeholder="e.g. Opening stock 1 Aug 2026"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveOpeningStock()">Save</button>');
+}
+
+function openAdjustStock(docId, product, currentQty) {
+  openModal('Adjust Stock - '+product,
+    '<div class="field"><label>Current Qty</label><input type="number" id="adjCurrent" value="'+currentQty+'" readonly style="opacity:0.6"></div>'
+    +'<div class="field"><label>New Qty</label><input type="number" id="adjNew" value="'+currentQty+'" step="0.01"></div>'
+    +'<div class="field"><label>Reason</label><input type="text" id="adjReason" placeholder="e.g. Physical stock count"></div>',
+    '<button class="btn btn-gold btn-sm" onclick="saveStockAdjust(\''+docId+'\')">Save Adjustment</button>');
+}
+
+function saveOpeningStock() {
+  var branch=gv('ossBranch'), product=gv('ossProduct');
+  var qty=parseFloat(gv('ossQty'))||0, notes=gv('ossNotes');
+  if(!branch||!product){toast('Select branch and product','err');return;}
+  var docId=(branch+'_'+product).replace(/[^a-z0-9]/gi,'_');
+  db.collection('inventory').doc(docId).set({
+    branch:branch,product:product,qty:qty,notes:notes,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true}).then(function(){
+    toast('Stock set: '+branch+' '+product+' = '+qty,'ok');
+    closeModal(); loadInventory();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
+}
+
+function saveStockAdjust(docId) {
+  var newQty=parseFloat(gv('adjNew'))||0, reason=gv('adjReason')||'Adjustment';
+  db.collection('inventory').doc(docId).update({
+    qty:newQty, notes:reason,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    toast('Stock updated to '+newQty,'ok');
+    closeModal(); loadInventory();
+  }).catch(function(e){toast('Error: '+e.message,'err');});
 }
 
 // KILL SERVICE WORKERS (they block Firebase)
