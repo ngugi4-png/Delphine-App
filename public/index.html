@@ -886,17 +886,35 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- BRANCH SUMMARY -->
   <div id="tabBranchSummary" class="adm-panel">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <h2 style="font-size:1rem;font-weight:700">Branch Summary</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input type="date" id="bsFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
-        <input type="date" id="bsTo"   style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+    <div style="margin-bottom:20px">
+      <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px">Branch Summary</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-sm" onclick="bsSetPeriod('today')">Today</button>
+        <button class="btn btn-ghost btn-sm" onclick="bsSetPeriod('week')">This Week</button>
+        <button class="btn btn-ghost btn-sm" onclick="bsSetPeriod('month')">This Month</button>
+        <button class="btn btn-ghost btn-sm" onclick="bsSetPeriod('year')">This Year</button>
+        <button class="btn btn-ghost btn-sm" onclick="bsSetPeriod('custom')">Custom</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <select id="bsBranch" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="">All Branches</option>
+        </select>
+        <select id="bsStatus" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="approved">Approved Only</option>
+          <option value="all">All Reports</option>
+          <option value="pending">Pending Only</option>
+        </select>
+        <div id="bsCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="bsFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <span style="font-size:0.72rem;color:var(--text3)">to</span>
+          <input type="date" id="bsTo" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        </div>
         <button class="btn btn-gold btn-sm" onclick="loadBranchSummary()">Load</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportBranchSummaryCSV()">Export CSV</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Branch Summary','bsTbl','branch-summary.pdf')">Export PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportBranchSummaryCSV()">CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportBranchSummaryPDF()">PDF</button>
       </div>
     </div>
-    <div id="bsSummary"><div class="empty">Select a date range and click Load.</div></div>
+    <div id="bsSummary"><div class="empty">Select a period and click Load.</div></div>
   </div>
 
   <!-- EXPENSES -->
@@ -2334,48 +2352,78 @@ function initBSDatePicker() {
   loadBranchSummary();
 }
 
+function bsSetPeriod(p) {
+  var now=new Date(),to=todayStr(),from='';
+  var cd=el('bsCustomRange');
+  if(cd)cd.style.display='none';
+  if(p==='today'){from=to;}
+  else if(p==='week'){var d=new Date(now);d.setDate(d.getDate()-d.getDay());from=d.toISOString().slice(0,10);}
+  else if(p==='month'){from=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';}
+  else if(p==='year'){from=now.getFullYear()+'-01-01';}
+  else if(p==='custom'){if(cd)cd.style.display='flex';return;}
+  var bf=el('bsFrom'),bt=el('bsTo');
+  if(bf)bf.value=from;if(bt)bt.value=to;
+  loadBranchSummary();
+}
+
 function loadBranchSummary() {
-  var from=gv('bsFrom'), to=gv('bsTo');
-  if(!from||!to){el('bsSummary').innerHTML='<div class="empty">Select a date range.</div>';return;}
-  el('bsSummary').innerHTML='<div class="empty">Loading…</div>';
-  db.collection('reports').where('date','>=',from).where('date','<=',to)
-    .get().then(function(snap){
-      var byBranch={};
-      BRANCHES.forEach(function(b){byBranch[b]={revenue:0,litres:0,deliveries:0,days:{}};});
-      snap.forEach(function(d){
-        var r=d.data(); var b=r.branch;
-        if(r.approvalStatus!=='approved') return;
-        if(!byBranch[b]) byBranch[b]={revenue:0,litres:0,deliveries:0,days:{}};
-        byBranch[b].revenue    += r.grandTotal||0;
-        byBranch[b].litres     += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
-        byBranch[b].deliveries += (r.delivery&&r.delivery.litres)||0;
-        byBranch[b].days[r.date]=true;
-      });
-      var totalRev=0,totalLit=0;
-      BRANCHES.forEach(function(b){ totalRev+=byBranch[b].revenue; totalLit+=byBranch[b].litres; });
-      var html='<table class="tbl"><thead><tr><th>Branch</th><th class="num">Revenue</th><th class="num">% Share</th>'
-        +'<th class="num">Litres Sold</th><th class="num">Deliveries (L)</th><th class="num">Active Days</th><th class="num">Avg/Day</th></tr></thead><tbody>';
-      BRANCHES.forEach(function(b){
-        var br=byBranch[b];
-        var pct=totalRev>0?((br.revenue/totalRev)*100).toFixed(1):0;
-        var days=Object.keys(br.days).length;
-        html+='<tr>'
-          +'<td><span class="branch-pill">'+b+'</span></td>'
-          +'<td class="num">'+fmt(br.revenue)+'</td>'
-          +'<td class="num">'+pct+'%</td>'
-          +'<td class="num">'+fmtL(br.litres)+'</td>'
-          +'<td class="num">'+fmtL(br.deliveries)+'</td>'
-          +'<td class="num">'+days+'</td>'
-          +'<td class="num">'+fmt(days>0?br.revenue/days:0)+'</td>'
-          +'</tr>';
-      });
-      html+='<tr style="font-weight:700;border-top:2px solid var(--border)">'
-        +'<td>TOTAL</td><td class="num">'+fmt(totalRev)+'</td><td class="num">100%</td>'
-        +'<td class="num">'+fmtL(totalLit)+'</td><td></td><td></td><td></td></tr>';
-      html+='</tbody></table>';
-      el('bsSummary').innerHTML=html;
-    }
-    .catch(function(e){ _dbErr('query', e); }));
+  var from=(el('bsFrom')||{}).value||'';
+  var to=(el('bsTo')||{}).value||'';
+  var branch=(el('bsBranch')||{}).value||'';
+  var status=(el('bsStatus')||{}).value||'approved';
+  var c=el('bsSummary');
+  if(!c)return;
+  if(!from||!to){c.innerHTML='<div class="empty">Select a period and click Load.</div>';return;}
+  c.innerHTML='<div class="empty">Loading...</div>';
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to);
+  if(branch)q=q.where('branch','==',branch);
+  q.get().then(function(snap){
+    var bl=branch?[branch]:BRANCHES.slice();
+    var bd={};
+    bl.forEach(function(b){bd[b]={rev:0,petrol:0,lit:0,p2t:0,p2tk:0,puoil:0,pshell:0,days:[],cnt:0};});
+    snap.forEach(function(d){
+      var r=d.data();
+      if(status==='approved'&&r.approvalStatus!=='approved')return;
+      if(status==='pending'&&r.approvalStatus!=='pending')return;
+      var b=r.branch;
+      if(!bd[b])bd[b]={rev:0,petrol:0,lit:0,p2t:0,p2tk:0,puoil:0,pshell:0,days:[],cnt:0};
+      bd[b].rev+=(r.grandTotal||0);
+      bd[b].petrol+=(r.pump&&r.pump.display&&r.pump.display.sold)||0;
+      bd[b].lit+=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      bd[b].p2t+=(r.products&&r.products.p2t&&r.products.p2t.total)||0;
+      bd[b].p2tk+=(r.products&&r.products.p2tk&&r.products.p2tk.total)||0;
+      bd[b].puoil+=(r.products&&r.products.puoil&&r.products.puoil.total)||0;
+      bd[b].pshell+=(r.products&&r.products.pshell&&r.products.pshell.total)||0;
+      if(bd[b].days.indexOf(r.date)<0)bd[b].days.push(r.date);
+      bd[b].cnt++;
+    });
+    var tRev=0,tLit=0;
+    bl.forEach(function(b){tRev+=(bd[b]||{}).rev||0;tLit+=(bd[b]||{}).lit||0;});
+    var cards=bl.map(function(b){
+      var d=bd[b]||{};
+      return '<div class="card">'
+        +'<div class="card-title" style="color:var(--gold)">'+b+'</div>'
+        +'<div style="font-size:0.65rem;color:var(--text3);margin-bottom:10px">'+d.days.length+' days - '+d.cnt+' reports</div>'
+        +'<table class="tbl" style="margin:0"><tbody>'
+        +'<tr><td>Petrol Revenue</td><td class="num" style="color:var(--gold);font-weight:700">'+fmt(d.petrol||0)+'</td></tr>'
+        +'<tr><td>Litres Sold</td><td class="num">'+((d.lit||0).toFixed(1))+'L</td></tr>'
+        +'<tr><td>2T Oil</td><td class="num">'+fmt(d.p2t||0)+'</td></tr>'
+        +'<tr><td>2T Kupima</td><td class="num">'+fmt(d.p2tk||0)+'</td></tr>'
+        +'<tr><td>Used Oil</td><td class="num">'+fmt(d.puoil||0)+'</td></tr>'
+        +'<tr><td>Shell Advance</td><td class="num">'+fmt(d.pshell||0)+'</td></tr>'
+        +'<tr style="border-top:2px solid var(--border)"><td><strong>Total Sales</strong></td>'
+        +'<td class="num" style="color:var(--gold);font-weight:700">'+fmt(d.rev||0)+'</td></tr>'
+        +'</tbody></table></div>';
+    }).join('');
+    c.innerHTML='<div class="g3" style="margin-bottom:16px">'+cards+'</div>'
+      +'<div class="card"><div class="card-title">Period Total - '+from+' to '+to+'</div>'
+      +'<div class="g2">'
+      +'<div><div style="font-size:0.72rem;color:var(--text3)">Total Revenue</div>'
+      +'<div style="font-size:1.4rem;font-weight:700;color:var(--gold);font-family:var(--mono)">'+fmt(tRev)+'</div></div>'
+      +'<div><div style="font-size:0.72rem;color:var(--text3)">Total Litres</div>'
+      +'<div style="font-size:1.4rem;font-weight:700;font-family:var(--mono)">'+tLit.toFixed(1)+'L</div></div>'
+      +'</div></div>';
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 
 function exportBranchSummaryCSV() {
