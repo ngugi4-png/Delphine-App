@@ -613,8 +613,8 @@ a { color: var(--gold); text-decoration: none; }
         <h2 style="font-size:1rem;font-weight:700">Reports</h2>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Reports','apprTbl','reports.pdf')">PDF</button>
-          <button class="btn btn-red btn-sm" id="btnBulkDelete" style="display:none" onclick="bulkDeleteReports()">&#128465; Delete Selected</button>
-          <button class="btn btn-green btn-sm" id="btnBulkApprove" style="display:none" onclick="bulkApproveReports()">&#10003; Approve Selected</button>
+          <button class="btn btn-red btn-sm" id="btnBulkDelete" onclick="bulkDeleteReports()">&#128465; Delete Selected</button>
+          <button class="btn btn-green btn-sm" id="btnBulkApprove" onclick="bulkApproveReports()">&#10003; Approve Selected</button>
         </div>
       </div>
       <!-- Filters -->
@@ -2337,7 +2337,7 @@ function bulkDeleteReports() {
     document.querySelectorAll('.appr-chk').forEach(function(cb){ ids.push(cb.value); });
   }
   if (!ids.length) { toast('No reports visible','err'); return; }
-  if (!confirm('Permanently delete ' + ids.length + ' report(s)? Cannot be undone.')) return;
+  // No confirm needed — user selected the action
 
   var btn = el('btnBulkDelete');
   if (btn) btn.disabled = true;
@@ -2368,7 +2368,7 @@ function bulkApproveReports() {
     document.querySelectorAll('.appr-chk').forEach(function(cb){ ids.push(cb.value); });
   }
   if (!ids.length) { toast('No reports visible','err'); return; }
-  if (!confirm('Approve ' + ids.length + ' report(s)?')) return;
+  // No confirm needed — user selected the action
 
   var btn = el('btnBulkApprove');
   if (btn) btn.disabled = true;
@@ -2406,8 +2406,9 @@ function setStatus(id, status) {
 }
 
 function deleteReport(id) {
-  if(!confirm('Delete this report?')) return;
-  db.collection('reports').doc(id).delete().then(function(){ toast('Deleted','ok'); loadApprovals(); });
+  db.collection('reports').doc(id).delete()
+    .then(function(){ toast('Report deleted','ok'); loadApprovals(); })
+    .catch(function(e){ toast('Delete error: '+e.message,'err'); });
 }
 
 // ═══════════════════════════════════════════════════════════════
