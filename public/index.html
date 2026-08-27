@@ -2608,14 +2608,15 @@ function loadBranchSummary() {
   if(!c)return;
   if(!from||!to){c.innerHTML='<div class="empty">Select a period and click Load.</div>';return;}
   c.innerHTML='<div class="empty">Loading...</div>';
+  // Date range only server-side — branch filtered client-side
   var q=db.collection('reports').where('date','>=',from).where('date','<=',to);
-  if(branch)q=q.where('branch','==',branch);
   q.get().then(function(snap){
     var bl=branch?[branch]:BRANCHES.slice();
     var bd={};
     bl.forEach(function(b){bd[b]={rev:0,petrol:0,lit:0,p2t:0,p2tk:0,puoil:0,pshell:0,days:[],cnt:0};});
     snap.forEach(function(d){
       var r=d.data();
+      if(branch&&r.branch!==branch)return;
       if(status==='approved'&&r.approvalStatus!=='approved')return;
       if(status==='pending'&&r.approvalStatus!=='pending')return;
       var b=r.branch;
@@ -5987,11 +5988,14 @@ function loadSalesReport() {
   if(!c)return;
   if(!from){c.innerHTML='<div class="empty">Select a period above.</div>';return;}
   c.innerHTML='<div class="empty">Loading\u2026</div>';
-  var q=db.collection('reports').where('date','>=',from).where('date','<=',to).where('approvalStatus','==','approved');
-  if(branch)q=q.where('branch','==',branch);
+  // Only date range server-side — status+branch filtered client-side (avoids composite index)
+  var q=db.collection('reports').where('date','>=',from).where('date','<=',to);
   q.get().then(function(snap){
     var rows=[];
     snap.forEach(function(d){rows.push(d.data());});
+    // Client-side filters
+    rows=rows.filter(function(r){return r.approvalStatus==='approved';});
+    if(branch) rows=rows.filter(function(r){return r.branch===branch;});
     rows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
     var totRev=0,totLit=0,totP2t=0,totPuoil=0,totPshell=0,totGrand=0;
     rows.forEach(function(r){
