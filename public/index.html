@@ -506,6 +506,7 @@ a { color: var(--gold); text-decoration: none; }
 
   <!-- Main tab bar -->
   <div class="adm-tabs">
+    <button class="adm-tab" id="mainTab_dash"      onclick="goToDashboard()">Dashboard</button>
     <button class="adm-tab" id="mainTab_reports"   onclick="mainTab(this,'mReports')">Reports</button>
     <button class="adm-tab" id="mainTab_ops"       onclick="mainTab(this,'mOps')">Operations</button>
     <button class="adm-tab" id="mainTab_summary"   onclick="mainTab(this,'mSummary')">Branch Summary</button>
@@ -530,7 +531,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabExport','mReports')">Export</button>
   </div>
   <div id="subNav_mOps" class="adm-sub-nav">
-    <button class="adm-sub-btn" onclick="openPanel(this,'tabInv','mOps')">Inventory</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabInventory','mOps')">Inventory</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDipStick','mOps')">Dip Stick</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivery','mOps')">Fuel Delivery</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPumpCal','mOps')">Pump Calibration</button>
@@ -1811,9 +1812,10 @@ var PANEL_TO_TAB = {
   tabAudit:        'mReports',  tabExport:    'mReports',
   tabMonthlyClose: 'mReports',  tabHandover:  'mReports',
   tabDelivRecon:   'mReports',
-  tabInv:          'mOps',      tabVend:      'mOps',
+  tabInventory:    'mOps',      tabVend:      'mOps',
   tabCreateReport: 'mOps',      tabImport:    'mOps',
-  tabPurchases:    'mOps',
+  tabPurchases:    'mOps',  tabInventory:  'mOps',
+  tabSalesReport:  'mReports',
   tabDipStick:     'mOps',      tabDelivery:  'mOps',
   tabPumpCal:      'mOps',
   tabBranchSummary:'mSummary', tabSalesReport:'mReports', tabScout:'mScout',
@@ -1912,6 +1914,7 @@ function panelInit(panelId) {
     case 'tabVend':         loadVendors();       break;
     case 'tabCreateReport': initCreateReport();  break;
     case 'tabImport':       initImport();        break;
+    case 'tabInventory':   loadInventory();     break;
     case 'tabBranchSummary':
       var _bb=el('bsBranch');
       if(_bb&&_bb.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;_bb.appendChild(o);});}
