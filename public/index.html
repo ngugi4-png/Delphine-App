@@ -519,6 +519,7 @@ a { color: var(--gold); text-decoration: none; }
 
   <div id="subNav_mReports" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAppr','mReports')">Approvals</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabSalesReport','mReports')">Sales Report</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabSales','mReports')">Daily Sales</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPL','mReports')">P&amp;L</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabMonthlyClose','mReports')">Monthly Closing</button>
@@ -536,6 +537,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPurchases','mOps')">Purchase Orders</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabVend','mOps')">Vendors &amp; Bills</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabCreateReport','mOps')">Create Report</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabInventory','mOps')">Inventory</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabImport','mOps')">Import Data</button>
   </div>
   <div id="subNav_mSummary" class="adm-sub-nav"></div>
@@ -607,6 +609,41 @@ a { color: var(--gold); text-decoration: none; }
   </div>
 
   <!-- APPROVALS -->
+  <!-- SALES REPORT -->
+  <div id="tabSalesReport" class="adm-panel">
+    <div style="margin-bottom:16px">
+      <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px">Sales Report</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('today')">Today</button>
+        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('week')">This Week</button>
+        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('month')">This Month</button>
+        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('year')">This Year</button>
+        <button class="btn btn-ghost btn-sm" onclick="srSetPeriod('custom')">Custom</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+        <select id="srBranch" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="">All Branches</option>
+        </select>
+        <select id="srProduct" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <option value="">All Products</option>
+          <option value="petrol">Petrol (PMS)</option>
+          <option value="p2t">2T Motor Oil</option>
+          <option value="p2tk">2T Kupima</option>
+          <option value="puoil">Used Oil</option>
+          <option value="pshell">Shell Advance</option>
+        </select>
+        <div id="srCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="srFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+          <span style="font-size:0.72rem;color:var(--text3)">to</span>
+          <input type="date" id="srTo" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        </div>
+        <button class="btn btn-gold btn-sm" onclick="loadSalesReport()">&#8635; Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Sales Report','srTable','sales-report.pdf')">&#8615; PDF</button>
+      </div>
+    </div>
+    <div class="g4" id="srKpis" style="margin-bottom:16px"></div>
+    <div id="srContent"><div class="empty">Select a period and click Load.</div></div>
+  </div>
   <div id="tabAppr" class="adm-panel">
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
@@ -832,6 +869,23 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
+  <!-- INVENTORY -->
+  <div id="tabInventory" class="adm-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:1rem;font-weight:700">Inventory</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadInventory()">&#8635; Refresh</button>
+        <button class="btn btn-gold btn-sm" onclick="openSetStock()">+ Set Opening Stock</button>
+      </div>
+    </div>
+    <div class="field" style="max-width:220px;margin-bottom:16px">
+      <label>Filter Branch</label>
+      <select id="invBranchFilter" onchange="loadInventory()" style="width:100%">
+        <option value="">All Branches</option>
+      </select>
+    </div>
+    <div id="invList"><div class="empty">Loading&#8230;</div></div>
+  </div>
   <!-- IMPORT -->
   <div id="tabImport" class="adm-panel">
     <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Import Data</h2>
@@ -1762,7 +1816,7 @@ var PANEL_TO_TAB = {
   tabPurchases:    'mOps',
   tabDipStick:     'mOps',      tabDelivery:  'mOps',
   tabPumpCal:      'mOps',
-  tabBranchSummary:'mSummary', tabScout:'mScout',
+  tabBranchSummary:'mSummary', tabSalesReport:'mReports', tabScout:'mScout',
   tabExpenses:     'mFinance',  tabDebts:        'mFinance',
   tabPriceHistory: 'mFinance',  tabPayroll:      'mFinance',
   tabSupplierPay:  'mFinance',  tabCOGS: 'mFinance',
@@ -1838,6 +1892,7 @@ function showPanel(panelId) {
 // Panel init — runs once per panel open
 function panelInit(panelId) {
   switch(panelId) {
+    case 'tabSalesReport': initSalesReport(); break;
     case 'tabAppr':
       var _ab=el('apprBranchFilter');
       if(_ab&&_ab.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;_ab.appendChild(o);});}
