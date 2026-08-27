@@ -2557,9 +2557,15 @@ function setStatus(id, status) {
     data.approvedAt = now;
     data.approvedBy = currentUser ? currentUser.email : 'admin';
   }
-  db.collection('reports').doc(id).update(data)
-    .then(function(){ toast('Report '+status,'ok'); loadApprovals(); })
-    .catch(function(e){ toast('Error: '+e.message,'err'); });
+  db.collection('reports').doc(id).get().then(function(snap){
+    if (!snap.exists) return;
+    var r = snap.data();
+    snap.ref.update(data).then(function(){
+      if (status==='approved') updateInventoryFromReport(r, 1);
+      toast('Report '+status,'ok');
+      loadApprovals();
+    }).catch(function(e){toast('Error: '+e.message,'err');});
+  }).catch(function(e){toast('Error: '+e.message,'err');});
 }
 
 function deleteReport(id) {
