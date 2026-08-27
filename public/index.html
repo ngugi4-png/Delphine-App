@@ -1830,7 +1830,11 @@ function panelInit(panelId) {
     case 'tabVend':         loadVendors();       break;
     case 'tabCreateReport': initCreateReport();  break;
     case 'tabImport':       initImport();        break;
-    case 'tabBranchSummary':initBSDatePicker();  break;
+    case 'tabBranchSummary':
+      var _bb=el('bsBranch');
+      if(_bb&&_bb.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;_bb.appendChild(o);});}
+      bsSetPeriod('month');
+      break;
     case 'tabExpenses':     loadExpenses();      break;
     case 'tabDebts':        loadDebts();         break;
     case 'tabStaff':        loadStaffLists();    break;
