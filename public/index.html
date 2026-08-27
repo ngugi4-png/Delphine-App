@@ -2384,10 +2384,14 @@ function bulkApproveReports() {
       loadApprovals();
       return;
     }
-    db.collection('reports').doc(ids[done])
-      .update({ approvalStatus: 'approved', approvedAt: now, approvedBy: who })
-      .then(function() { done++; next(); })
-      .catch(function(e) { toast('Error: ' + e.message, 'err'); done++; next(); });
+    db.collection('reports').doc(ids[done]).get().then(function(snap){
+      var rd = snap.exists ? snap.data() : {};
+      return snap.ref.update({approvalStatus:'approved',approvedAt:now,approvedBy:who})
+        .then(function(){
+          updateInventoryFromReport(rd, 1);
+          done++; next();
+        });
+    }).catch(function(e){toast('Error: '+e.message,'err');done++;next();});
   }
   next();
 }
@@ -2400,9 +2404,15 @@ function setStatus(id, status) {
     data.approvedAt = now;
     data.approvedBy = currentUser ? currentUser.email : 'admin';
   }
-  db.collection('reports').doc(id).update(data)
-    .then(function(){ toast('Report '+status,'ok'); loadApprovals(); })
-    .catch(function(e){ toast('Error: '+e.message,'err'); });
+  db.collection('reports').doc(id).get().then(function(snap){
+    if (!snap.exists) return;
+    var r = snap.data();
+    snap.ref.update(data).then(function(){
+      if (status==='approved') updateInventoryFromReport(r, 1);
+      toast('Report '+status,'ok');
+      loadApprovals();
+    }).catch(function(e){toast('Error: '+e.message,'err');});
+  }).catch(function(e){toast('Error: '+e.message,'err');});
 }
 
 function deleteReport(id) {
@@ -3897,7 +3907,9 @@ function loadPurchases() {
 function receivePOAsBill(poId) {
   // Load the PO, mark as received, and auto-create a bill
   db.collection('purchaseOrders').doc(poId).get().then(function(snap) {
-    if (!snap.exists) { toast('PO not found','err'); return; }
+    if (!snap.exists) { syncInventoryFromPurchase(billData);
+      calculateWACC(null,function(w){WACC_CACHE=w;});
+      toast('PO not found','err'); return; }
     var po  = snap.data();
     var now = firebase.firestore.FieldValue.serverTimestamp();
     var receivedDate = new Date().toISOString().split('T')[0];
@@ -5760,6 +5772,51 @@ function exportVendorReportPDF() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+
+// INVENTORY AUTO-SYNC
+function updateInventoryFromReport(reportData, mult) {
+  var branch = reportData.branch;
+  if (!branch) return;
+  var updates = [];
+  var lit = (reportData.pump && reportData.pump.metre && reportData.pump.metre.sold) || 0;
+  if (lit > 0) updates.push({product:'Petrol (PMS)', branch:branch, qty:lit});
+  var pm = [{key:'p2t',name:'2T Motor Oil'},{key:'p2tk',name:'2T-Kupima'},
+            {key:'puoil',name:'Used Oil'},{key:'pshell',name:'Shell Advance'}];
+  var prods = reportData.products || {};
+  pm.forEach(function(p){
+    var q = (prods[p.key] && prods[p.key].qty) || 0;
+    if (q > 0) updates.push({product:p.name, branch:branch, qty:q});
+  });
+  updates.forEach(function(u){
+    var docId = (u.branch+'_'+u.product).replace(/[^a-z0-9]/gi,'_');
+    var ref = db.collection('inventory').doc(docId);
+    db.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        var cur = snap.exists ? (snap.data().qty||0) : 0;
+        tx.set(ref,{branch:u.branch,product:u.product,
+          qty:Math.max(0, cur - u.qty * mult),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      });
+    }).catch(function(e){console.warn('Inv sync:',e.message);});
+  });
+}
+
+function syncInventoryFromPurchase(billData) {
+  (billData.lineItems||[]).forEach(function(l){
+    if (!l.description||!l.branch||!l.qty) return;
+    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9]/gi,'_');
+    var ref = db.collection('inventory').doc(docId);
+    db.runTransaction(function(tx){
+      return tx.get(ref).then(function(snap){
+        var cur = snap.exists ? (snap.data().qty||0) : 0;
+        tx.set(ref,{branch:l.branch,product:l.description,
+          qty:Math.max(0,cur+parseFloat(l.qty)),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      });
+    }).catch(function(e){console.warn('Purchase inv:',e.message);});
+  });
+}
+
 // KILL SERVICE WORKERS (they block Firebase)
 // ═══════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
