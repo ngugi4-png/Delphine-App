@@ -864,8 +864,9 @@ a { color: var(--gold); text-decoration: none; }
   <div id="tabInventory" class="adm-panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700">Inventory</h2>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="loadInventory()">&#8635; Refresh</button>
+        <button class="btn btn-blue btn-sm" id="btnSyncInventory" onclick="syncInventoryFromHistory()">&#8635; Sync from Purchases &amp; Sales</button>
         <button class="btn btn-gold btn-sm" onclick="openSetStock()">+ Set Opening Stock</button>
       </div>
     </div>
@@ -5123,6 +5124,83 @@ var COGS_PRODUCTS = [
    revFn:  function(r){ return (r.products&&r.products.pshell&&r.products.pshell.total)||0; }}
 ];
 
+function runCOGSCalc(rSnap, prices, branch) {
+  // Sum quantities + revenue sold per product from this date/branch's reports
+  var qty = {petrol:0, p2t:0, p2tk:0, puoil:0, pshell:0};
+  var rev = {petrol:0, p2t:0, p2tk:0, puoil:0, pshell:0};
+  rSnap.forEach(function(d){
+    var r = d.data();
+    if (r.approvalStatus !== 'approved' && r.source !== 'import') return;
+    qty.petrol += (r.pump && r.pump.metre && r.pump.metre.sold) || 0;
+    rev.petrol += (r.pump && r.pump.display && r.pump.display.sold) || 0;
+    var p = r.products || {};
+    ['p2t','p2tk','puoil','pshell'].forEach(function(k){
+      qty[k] += (p[k] && p[k].qty) || 0;
+      rev[k] += (p[k] && p[k].total) || 0;
+    });
+  });
+
+  var labels = {petrol:'Petrol (PMS)', p2t:'2T Motor Oil', p2tk:'2T-Kupima', puoil:'Used Oil', pshell:'Shell Advance'};
+  var brkDiv  = el('cogsWACCBreakdown');
+  var saveBtn = el('cogsSaveBtn');
+  var tbl     = el('cogsWACCtable');
+
+  var hasMovement = Object.keys(qty).some(function(k){ return qty[k] > 0; });
+  if (!hasMovement) {
+    if (tbl) tbl.innerHTML = '<tbody><tr><td colspan="6" style="padding:8px 0;color:var(--text3);font-size:0.7rem">No approved sales found for this date/branch.</td></tr></tbody>';
+    if (brkDiv) brkDiv.style.display = 'block';
+    if (saveBtn) saveBtn.style.display = 'none';
+    return;
+  }
+
+  var totalRevenue = 0, totalCOGS = 0, rows = '';
+  Object.keys(labels).forEach(function(k){
+    var q = qty[k];
+    if (!q) return; // skip products with zero movement that day
+    var cost     = prices[k+'Cost'] || 0;   // WACC unit cost from calculateWACC()
+    var cogs     = q * cost;
+    var revenue  = rev[k] || 0;
+    var margin   = revenue > 0 ? (((revenue-cogs)/revenue)*100).toFixed(1)+'%' : '—';
+    totalRevenue += revenue;
+    totalCOGS    += cogs;
+    rows += '<tr>'
+      + '<td style="padding:4px 0">'+labels[k]+'</td>'
+      + '<td class="num">'+q.toFixed(q%1===0?0:2)+'</td>'
+      + '<td class="num">'+fmt(cost)+'</td>'
+      + '<td class="num" style="color:var(--red)">'+fmt(cogs)+'</td>'
+      + '<td class="num">'+fmt(revenue)+'</td>'
+      + '<td class="num">'+margin+'</td>'
+      + '</tr>';
+  });
+
+  if (tbl) {
+    tbl.innerHTML = '<thead><tr>'
+      + '<th style="text-align:left;padding-bottom:6px;font-size:0.65rem;color:var(--text3)">Product</th>'
+      + '<th class="num" style="font-size:0.65rem;color:var(--text3)">Qty</th>'
+      + '<th class="num" style="font-size:0.65rem;color:var(--text3)">WACC Cost</th>'
+      + '<th class="num" style="font-size:0.65rem;color:var(--text3)">COGS</th>'
+      + '<th class="num" style="font-size:0.65rem;color:var(--text3)">Revenue</th>'
+      + '<th class="num" style="font-size:0.65rem;color:var(--text3)">Margin</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody>';
+  }
+
+  var gp = totalRevenue - totalCOGS;
+  var gm = totalRevenue > 0 ? (((gp/totalRevenue))*100).toFixed(1)+'%' : '—';
+
+  var elR = el('cogsTotalRevenue'), elC = el('cogsTotalCOGS'), elG = el('cogsGrossProfit'), elM = el('cogsGrossMargin');
+  if (elR) elR.textContent = fmt(totalRevenue);
+  if (elC) elC.textContent = fmt(totalCOGS);
+  if (elG) { elG.textContent = fmt(gp); elG.style.color = gp>=0 ? 'var(--green)' : 'var(--red)'; }
+  if (elM) elM.textContent = gm;
+
+  var revInput = el('cogsRevenue'), amtInput = el('cogsAmount');
+  if (revInput) revInput.value = totalRevenue;
+  if (amtInput) amtInput.value = totalCOGS;
+
+  if (brkDiv)  brkDiv.style.display  = 'block';
+  if (saveBtn) saveBtn.style.display = 'block';
+}
+
 function cogsAutoFetch() {
   var date   = (document.getElementById('cogsDate')||{}).value;
   var branch = (document.getElementById('cogsBranch')||{}).value;
@@ -5910,6 +5988,82 @@ function syncInventoryFromPurchase(billData) {
 // ═══════════════════════════════════════════════════════════════
 // INVENTORY MANAGEMENT UI
 // ═══════════════════════════════════════════════════════════════
+function syncInventoryFromHistory() {
+  if (!confirm('This recalculates every branch\'s stock from your full purchase and sales history and REPLACES current counts. Continue?')) return;
+
+  var btn = el('btnSyncInventory');
+  var origLabel = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Syncing\u2026'; }
+
+  var purchased = {};
+  var sold = {};
+
+  function addQty(map, branch, product, qty) {
+    if (!branch || !product || !qty) return;
+    var key = branch + '|' + product;
+    if (!map[key]) map[key] = { branch: branch, product: product, qty: 0 };
+    map[key].qty += qty;
+  }
+
+  Promise.all([
+    db.collection('bills').get(),
+    db.collection('reports').get()
+  ]).then(function(results) {
+    var billSnap = results[0], repSnap = results[1];
+
+    // Purchases: every line item on every bill (bills = received purchases)
+    billSnap.forEach(function(d) {
+      var b = d.data();
+      (b.lineItems || []).forEach(function(l) {
+        addQty(purchased, l.branch, l.description, parseFloat(l.qty) || 0);
+      });
+    });
+
+    // Sales: every approved (or imported) report
+    var prodLabels = { p2t:'2T Motor Oil', p2tk:'2T-Kupima', puoil:'Used Oil', pshell:'Shell Advance' };
+    repSnap.forEach(function(d) {
+      var r = d.data();
+      if (r.approvalStatus !== 'approved' && r.source !== 'import') return;
+      var branch = r.branch;
+      var litres = (r.pump && r.pump.metre && r.pump.metre.sold) || 0;
+      addQty(sold, branch, 'Petrol (PMS)', litres);
+      var p = r.products || {};
+      Object.keys(prodLabels).forEach(function(k) {
+        addQty(sold, branch, prodLabels[k], (p[k] && p[k].qty) || 0);
+      });
+    });
+
+    // Net stock = total purchased - total sold, per branch+product
+    var allKeys = {};
+    Object.keys(purchased).forEach(function(k){ allKeys[k] = true; });
+    Object.keys(sold).forEach(function(k){ allKeys[k] = true; });
+
+    var writes = Object.keys(allKeys).map(function(key) {
+      var p = purchased[key] || {};
+      var s = sold[key] || {};
+      var branch  = p.branch || s.branch;
+      var product = p.product || s.product;
+      var net = (p.qty || 0) - (s.qty || 0);
+      var docId = (branch + '_' + product).replace(/[^a-z0-9]/gi, '_');
+      return db.collection('inventory').doc(docId).set({
+        branch: branch, product: product, qty: net,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        resyncedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        source: 'resync'
+      });
+    });
+
+    return Promise.all(writes).then(function(){ return writes.length; });
+  }).then(function(count) {
+    toast('Inventory synced \u2014 ' + count + ' branch/product record(s) recalculated', 'ok');
+    if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
+    loadInventory();
+  }).catch(function(e) {
+    toast('Sync error: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
+  });
+}
+
 function loadInventory() {
   var c = el('invList'); if (!c) return;
   c.innerHTML = '<div class="empty">Loading\u2026</div>';
