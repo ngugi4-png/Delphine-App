@@ -3015,16 +3015,32 @@ function loadVendors() {
   }).catch(function(e){if(el('vendorList'))el('vendorList').innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 function _billLineHtml(i) {
-  // Build one line item row
   var branchOpts = BRANCHES.map(function(b){
     return '<option value="'+b+'">'+b+'</option>';
   }).join('');
+  var builtIn = [
+    {name:'Petrol (PMS)',unit:'L'},{name:'2T Motor Oil',unit:'pcs'},
+    {name:'2T-Kupima',unit:'L'},{name:'Used Oil',unit:'L'},{name:'Shell Advance',unit:'pcs'}
+  ];
+  var custom = (window.CUSTOM_PRODUCTS||[]);
+  var allProds = builtIn.concat(custom.map(function(p){return {name:p.name,unit:p.unit||'pcs'};}));
+  var prodOpts = '<option value="">-- Select Product --</option>'
+    + allProds.map(function(p){
+        return '<option value="'+p.name+'" data-unit="'+p.unit+'">'+p.name+'</option>';
+      }).join('')
+    + '<option value="__other__">Other (type below)</option>';
+
   return '<div class="bill-line" id="billLine_'+i+'" style="'
     +'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:10px;'
     +'padding-bottom:10px;border-bottom:1px solid var(--border)">'
-    // Description
-    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Description / Product</label>'
-    +'<input type="text" id="blDesc_'+i+'" placeholder="e.g. Petrol PMS" oninput="billCalc()"></div>'
+    // Product dropdown
+    +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Product</label>'
+    +'<select id="blDesc_'+i+'" onchange="billDescChange('+i+')" style="font-size:0.78rem">'
+    +prodOpts
+    +'</select>'
+    +'<input type="text" id="blDescOther_'+i+'" placeholder="Product name" '
+    +'style="display:none;margin-top:4px;font-size:0.78rem" oninput="billCalc()">'
+    +'</div>'
     // Branch
     +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Branch</label>'
     +'<select id="blBranch_'+i+'"><option value="">All</option>'+branchOpts+'</select></div>'
@@ -3034,8 +3050,9 @@ function _billLineHtml(i) {
     // Unit price
     +'<div class="field" style="margin:0"><label style="font-size:0.6rem">Unit Price (KSh)</label>'
     +'<input type="number" id="blPrice_'+i+'" value="0" min="0" step="0.01" oninput="billCalc()" style="font-family:var(--mono)"></div>'
-    // Remove button
-    +'<button type="button" onclick="removeBillLine('+i+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">✕</button>'
+    // Remove
+    +'<button type="button" onclick="removeBillLine('+i+')" '
+    +'style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0 4px;margin-bottom:1px" title="Remove">✕</button>'
     +'</div>';
 }
 
@@ -3720,7 +3737,7 @@ function poProductChange(i) {
   var unit  = document.getElementById('poUnit_'+i);
   if (!sel) return;
   // Show/hide other input
-  if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+  if (other) other.style.display = sel.value === '__other__' ? 'block' : 'none';
   // Auto-set unit from data-unit attribute
   var opt = sel.options[sel.selectedIndex];
   var dataUnit = opt ? opt.getAttribute('data-unit') : '';
@@ -3738,7 +3755,7 @@ function billProductChange(i) {
   var sel   = document.getElementById('blDesc_'+i);
   var other = document.getElementById('blDescOther_'+i);
   if (!sel) return;
-  if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+  if (other) other.style.display = sel.value === '__other__' ? 'block' : 'none';
   billCalc();
 }
 
@@ -3760,7 +3777,7 @@ function _poLineHtml(i) {
     + '<option value="2T-Kupima" data-unit="L">2T-Kupima</option>'
     + '<option value="Used Oil" data-unit="L">Used Oil</option>'
     + '<option value="Shell Advance" data-unit="pcs">Shell Advance</option>'
-    + '<option value="Other" data-unit="">Other (type below)</option>'
+    + '<option value="__other__" data-unit="">Other (type below)</option>'
     + '</select>'
     + '<input type="text" id="poDescOther_'+i+'" placeholder="Specify product…" '
     + 'style="display:none;margin-top:4px" oninput="poCalc()"></div>'
