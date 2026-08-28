@@ -5920,9 +5920,26 @@ function loadInventory() {
   var branch = (bf||{}).value||'';
   db.collection('inventory').get().then(function(snap){
     var items=[];
-    snap.forEach(function(d){items.push(Object.assign({id:d.id},d.data()));});
+    snap.forEach(function(d){
+      var data = d.data() || {};
+      // Legacy docs (old branch-level schema) may lack branch/product fields —
+      // recover them from the doc id instead of crashing the sort/render.
+      var itemBranch = data.branch;
+      if (!itemBranch) {
+        itemBranch = BRANCHES.filter(function(b){ return d.id.indexOf(b+'_')===0 || d.id===b; })[0] || 'Unknown';
+      }
+      var itemProduct = data.product || d.id.replace(itemBranch+'_','').replace(/_/g,' ') || d.id;
+      items.push({
+        id: d.id, branch: itemBranch, product: itemProduct,
+        qty: typeof data.qty==='number' ? data.qty : 0,
+        unit: data.unit, notes: data.notes
+      });
+    });
     if (branch) items=items.filter(function(i){return i.branch===branch;});
-    items.sort(function(a,b){return (a.branch+a.product).localeCompare(b.branch+b.product);});
+    items.sort(function(a,b){
+      var ka=(a.branch||'')+(a.product||''), kb=(b.branch||'')+(b.product||'');
+      return ka.localeCompare(kb);
+    });
     if (!items.length){
       c.innerHTML='<div class="empty">No inventory records. Use <b>+ Set Opening Stock</b> to begin.</div>';
       return;
