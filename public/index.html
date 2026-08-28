@@ -2721,24 +2721,7 @@ function loadPL() {
 // ═══════════════════════════════════════════════════════════════
 // INVENTORY
 // ═══════════════════════════════════════════════════════════════
-function loadInventory() {
-  var c=el('invContent'); if(!c) return;
-  c.innerHTML='<div class="empty">Loading…</div>';
-  Promise.all(BRANCHES.map(function(b){ return db.collection('inventory').doc(b).get(); })).then(function(snaps){
-    var html='<table class="tbl"><thead><tr><th>Branch</th>';
-    PRODUCTS.forEach(function(p){html+='<th class="num">'+p.name+'</th>';});
-    html+='</tr></thead><tbody>';
-    snaps.forEach(function(s,i){
-      var inv=s.exists?s.data():{};
-      html+='<tr><td><span class="branch-pill">'+BRANCHES[i]+'</span></td>';
-      PRODUCTS.forEach(function(p){html+='<td class="num">'+(inv[p.key]||0).toFixed(p.unit==='pcs'?0:1)+' '+p.unit+'</td>';});
-      html+='</tr>';
-    });
-    html+='</tbody></table>';
-    c.innerHTML=html;
-  });
-  loadBranchPrices();
-}
+// loadInventory moved to INVENTORY MANAGEMENT UI section below
 
 function loadBranchPrices() {
   var c=el('priceSettings'); if(!c) return;
@@ -4006,7 +3989,8 @@ function receivePOAsBill(poId) {
     }).then(function() {
       // Recalculate WACC cache
       if (typeof calculateWACC === 'function') calculateWACC(null, function(w){ WACC_CACHE = w; });
-      toast('✓ Received! Bill created automatically in Vendors & Bills.','ok');
+      syncInventoryFromPurchase({lineItems: billLines});
+      toast('✓ Received! Bill created and inventory updated.','ok');
       loadPurchases();
     }).catch(function(e){ toast('Error: '+e.message,'err'); });
   }).catch(function(e){ toast('Error loading PO: '+e.message,'err'); });
@@ -4768,20 +4752,24 @@ function loadDashboardExtras() {
   // Low stock
   var ls = el('dashLowStock');
   if (ls) ls.innerHTML = '<div class="empty">Checking\u2026</div>';
+  // Read per-product inventory docs (correct format: Branch_Product__PMS_)
   Promise.all(BRANCHES.map(function(b){
-    return db.collection('inventory').doc(b).get()
-      .then(function(s){ return {branch:b,d:s.exists?s.data():{}}; })
-      .catch(function(){ return {branch:b,d:{}}; });
+    var docId=(b+'_Petrol__PMS_');
+    return db.collection('inventory').doc(docId).get()
+      .then(function(s){ return {branch:b, qty:s.exists?(s.data().qty||0):null}; })
+      .catch(function(){ return {branch:b, qty:null}; });
   })).then(function(results){
     if (!ls) return;
     var rows='';
     results.forEach(function(r){
-      var petrol=r.d.petrol||r.d.qty||0;
-      var col=petrol>=LOW?'var(--green)':petrol>0?'var(--red)':'var(--text3)';
-      var icon=petrol>=LOW?'\u2713':petrol>0?'\u26a0':'\u2014';
+      var noData=r.qty===null;
+      var qty=r.qty||0;
+      var col=noData?'var(--text3)':qty>=LOW?'var(--green)':qty>0?'var(--red)':'var(--amber,#e09c00)';
+      var icon=noData?'\u2014':qty>=LOW?'\u2713':'\u26a0';
+      var label=noData?'No data':qty.toFixed(0)+'L'+(qty<0?' (deficit)':'');
       rows+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
         +'<span style="font-size:0.75rem;font-weight:500">'+r.branch+'</span>'
-        +'<span style="font-weight:700;font-family:var(--mono);color:'+col+'">'+icon+' '+petrol.toFixed(0)+'L</span></div>';
+        +'<span style="font-weight:700;font-family:var(--mono);color:'+col+'">'+icon+' '+label+'</span></div>';
     });
     ls.innerHTML = rows||'<div class="empty">No inventory data yet</div>';
   }).catch(function(){ if(ls) ls.innerHTML='<div class="empty">\u2014</div>'; });
@@ -6016,24 +6004,25 @@ function loadSalesReport() {
     if(!rows.length){c.innerHTML='<div class="empty">No approved reports found. Check filters or approve reports first.</div>';return;}
     var showAll=!product;
     var h='<div style="overflow-x:auto"><table class="tbl" id="srTable"><thead><tr><th>Date</th><th>Branch</th>'
-      +(showAll||product==='petrol'?'<th class="num">Petrol Rev</th>':'')
-      +(showAll?'<th class="num">Litres</th>':'')
-      +(showAll||product==='p2t'||product==='p2tk'?'<th class="num">2T Oil</th>':'')
-      +(showAll||product==='puoil'?'<th class="num">Used Oil</th>':'')
-      +(showAll||product==='pshell'?'<th class="num">Shell Adv</th>':'')
+      +(showAll||product==='petrol'?'<th class="num">Petrol Rev</th><th class="num">Litres</th>':'')
+      +(showAll||product==='p2t'||product==='p2tk'?'<th class="num">2T Qty</th><th class="num">2T Sales</th>':'')
+      +(showAll||product==='puoil'?'<th class="num">Used Oil Qty</th><th class="num">Used Oil Sales</th>':'')
+      +(showAll||product==='pshell'?'<th class="num">Shell Qty</th><th class="num">Shell Sales</th>':'')
       +'<th class="num">Total</th></tr></thead><tbody>';
     rows.forEach(function(r){
       var pr=(r.pump&&r.pump.display&&r.pump.display.sold)||0;
-      var lt=(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      var lt=(r.pump&&r.pump.metre&&r.pump.metre.sold)||(r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      var p2tq=((r.products&&r.products.p2t&&r.products.p2t.qty)||0)+((r.products&&r.products.p2tk&&r.products.p2tk.qty)||0);
       var p2=((r.products&&r.products.p2t&&r.products.p2t.total)||0)+((r.products&&r.products.p2tk&&r.products.p2tk.total)||0);
+      var puq=(r.products&&r.products.puoil&&r.products.puoil.qty)||0;
       var pu=(r.products&&r.products.puoil&&r.products.puoil.total)||0;
+      var psq=(r.products&&r.products.pshell&&r.products.pshell.qty)||0;
       var ps=(r.products&&r.products.pshell&&r.products.pshell.total)||0;
       h+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td>'
-        +(showAll||product==='petrol'?'<td class="num">'+fmt(pr)+'</td>':'')
-        +(showAll?'<td class="num">'+lt.toFixed(1)+'L</td>':'')
-        +(showAll||product==='p2t'||product==='p2tk'?'<td class="num">'+fmt(p2)+'</td>':'')
-        +(showAll||product==='puoil'?'<td class="num">'+fmt(pu)+'</td>':'')
-        +(showAll||product==='pshell'?'<td class="num">'+fmt(ps)+'</td>':'')
+        +(showAll||product==='petrol'?'<td class="num">'+fmt(pr)+'</td><td class="num">'+lt.toFixed(1)+'L</td>':'')
+        +(showAll||product==='p2t'||product==='p2tk'?'<td class="num">'+p2tq.toFixed(1)+'</td><td class="num">'+fmt(p2)+'</td>':'')
+        +(showAll||product==='puoil'?'<td class="num">'+puq.toFixed(1)+'</td><td class="num">'+fmt(pu)+'</td>':'')
+        +(showAll||product==='pshell'?'<td class="num">'+psq.toFixed(0)+'</td><td class="num">'+fmt(ps)+'</td>':'')
         +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(r.grandTotal||0)+'</td></tr>';
     });
     h+='</tbody></table></div>';
