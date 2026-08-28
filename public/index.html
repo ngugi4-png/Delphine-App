@@ -2499,7 +2499,8 @@ function loadDSR() {
     var shiftsHtml='';
     snap.forEach(function(d){
       var r=d.data();
-      if(r.approvalStatus!=='approved') return;
+      // Show approved + imported reports
+      if(r.approvalStatus!=='approved' && r.source!=='import') return;
       if(branch&&r.branch!==branch) return;
       revenue  += r.grandTotal||0;
       litres   += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
@@ -2767,32 +2768,93 @@ function savePrice(branch) {
 // ═══════════════════════════════════════════════════════════════
 function loadStock() {
   var c=el('stockContent'); if(!c) return;
-  c.innerHTML='<div class="empty">Loading…</div>';
-  db.collection('reports').limit(200).get().then(function(snap){
-      var byBranch={};
-      BRANCHES.forEach(function(b){byBranch[b]={petrol:0,deliveries:0};});
-      snap.forEach(function(d){
-        var r=d.data(); var b=r.branch;
-        if(!byBranch[b]) return;
-        if(r.approvalStatus!=='approved') return;
-        byBranch[b].petrol     -= (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
-        byBranch[b].deliveries += (r.delivery&&r.delivery.litres)||0;
-      });
-      var html='<table class="tbl"><thead><tr><th>Branch</th><th class="num">Net Petrol Movement (L)</th><th class="num">Total Deliveries (L)</th></tr></thead><tbody>';
-      BRANCHES.forEach(function(b){
-        html+='<tr><td><span class="branch-pill">'+b+'</span></td>'
-          +'<td class="num" style="color:'+(byBranch[b].petrol>=0?'var(--green)':'var(--red)')+'">'+byBranch[b].petrol.toFixed(1)+'</td>'
-          +'<td class="num">'+byBranch[b].deliveries.toFixed(1)+'</td></tr>';
-      });
-      html+='</tbody></table>';
-      c.innerHTML=html;
-    }
-    .catch(function(e){ _dbErr('query', e); }));
-}
+  c.innerHTML='<div class="empty">Loading\u2026</div>';
+  var now=new Date();
+  var from=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  var to=now.toISOString().split('T')[0];
+  Promise.all([
+    db.collection('inventory').get(),
+    db.collection('reports').where('date','>=',from).where('date','<=',to).get(),
+    db.collection('bills').limit(100).get()
+  ]).then(function(results){
+    var invSnap=results[0], repSnap=results[1], billSnap=results[2];
 
-// ═══════════════════════════════════════════════════════════════
-// AUDIT
-// ═══════════════════════════════════════════════════════════════
+    // Current inventory levels
+    var inv={};
+    invSnap.forEach(function(d){ inv[d.id]=d.data(); });
+
+    // Sales this month (approved + imported)
+    var salesByBranch={};
+    BRANCHES.forEach(function(b){ salesByBranch[b]={petrol:0,p2t:0,p2tk:0,puoil:0,pshell:0,rev:0}; });
+    repSnap.forEach(function(d){
+      var r=d.data();
+      if(r.approvalStatus!=='approved'&&r.source!=='import') return;
+      var b=r.branch; if(!salesByBranch[b]) return;
+      salesByBranch[b].petrol += (r.pump&&r.pump.metre&&r.pump.metre.sold)||0;
+      salesByBranch[b].p2t   += (r.products&&r.products.p2t&&r.products.p2t.qty)||0;
+      salesByBranch[b].p2tk  += (r.products&&r.products.p2tk&&r.products.p2tk.qty)||0;
+      salesByBranch[b].puoil += (r.products&&r.products.puoil&&r.products.puoil.qty)||0;
+      salesByBranch[b].pshell+= (r.products&&r.products.pshell&&r.products.pshell.qty)||0;
+      salesByBranch[b].rev   += r.grandTotal||0;
+    });
+
+    // Purchases this month (from bills)
+    var purchByBranch={};
+    BRANCHES.forEach(function(b){ purchByBranch[b]={}; });
+    billSnap.forEach(function(d){
+      var b=d.data(); var lines=b.lineItems||[];
+      lines.forEach(function(l){
+        if(!l.branch||!l.description) return;
+        if(!purchByBranch[l.branch]) purchByBranch[l.branch]={};
+        purchByBranch[l.branch][l.description]=(purchByBranch[l.branch][l.description]||0)+(l.qty||0);
+      });
+    });
+
+    // Render
+    var h='<div style="font-size:0.72rem;color:var(--text3);margin-bottom:12px">Current stock levels + this month movement</div>';
+    BRANCHES.forEach(function(b){
+      var petrolDocId=(b+'_Petrol__PMS_');
+      var petrolQty=inv[petrolDocId]?inv[petrolDocId].qty:null;
+      var noData=petrolQty===null;
+      var col=noData?'var(--text3)':petrolQty>5000?'var(--green)':petrolQty>=0?'var(--gold)':'var(--red)';
+      var s=salesByBranch[b]||{};
+      h+='<div class="card" style="margin-bottom:14px">'
+        +'<div class="card-title" style="color:var(--gold)">'+b+'</div>'
+        +'<div class="g2" style="margin-bottom:12px">'
+        +'<div><div style="font-size:0.65rem;color:var(--text3)">Petrol Stock</div>'
+        +'<div style="font-size:1.3rem;font-weight:700;color:'+col+';font-family:var(--mono)">'
+        +(noData?'No data':petrolQty.toFixed(0)+'L')+'</div></div>'
+        +'<div><div style="font-size:0.65rem;color:var(--text3)">This Month Sales</div>'
+        +'<div style="font-size:1.3rem;font-weight:700;font-family:var(--mono)">'+fmt(s.rev||0)+'</div></div>'
+        +'</div>'
+        +'<table class="tbl" style="margin:0"><thead><tr>'
+        +'<th>Product</th><th class="num">In Stock</th>'
+        +'<th class="num">Sold This Month</th><th class="num">Purchased</th></tr></thead><tbody>';
+      var prods=[
+        {name:'Petrol (PMS)',   key:'petrol',  docSuffix:'Petrol__PMS_'},
+        {name:'2T Motor Oil',   key:'p2t',     docSuffix:'2T_Motor_Oil'},
+        {name:'2T-Kupima',      key:'p2tk',    docSuffix:'2T_Kupima_'},
+        {name:'Used Oil',       key:'puoil',   docSuffix:'Used_Oil'},
+        {name:'Shell Advance',  key:'pshell',  docSuffix:'Shell_Advance'}
+      ];
+      prods.forEach(function(p){
+        var docId=b+'_'+p.docSuffix;
+        var qty=inv[docId]?inv[docId].qty:null;
+        var sold=s[p.key]||0;
+        var purch=purchByBranch[b]&&purchByBranch[b][p.name]||0;
+        var qtyCol=qty===null?'var(--text3)':qty>0?'var(--green)':qty<0?'var(--red)':'var(--text3)';
+        h+='<tr>'
+          +'<td>'+p.name+'</td>'
+          +'<td class="num" style="color:'+qtyCol+';font-weight:700">'+(qty===null?'—':qty.toFixed(qty%1===0?0:1))+'</td>'
+          +'<td class="num" style="color:var(--red)">-'+sold.toFixed(sold%1===0?0:1)+'</td>'
+          +'<td class="num" style="color:var(--green)">'+(purch?'+'+purch.toFixed(purch%1===0?0:1):'—')+'</td>'
+          +'</tr>';
+      });
+      h+='</tbody></table></div>';
+    });
+    c.innerHTML=h;
+  }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+}
 function loadAudit() {
   var staff=gv('auditStaffFilter');
   var c=el('auditList'); if(!c) return;
@@ -3417,7 +3479,8 @@ function loadTrends() {
     var byDate={rev:{},vol:{}};
     snap.forEach(function(d){
       var r=d.data();
-      if(r.approvalStatus!=='approved') return;
+      // Show approved + imported reports
+      if(r.approvalStatus!=='approved' && r.source!=='import') return;
       if(branch&&r.branch!==branch) return;
       byDate.rev[r.date]=(byDate.rev[r.date]||0)+(r.grandTotal||0);
       byDate.vol[r.date]=(byDate.vol[r.date]||0)+((r.pump&&r.pump.metre&&r.pump.metre.sold)||0);
@@ -5545,6 +5608,7 @@ function runImport() {
   var now     = firebase.firestore.FieldValue.serverTimestamp();
   var batch   = db.batch();
   var count   = 0;
+  var importedReportData = [];
 
   rows.forEach(function(row) {
     var obj = {};
@@ -5570,10 +5634,11 @@ function runImport() {
       var openPrice   =parseFloat(obj['Opening Price Reading'])||0;
       var closePrice  =parseFloat(obj['Closing Price Reading'])||0;
       var rowBranch   =obj['Branch']||obj['branch']||branch;
+      importedReportData.push({branch:rowBranch,pump:{metre:{sold:totalLiters||litersSold}},products:{p2t:{qty:p2tQty},p2tk:{qty:p2tkQty},puoil:{qty:usedOilQty},pshell:{qty:shellQty}}});
       var ref=db.collection('reports').doc();
       batch.set(ref,{
         date:rawDate, branch:rowBranch, shift:'Day', staffName:'Imported',
-        approvalStatus:'pending', source:'import',
+        approvalStatus:'approved', source:'import',
         pump:{
           metre:{open:litersOpen,close:litersClose,sold:totalLiters||litersSold},
           priceReading:{open:openPrice,close:closePrice},
@@ -5626,9 +5691,12 @@ function runImport() {
   });
 
   batch.commit().then(function(){
-    toast('Imported '+count+' records successfully','ok');
-    // Refresh WACC if purchases imported
+    toast('Imported '+count+' records successfully — syncing inventory...','ok');
     if (type==='purchases') calculateWACC(null, function(w){ WACC_CACHE=w; });
+    // Sync inventory for imported sales
+    if (type==='sales') {
+      importedReportData.forEach(function(rd){ updateInventoryFromReport(rd, 1); });
+    }
     document.getElementById('importPreview').innerHTML='';
     document.getElementById('importPreview').dataset.rows='';
     document.getElementById('importFile').value='';
@@ -5821,7 +5889,10 @@ function updateInventoryFromReport(reportData, mult) {
   var branch = reportData.branch;
   if (!branch) return;
   var updates = [];
-  var lit = (reportData.pump && reportData.pump.metre && reportData.pump.metre.sold) || 0;
+  var lit = (reportData.pump && reportData.pump.metre && reportData.pump.metre.sold)
+         || (reportData.pump && reportData.pump.metre && reportData.pump.metre.litresSold)
+         || (reportData.litresSold)
+         || 0;
   if (lit > 0) updates.push({product:'Petrol (PMS)', branch:branch, qty:lit});
   var pm = [{key:'p2t',name:'2T Motor Oil'},{key:'p2tk',name:'2T-Kupima'},
             {key:'puoil',name:'Used Oil'},{key:'pshell',name:'Shell Advance'}];
