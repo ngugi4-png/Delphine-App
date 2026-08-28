@@ -779,7 +779,7 @@ a { color: var(--gold); text-decoration: none; }
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700">Vendors &amp; Bills</h2>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="generateVendorReport()">&#128196; Vendor Report</button>
+        <button class="btn btn-ghost btn-sm" onclick="openVendorReportFilters()">&#128196; Vendor Report</button>
         <button class="btn btn-gold btn-sm" onclick="openAddVendor()">+ Add Vendor</button>
       </div>
     </div>
@@ -3080,14 +3080,15 @@ function billCalc() {
 }
 
 function saveBill() {
-  var vendor   = document.getElementById('billVendor') ? document.getElementById('billVendor').value : '';
-  var date     = document.getElementById('billDate')   ? document.getElementById('billDate').value   : '';
-  var ref      = document.getElementById('billRef')    ? document.getElementById('billRef').value    : '';
-  var note     = document.getElementById('billNote')   ? document.getElementById('billNote').value   : '';
+  var vendor = document.getElementById('billVendor') ? document.getElementById('billVendor').value : '';
+  var date   = document.getElementById('billDate')   ? document.getElementById('billDate').value   : '';
+  var ref    = document.getElementById('billRef')    ? document.getElementById('billRef').value    : '';
+  var note   = document.getElementById('billNote')   ? document.getElementById('billNote').value   : '';
 
   if (!date) { toast('Select a date', 'err'); return; }
 
-  // Collect line items
+  var billEditId = (el('billEditId')||{}).value || '';
+
   var lineItems = [];
   var billTotal = 0;
   var c = document.getElementById('billLines');
@@ -3096,43 +3097,61 @@ function saveBill() {
   }
 
   c.querySelectorAll('.bill-line').forEach(function(row) {
-    var id     = row.id.replace('billLine_','');
+    var id      = row.id.replace('billLine_','');
     var descSel = document.getElementById('blDesc_'+id);
     var descVal = descSel ? descSel.value : '';
-    var desc = descVal === 'Other'
+    var isCustom = descVal === '__other__';
+    var desc = isCustom
       ? ((document.getElementById('blDescOther_'+id)||{}).value||'').trim()
       : descVal;
     var branch = (document.getElementById('blBranch_'+id)||{}).value || '';
     var qty    = parseFloat((document.getElementById('blQty_'+id)||{}).value)   || 0;
     var price  = parseFloat((document.getElementById('blPrice_'+id)||{}).value) || 0;
     var amount = qty * price;
-    if (!desc || qty === 0) return; // skip empty rows
-    lineItems.push({ description: desc, branch: branch, qty: qty, unitPrice: price, amount: amount });
+    if (!desc || qty === 0) return;
+    lineItems.push({ description: desc, branch: branch, qty: qty, unitPrice: price, amount: amount, isCustom: isCustom });
     billTotal += amount;
   });
 
   if (!lineItems.length) { toast('Fill in at least one line item with description and qty', 'err'); return; }
 
   var now = firebase.firestore.FieldValue.serverTimestamp();
-  db.collection('bills').add({
-    vendorId:   vendor,
-    date:       date,
-    reference:  ref,
-    notes:      note,
-    lineItems:  lineItems,
+  var billData = {
+    vendorId:    vendor,
+    date:        date,
+    reference:   ref,
+    notes:       note,
+    lineItems:   lineItems,
     totalAmount: billTotal,
-    // Keep backward-compat fields
-    branch:     lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ') || 'Multiple',
+    branch:      lineItems.map(function(l){return l.branch;}).filter(Boolean).join(', ') || 'Multiple',
     description: lineItems.map(function(l){return l.description;}).join(', '),
-    amount:     billTotal,
-    createdAt:  now
-  }).then(function() {
-    // Update inventory for each line item
-    updateInventoryFromBill(lineItems, 1);
-    toast('Bill saved — KSh ' + billTotal.toLocaleString(), 'ok');
-    cancelBillEdit();
-    loadBillList();
-  }).catch(function(e) { toast('Error: ' + e.message, 'err'); });
+    amount:      billTotal,
+    updatedAt:   now
+  };
+
+  if (billEditId) {
+    // Editing an existing bill: reverse the old line items from inventory
+    // first, then apply the new ones, so stock reflects the edited amounts.
+    db.collection('bills').doc(billEditId).get().then(function(snap){
+      var oldLines = snap.exists ? (snap.data().lineItems||[]) : [];
+      return db.collection('bills').doc(billEditId).update(billData).then(function(){
+        if (oldLines.length) updateInventoryFromBill(oldLines, -1);
+        updateInventoryFromBill(lineItems, 1);
+      });
+    }).then(function(){
+      toast('Bill updated \u2014 KSh ' + billTotal.toLocaleString(), 'ok');
+      cancelBillEdit();
+      loadBillList();
+    }).catch(function(e){ toast('Error: '+e.message,'err'); });
+  } else {
+    billData.createdAt = now;
+    db.collection('bills').add(billData).then(function() {
+      updateInventoryFromBill(lineItems, 1);
+      toast('Bill saved \u2014 KSh ' + billTotal.toLocaleString(), 'ok');
+      cancelBillEdit();
+      loadBillList();
+    }).catch(function(e) { toast('Error: ' + e.message, 'err'); });
+  }
 }
 
 
@@ -3823,7 +3842,7 @@ function savePurchaseOrder() {
     var id     = row.id.replace('poLine_','');
     var descSel = document.getElementById('poDesc_'+id);
     var descVal = descSel ? descSel.value : '';
-    var desc = descVal === 'Other'
+    var desc = descVal === '__other__'
       ? ((document.getElementById('poDescOther_'+id)||{}).value || '').trim()
       : descVal;
     var branch = (document.getElementById('poBranch_'+id)||{}).value || '';
@@ -3953,9 +3972,8 @@ function loadPurchases() {
         + fmt(o.totalAmount)+'</span>'
         + (o.status==='pending' ? '<button class="btn btn-blue btn-xs" onclick="editPO(\''+o.id+'\')">✎ Edit</button>' : '')
         + '<button class="btn btn-green btn-xs" onclick="receivePOAsBill(\''+o.id+'\')" title="Receive">✓ Receive</button>'
-        + (o.status==='pending' ? '<button class="btn btn-ghost btn-xs" onclick="cancelPO(\''+o.id+'\')">✕</button>' : '')
+        + (o.status==='pending' ? '<button class="btn btn-ghost btn-xs" onclick="cancelPO(\''+o.id+'\')" title="Cancel PO">✕ Cancel</button>' : '')
         + '<button class="btn btn-red btn-xs" onclick="deletePO(\''+o.id+'\')">Del</button>'
-        + 'title="Cancel">✕</button>'
         + '</div></div>'
         // Line items table
         + '<table class="tbl" style="margin:0"><thead><tr>'
@@ -3977,14 +3995,28 @@ function loadPurchases() {
 }
 
 function receivePOAsBill(poId) {
-  // Load the PO, mark as received, and auto-create a bill
+  // Ask for the bill/receipt date before creating the bill, instead of
+  // silently forcing today's date.
+  var today = new Date().toISOString().split('T')[0];
+  openModal('Receive Purchase Order',
+    '<div class="field"><label>Bill / Receipt Date</label>'
+    + '<input type="date" id="poReceiveDate" value="'+today+'"></div>'
+    + '<div style="font-size:0.7rem;color:var(--text3);margin-top:8px">'
+    + 'This date will be used for the bill created from this PO and for inventory sync.</div>',
+    '<button class="btn btn-gold btn-sm" onclick="confirmReceivePO(\''+poId+'\')">Confirm Receive</button>'
+  );
+}
+
+function confirmReceivePO(poId) {
+  var dateInput    = el('poReceiveDate');
+  var receivedDate = (dateInput && dateInput.value) || new Date().toISOString().split('T')[0];
+  closeModal();
+
   db.collection('purchaseOrders').doc(poId).get().then(function(snap) {
     if (!snap.exists) { toast('PO not found','err'); return; }
     var po  = snap.data();
     var now = firebase.firestore.FieldValue.serverTimestamp();
-    var receivedDate = new Date().toISOString().split('T')[0];
 
-    // Build bill from PO line items
     var billLines = (po.lineItems||[]).map(function(l) {
       return {
         description: l.description,
@@ -3997,7 +4029,6 @@ function receivePOAsBill(poId) {
     });
     var totalAmount = billLines.reduce(function(s,l){ return s+(l.amount||0); }, 0);
 
-    // Save bill
     db.collection('bills').add({
       vendorId:    po.vendorId   || '',
       vendorName:  po.vendorName || '',
@@ -4013,18 +4044,17 @@ function receivePOAsBill(poId) {
       status:      'unpaid',
       createdAt:   now
     }).then(function() {
-      // Mark PO as received
       return db.collection('purchaseOrders').doc(poId).update({
         status:      'received',
         receivedAt:  now,
+        receivedDate: receivedDate,
         updatedAt:   now,
         billCreated: true
       });
     }).then(function() {
-      // Recalculate WACC cache
       if (typeof calculateWACC === 'function') calculateWACC(null, function(w){ WACC_CACHE = w; });
       syncInventoryFromPurchase({lineItems: billLines});
-      toast('✓ Received! Bill created and inventory updated.','ok');
+      toast('\u2713 Received! Bill dated '+receivedDate+' created and inventory updated.','ok');
       loadPurchases();
     }).catch(function(e){ toast('Error: '+e.message,'err'); });
   }).catch(function(e){ toast('Error loading PO: '+e.message,'err'); });
@@ -5873,36 +5903,99 @@ function loadBillList() {
 // ═══════════════════════════════════════════════════════════════
 // VENDOR REPORT
 // ═══════════════════════════════════════════════════════════════
+function openVendorReportFilters() {
+  var now  = new Date();
+  var from = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  var to   = now.toISOString().split('T')[0];
+
+  db.collection('vendors').get().then(function(vSnap){
+    var vendorOpts = '<option value="">All Vendors</option>';
+    vSnap.forEach(function(d){
+      var v = d.data();
+      vendorOpts += '<option value="'+d.id+'">'+(v.name||d.id)+'</option>';
+    });
+
+    var productOpts = '<option value="">All Products</option>'
+      + ['Petrol (PMS)','2T Motor Oil','2T-Kupima','Used Oil','Shell Advance'].map(function(p){
+          return '<option value="'+p+'">'+p+'</option>';
+        }).join('')
+      + '<option value="__other__">Other / Custom</option>';
+
+    openModal('Vendor Report Filters',
+      '<div class="field"><label>Vendor</label><select id="vrVendor">'+vendorOpts+'</select></div>'
+      + '<div class="g2">'
+      + '<div class="field"><label>From</label><input type="date" id="vrFrom" value="'+from+'"></div>'
+      + '<div class="field"><label>To</label><input type="date" id="vrTo" value="'+to+'"></div>'
+      + '</div>'
+      + '<div class="field"><label>Product</label><select id="vrProduct">'+productOpts+'</select></div>',
+      '<button class="btn btn-gold btn-sm" onclick="generateVendorReport()">Generate Report</button>'
+    );
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
 function generateVendorReport() {
+  var vendorId = (el('vrVendor')||{}).value || '';
+  var from     = (el('vrFrom')||{}).value || '';
+  var to       = (el('vrTo')||{}).value || '';
+  var product  = (el('vrProduct')||{}).value || '';
+
   Promise.all([
     db.collection('vendors').get(),
     db.collection('bills').get()
   ]).then(function(res){
     var vSnap=res[0], bSnap=res[1];
     var vmap={};
-    vSnap.forEach(function(d){vmap[d.id]=Object.assign({id:d.id,total:0,billCount:0},d.data());});
+    vSnap.forEach(function(d){ vmap[d.id] = d.data(); });
+
+    var rows=[], grand=0;
     bSnap.forEach(function(d){
-      var b=d.data();
-      if(vmap[b.vendorId]){vmap[b.vendorId].total+=b.totalAmount||b.amount||0;vmap[b.vendorId].billCount++;}
+      var b = d.data();
+      if (vendorId && b.vendorId !== vendorId) return;
+      if (from && (b.date||'') < from) return;
+      if (to   && (b.date||'') > to)   return;
+      var vName = (vmap[b.vendorId] && vmap[b.vendorId].name) || b.vendorName || '\u2014';
+      (b.lineItems||[]).forEach(function(l){
+        if (product === '__other__') {
+          var known = ['Petrol (PMS)','2T Motor Oil','2T-Kupima','Used Oil','Shell Advance'];
+          if (known.indexOf(l.description) !== -1) return;
+        } else if (product && l.description !== product) {
+          return;
+        }
+        var qty    = parseFloat(l.qty) || 0;
+        var rate   = parseFloat(l.unitPrice) || 0;
+        var amount = l.amount != null ? l.amount : qty*rate;
+        rows.push({ date:b.date, vendor:vName, product:l.description, branch:l.branch||'', qty:qty, rate:rate, amount:amount });
+        grand += amount;
+      });
     });
-    var vendors=Object.values(vmap).sort(function(a,b){return b.total-a.total;});
-    var grandTotal=vendors.reduce(function(s,v){return s+v.total;},0);
-    var rows=vendors.map(function(v){
-      return '<tr><td style="font-weight:600">'+(v.name||'\u2014')+'</td>'
-        +'<td>'+(v.contact||'\u2014')+'</td><td>'+(v.phone||'\u2014')+'</td>'
-        +'<td class="num">'+v.billCount+'</td>'
-        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(v.total)+'</td></tr>';
+
+    rows.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+
+    var body = rows.map(function(r){
+      return '<tr><td>'+r.date+'</td><td>'+r.vendor+'</td><td>'+r.product+'</td>'
+        + '<td>'+r.branch+'</td>'
+        + '<td class="num">'+r.qty.toFixed(r.qty%1===0?0:2)+'</td>'
+        + '<td class="num">'+fmt(r.rate)+'</td>'
+        + '<td class="num" style="font-weight:600">'+fmt(r.amount)+'</td></tr>';
     }).join('');
-    openModal('Vendor Report \u2014 All Time',
+
+    if (!rows.length) {
+      body = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">No matching bill line items found.</td></tr>';
+    }
+
+    var periodLabel = (from && to) ? (' \u2014 '+from+' to '+to) : '';
+    openModal('Vendor Report'+periodLabel,
       '<div style="display:flex;justify-content:space-between;margin-bottom:12px">'
-      +'<span style="font-size:0.72rem;color:var(--text3)">'+vendors.length+' vendors | '+bSnap.size+' bills</span>'
-      +'<span style="font-weight:700;color:var(--gold)">Total: '+fmt(grandTotal)+'</span></div>'
-      +'<div style="overflow:auto;max-height:60vh"><table class="tbl"><thead><tr>'
-      +'<th>Vendor</th><th>Contact</th><th>Phone</th><th class="num">Bills</th><th class="num">Total</th>'
-      +'</tr></thead><tbody>'+rows+'</tbody></table></div>',
+      + '<span style="font-size:0.72rem;color:var(--text3)">'+rows.length+' line item(s)</span>'
+      + '<span style="font-weight:700;color:var(--gold)">Total: '+fmt(grand)+'</span></div>'
+      + '<div style="overflow:auto;max-height:60vh"><table class="tbl"><thead><tr>'
+      + '<th>Date</th><th>Vendor</th><th>Product</th><th>Branch</th>'
+      + '<th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th>'
+      + '</tr></thead><tbody>'+body+'</tbody></table></div>',
       '<button class="btn btn-gold btn-sm" onclick="exportVendorReportPDF()">Export PDF</button>'
+      + '<button class="btn btn-ghost btn-sm" onclick="openVendorReportFilters()">\u2190 Change Filters</button>'
     );
-  }).catch(function(e){toast('Error: '+e.message,'err');});
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
 function exportVendorReportPDF() {
