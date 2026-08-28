@@ -773,15 +773,6 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
-  <!-- INVENTORY -->
-  <div id="tabInv" class="adm-panel">
-    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Inventory</h2>
-    <div id="invContent"><div class="empty">Loading…</div></div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">Price Settings</div>
-      <div id="priceSettings"></div>
-    </div>
-  </div>
 
   <!-- VENDORS & BILLS -->
   <div id="tabVend" class="adm-panel">
@@ -1909,7 +1900,6 @@ function panelInit(panelId) {
     case 'tabStock':        loadStock();         break;
     case 'tabAudit':        loadAudit();         break;
     case 'tabExport':       initExport();        break;
-    case 'tabInv':          loadInventory();     break;
     case 'tabVend':         loadVendors();       break;
     case 'tabCreateReport': initCreateReport();  break;
     case 'tabImport':       initImport();        break;
@@ -5965,8 +5955,8 @@ function loadInventory() {
         +'<table class="tbl"><thead><tr><th>Product</th><th class="num">Qty/L</th><th>Status</th><th></th></tr></thead><tbody>';
       byBranch[b].forEach(function(item){
         var qty=typeof item.qty==='number'?item.qty:0;
-        var col=qty>5000?'var(--green)':qty>0?'var(--gold)':'var(--red)';
-        var status=qty>5000?'OK':qty>0?'Low':qty<0?'Deficit':'Empty';
+        var col=qty>5000?'var(--green)':qty>0?'var(--gold)':qty<0?'var(--red)':'var(--text3)';
+        var status=qty>5000?'OK':qty>0?'Low':qty<0?'Deficit ↓':'Empty';
         html2+='<tr><td style="font-weight:500">'+(item.product||item.id)+'</td>'
           +'<td class="num" style="color:'+col+';font-weight:700;font-family:var(--mono)">'+qty.toFixed(qty%1===0?0:2)+'</td>'
           +'<td><span style="color:'+col+';font-size:0.72rem;font-weight:600">'+status+'</span></td>'

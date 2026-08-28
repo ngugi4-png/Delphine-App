@@ -13,10 +13,9 @@
  *     same txnId can fire more than once. A ledger doc keyed by
  *     txnId is checked *inside* the transaction; if it already
  *     exists we no-op instead of double-applying the change.
- *   - Stock never goes negative: a sale that would drop qty below
- *     zero is rejected — inventory is left untouched and the
- *     transaction doc + audit log record the rejection.
- *   - Every applied (or rejected) change writes one audit log row.
+ *   - Negative stock is allowed: a sale that exceeds what's on hand
+ *     still applies, leaving qty negative (a visible deficit) rather
+ *     than being rejected. Every change still writes one audit row.
  *
  * Expected shape of a document in `transactions`:
  *   {
@@ -89,38 +88,9 @@ exports.syncInventoryOnTransaction = onDocumentCreated(
 
         const delta  = type === 'purchase' ? qty : -qty;
         const newQty = currentQty + delta;
-
-        // ── Never let stock go negative ────────────────────────
-        if (newQty < 0) {
-          tx.set(
-            ledgerRef,
-            {
-              txnId, type, branch, product, qty,
-              status: 'rejected',
-              reason: 'insufficient_stock',
-              qtyBefore: currentQty,
-              appliedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          );
-          tx.set(auditRef, {
-            txnId, branch, product, type,
-            qtyRequested: qty,
-            qtyBefore: currentQty,
-            qtyAfter: currentQty,   // unchanged
-            delta: 0,
-            status: 'rejected',
-            reason: 'insufficient_stock',
-            actor: txn.actor || null,
-            timestamp: FieldValue.serverTimestamp(),
-          });
-          tx.set(
-            snap.ref,
-            { status: 'rejected', rejectReason: 'insufficient_stock', processedAt: FieldValue.serverTimestamp() },
-            { merge: true }
-          );
-          return;
-        }
+        // Negative stock is allowed (e.g. sales recorded before a delayed
+        // purchase/delivery is entered). A deficit just means newQty < 0 —
+        // it still gets applied and audited like any other change.
 
         // ── Apply the stock change ─────────────────────────────
         tx.set(
@@ -142,6 +112,7 @@ exports.syncInventoryOnTransaction = onDocumentCreated(
           status: 'applied',
           qtyBefore: currentQty,
           qtyAfter: newQty,
+          deficit: newQty < 0,
           appliedAt: FieldValue.serverTimestamp(),
         });
 
@@ -153,6 +124,7 @@ exports.syncInventoryOnTransaction = onDocumentCreated(
           qtyAfter: newQty,
           delta,
           status: 'applied',
+          deficit: newQty < 0,   // flags a negative-stock event without blocking it
           actor: txn.actor || null,
           timestamp: FieldValue.serverTimestamp(),
         });
