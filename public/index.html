@@ -5766,20 +5766,22 @@ function deleteBill(id) {
 }
 
 function updateInventoryFromBill(lineItems, multiplier) {
-  lineItems.forEach(function(l){
-    if (!l.description||!l.branch||!l.qty) return;
-    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9]/gi,'_');
-    var ref = db.collection('inventory').doc(docId);
-    db.runTransaction(function(tx){
-      return tx.get(ref).then(function(snap){
-        var cur=snap.exists?(snap.data().qty||0):0;
-        tx.set(ref,{branch:l.branch,product:l.description,
-          qty:Math.max(0,cur+(parseFloat(l.qty)||0)*multiplier),
-          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-      });
-    }).catch(function(e){console.warn('Inventory:',e.message);});
+  var lines = (lineItems||[]).filter(function(l){ return l.description && l.branch && l.qty; });
+  if (!lines.length) return;
+  var type = multiplier >= 0 ? 'purchase' : 'sale'; // bill saved = purchase; bill deleted/reversed = sale
+  var batch = db.batch();
+  lines.forEach(function(l){
+    var ref = db.collection('transactions').doc();
+    batch.set(ref, {
+      type: type, branch: l.branch, product: l.description,
+      qty: Math.abs(parseFloat(l.qty) || 0), unit: l.unit || null, source: 'bill',
+      actor: (typeof currentUser!=='undefined' && currentUser) ? currentUser.email : 'system',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
   });
-  if(typeof calculateWACC==='function') calculateWACC(null,function(w){WACC_CACHE=w;});
+  batch.commit()
+    .then(function(){ if (typeof calculateWACC === 'function') calculateWACC(null, function(w){ WACC_CACHE = w; }); })
+    .catch(function(e){ console.warn('Bill transaction write failed:', e.message); });
 }
 
 function loadBillList() {
@@ -5886,6 +5888,9 @@ function exportVendorReportPDF() {
 // INVENTORY AUTO-SYNC
 // ═══════════════════════════════════════════════════════════════
 function updateInventoryFromReport(reportData, mult) {
+  // Posts to the `transactions` collection instead of writing inventory
+  // directly. The syncInventoryOnTransaction Cloud Function applies the
+  // change transactionally (atomic, idempotent, floor-at-zero, audited).
   var branch = reportData.branch;
   if (!branch) return;
   var updates = [];
@@ -5893,42 +5898,43 @@ function updateInventoryFromReport(reportData, mult) {
          || (reportData.pump && reportData.pump.metre && reportData.pump.metre.litresSold)
          || (reportData.litresSold)
          || 0;
-  if (lit > 0) updates.push({product:'Petrol (PMS)', branch:branch, qty:lit});
-  var pm = [{key:'p2t',name:'2T Motor Oil'},{key:'p2tk',name:'2T-Kupima'},
-            {key:'puoil',name:'Used Oil'},{key:'pshell',name:'Shell Advance'}];
+  if (lit > 0) updates.push({product:'Petrol (PMS)', branch:branch, qty:lit, unit:'L'});
+  var pm = [{key:'p2t',name:'2T Motor Oil',unit:'pcs'},{key:'p2tk',name:'2T-Kupima',unit:'L'},
+            {key:'puoil',name:'Used Oil',unit:'L'},{key:'pshell',name:'Shell Advance',unit:'pcs'}];
   var prods = reportData.products || {};
   pm.forEach(function(p){
     var q = (prods[p.key] && prods[p.key].qty) || 0;
-    if (q > 0) updates.push({product:p.name, branch:branch, qty:q});
+    if (q > 0) updates.push({product:p.name, branch:branch, qty:q, unit:p.unit});
   });
+  if (!updates.length) return;
+  var type = mult >= 0 ? 'sale' : 'purchase'; // approving a report = stock sold; mult<0 = reversal
+  var batch = db.batch();
   updates.forEach(function(u){
-    var docId = (u.branch+'_'+u.product).replace(/[^a-z0-9]/gi,'_');
-    var ref = db.collection('inventory').doc(docId);
-    db.runTransaction(function(tx){
-      return tx.get(ref).then(function(snap){
-        var cur = snap.exists ? (snap.data().qty||0) : 0;
-        tx.set(ref,{branch:u.branch,product:u.product,
-          qty: cur - (u.qty * mult),
-          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-      });
-    }).catch(function(e){console.warn('Inv sync:',e.message);});
+    var ref = db.collection('transactions').doc();
+    batch.set(ref, {
+      type: type, branch: u.branch, product: u.product, qty: Math.abs(u.qty),
+      unit: u.unit || null, source: 'report',
+      actor: (typeof currentUser!=='undefined' && currentUser) ? currentUser.email : 'system',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
   });
+  batch.commit().catch(function(e){ console.warn('Inventory transaction write failed:', e.message); });
 }
 
 function syncInventoryFromPurchase(billData) {
-  (billData.lineItems||[]).forEach(function(l){
-    if (!l.description||!l.branch||!l.qty) return;
-    var docId = (l.branch+'_'+l.description).replace(/[^a-z0-9]/gi,'_');
-    var ref = db.collection('inventory').doc(docId);
-    db.runTransaction(function(tx){
-      return tx.get(ref).then(function(snap){
-        var cur = snap.exists ? (snap.data().qty||0) : 0;
-        tx.set(ref,{branch:l.branch,product:l.description,
-          qty:Math.max(0,cur+parseFloat(l.qty)),
-          updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-      });
-    }).catch(function(e){console.warn('Purchase inv:',e.message);});
+  var lines = (billData.lineItems||[]).filter(function(l){ return l.description && l.branch && l.qty; });
+  if (!lines.length) return;
+  var batch = db.batch();
+  lines.forEach(function(l){
+    var ref = db.collection('transactions').doc();
+    batch.set(ref, {
+      type: 'purchase', branch: l.branch, product: l.description,
+      qty: Math.abs(parseFloat(l.qty) || 0), unit: l.unit || null, source: 'purchaseOrder',
+      actor: (typeof currentUser!=='undefined' && currentUser) ? currentUser.email : 'system',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
   });
+  batch.commit().catch(function(e){ console.warn('Purchase transaction write failed:', e.message); });
 }
 
 // ═══════════════════════════════════════════════════════════════
