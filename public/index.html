@@ -557,6 +557,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabProducts','mSettings')">Products</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabAlerts','mSettings')">Alerts &amp; Digest</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDangerZone','mSettings')">Danger Zone</button>
   </div>
   <div id="subNav_mScout" class="adm-sub-nav">
@@ -1131,7 +1132,55 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
-  <!-- DANGER ZONE -->
+    <!-- ALERTS & DIGEST -->
+  <div id="tabAlerts" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Alerts &amp; Weekly Digest</h2>
+
+    <div class="card" style="max-width:560px;margin-bottom:20px">
+      <div class="card-title">Alert Settings</div>
+      <div class="field">
+        <label>Phone Numbers (comma-separated, e.g. +254712345678)</label>
+        <textarea id="alertPhones" rows="2" placeholder="+254712345678, +254798765432"></textarea>
+      </div>
+      <div class="field">
+        <label>Channels</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;margin-bottom:4px;cursor:pointer">
+          <input type="checkbox" id="alertChSMS"> SMS (via Africa's Talking)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer">
+          <input type="checkbox" id="alertChWA"> WhatsApp (via Meta Cloud API)
+        </label>
+      </div>
+      <div class="g3">
+        <div class="field"><label>Fuel Loss Threshold %</label><input type="number" id="alertFuelPct" step="0.1" value="2"></div>
+        <div class="field"><label>Bill Anomaly Multiplier</label><input type="number" id="alertBillMult" step="0.1" value="3"></div>
+        <div class="field"><label>Report Anomaly Multiplier</label><input type="number" id="alertRptMult" step="0.1" value="2.5"></div>
+      </div>
+      <button class="btn btn-gold btn-sm" onclick="saveAlertSettings()">Save Settings</button>
+      <div style="font-size:0.62rem;color:var(--text3);margin-top:10px;line-height:1.5">
+        SMS/WhatsApp provider credentials are configured separately via Firebase Functions secrets
+        (not stored here) — see <code>functions/lib/notify.js</code> for one-time setup steps.
+      </div>
+    </div>
+
+    <div class="card" style="max-width:560px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title" style="margin:0">Latest Weekly Digest</div>
+        <button class="btn btn-ghost btn-xs" onclick="loadLatestDigest()">&#8635;</button>
+      </div>
+      <div id="latestDigest"><div class="empty">Loading&#8230;</div></div>
+    </div>
+
+    <div class="card" style="max-width:560px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title" style="margin:0">Recent Alerts</div>
+        <button class="btn btn-ghost btn-xs" onclick="loadRecentAlerts()">&#8635;</button>
+      </div>
+      <div id="recentAlerts"><div class="empty">Loading&#8230;</div></div>
+    </div>
+  </div>
+
+<!-- DANGER ZONE -->
   <div id="tabDangerZone" class="adm-panel">
     <h2 style="font-size:1rem;font-weight:700;color:var(--red);margin-bottom:20px">⚠ Danger Zone</h2>
     <div class="card" style="border-left-color:var(--red);max-width:480px">
@@ -1917,6 +1966,7 @@ function panelInit(panelId) {
     case 'tabProducts':     loadProducts();      break;
     case 'tabBankAccts':    loadBankAccts();     break;
     case 'tabEmailSettings':loadEmailSettings(); break;
+    case 'tabAlerts':       loadAlertSettings(); break;
     case 'tabDangerZone':   break;
     case 'tabTrends':       loadTrends();        break;
     case 'tabPredictions':  loadPredictions();   break;
@@ -6356,6 +6406,89 @@ function loadSalesReport() {
     h+='</tbody></table></div>';
     c.innerHTML=h;
   }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
+}
+
+
+// ALERTS & WEEKLY DIGEST (client-side settings + viewers)
+function loadAlertSettings() {
+  db.collection('settings').doc('alerts').get().then(function(snap){
+    var cfg = snap.exists ? snap.data() : {};
+    var ph = el('alertPhones'); if (ph) ph.value = (cfg.phoneNumbers||[]).join(', ');
+    var sms = el('alertChSMS'); if (sms) sms.checked = !cfg.channels || cfg.channels.sms !== false;
+    var wa  = el('alertChWA');  if (wa)  wa.checked  = !!(cfg.channels && cfg.channels.whatsapp);
+    var fp  = el('alertFuelPct');  if (fp) fp.value = cfg.fuelLossThresholdPct != null ? cfg.fuelLossThresholdPct : 2;
+    var bm  = el('alertBillMult'); if (bm) bm.value = cfg.billAnomalyMultiplier != null ? cfg.billAnomalyMultiplier : 3;
+    var rm  = el('alertRptMult');  if (rm) rm.value = cfg.reportAnomalyMultiplier != null ? cfg.reportAnomalyMultiplier : 2.5;
+  }).catch(function(e){ toast('Error loading alert settings: '+e.message,'err'); });
+  loadLatestDigest();
+  loadRecentAlerts();
+}
+
+function saveAlertSettings() {
+  var phonesRaw = (el('alertPhones')||{}).value || '';
+  var phoneNumbers = phonesRaw.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var channels = {
+    sms: !!(el('alertChSMS')||{}).checked,
+    whatsapp: !!(el('alertChWA')||{}).checked
+  };
+  var fuelLossThresholdPct   = parseFloat((el('alertFuelPct')||{}).value)  || 2;
+  var billAnomalyMultiplier  = parseFloat((el('alertBillMult')||{}).value) || 3;
+  var reportAnomalyMultiplier= parseFloat((el('alertRptMult')||{}).value)  || 2.5;
+
+  db.collection('settings').doc('alerts').set({
+    phoneNumbers: phoneNumbers,
+    channels: channels,
+    fuelLossThresholdPct: fuelLossThresholdPct,
+    billAnomalyMultiplier: billAnomalyMultiplier,
+    reportAnomalyMultiplier: reportAnomalyMultiplier,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, {merge:true}).then(function(){
+    toast('Alert settings saved','ok');
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function loadLatestDigest() {
+  var c = el('latestDigest'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading\u2026</div>';
+  db.collection('digests').orderBy('createdAt','desc').limit(1).get().then(function(snap){
+    if (snap.empty) { c.innerHTML = '<div class="empty">No digest sent yet \u2014 the first one goes out Monday morning.</div>'; return; }
+    var d = snap.docs[0].data();
+    var growthRows = (d.branches||[]).map(function(b){
+      var g = b.growthPct==null ? 'n/a' : ((b.growthPct>=0?'+':'')+b.growthPct.toFixed(0)+'%');
+      return '<tr><td>'+b.branch+'</td><td class="num">'+fmt(b.revenue)+'</td><td class="num">'+g+'</td></tr>';
+    }).join('');
+    c.innerHTML = '<div style="font-size:0.7rem;color:var(--text3);margin-bottom:8px">'+d.weekStart+' to '+d.weekEnd+'</div>'
+      + '<div class="g2" style="margin-bottom:12px">'
+      + '<div><div style="font-size:0.65rem;color:var(--text3)">Revenue</div><div style="font-weight:700;font-family:var(--mono)">'+fmt(d.totalRevenue)+'</div></div>'
+      + '<div><div style="font-size:0.65rem;color:var(--text3)">Gross Margin</div><div style="font-weight:700;font-family:var(--mono)">'+(d.grossMarginPct||0).toFixed(1)+'%</div></div>'
+      + '<div><div style="font-size:0.65rem;color:var(--text3)">Expenses</div><div style="font-weight:700;font-family:var(--mono)">'+fmt(d.totalExpenses)+'</div></div>'
+      + '<div><div style="font-size:0.65rem;color:var(--text3)">Net</div><div style="font-weight:700;font-family:var(--mono);color:'+((d.netAfterExpenses||0)>=0?'var(--green)':'var(--red)')+'">'+fmt(d.netAfterExpenses)+'</div></div>'
+      + '</div>'
+      + '<table class="tbl" style="margin-bottom:10px"><thead><tr><th>Branch</th><th class="num">Revenue</th><th class="num">vs Prior Wk</th></tr></thead><tbody>'+growthRows+'</tbody></table>'
+      + (d.lowStockCount ? '<div style="font-size:0.7rem;color:var(--red)">\u26a0 '+d.lowStockCount+' item(s) out of stock</div>' : '')
+      + '<div style="font-size:0.7rem;color:var(--text3)">'+(d.alertCount||0)+' alert(s) fired that week</div>';
+  }).catch(function(e){ c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
+}
+
+function loadRecentAlerts() {
+  var c = el('recentAlerts'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading\u2026</div>';
+  db.collection('alerts').orderBy('createdAt','desc').limit(20).get().then(function(snap){
+    if (snap.empty) { c.innerHTML = '<div class="empty">No alerts yet.</div>'; return; }
+    var rows = '';
+    snap.forEach(function(d){
+      var a = d.data();
+      var col = a.severity==='critical' ? 'var(--red)' : a.severity==='info' ? 'var(--text3)' : 'var(--gold)';
+      var when = (a.createdAt && a.createdAt.toDate) ? a.createdAt.toDate().toLocaleString() : '';
+      rows += '<div style="padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        + '<span style="font-weight:600;font-size:0.75rem;color:'+col+'">'+(a.title||a.category||'Alert')+'</span>'
+        + '<span style="font-size:0.6rem;color:var(--text3);white-space:nowrap">'+when+'</span></div>'
+        + '<div style="font-size:0.7rem;color:var(--text2);white-space:pre-line;margin-top:2px">'+(a.message||'')+'</div>'
+        + '</div>';
+    });
+    c.innerHTML = rows;
+  }).catch(function(e){ c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
 }
 
 // KILL SERVICE WORKERS (they block Firebase)
