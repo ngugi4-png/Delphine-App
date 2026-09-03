@@ -607,6 +607,14 @@ a { color: var(--gold); text-decoration: none; }
         </div>
       </div>
     </div>
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="card-title" style="margin:0">&#128202; Stock Coverage</div>
+        <button class="btn btn-ghost btn-xs" onclick="loadStockCoverage()">&#8635;</button>
+      </div>
+      <div style="font-size:0.62rem;color:var(--text3);margin-bottom:10px">Days of stock remaining at current sales pace, based on the last 7 days</div>
+      <div id="dashStockCoverage"><div class="empty">Loading&#8230;</div></div>
+    </div>
   </div>
 
   <!-- APPROVALS -->
@@ -2274,6 +2282,7 @@ function loadWeather() {
 function loadDashboard() {
   loadWeather();
   loadDashboardExtras();
+  loadStockCoverage();
   var today = todayStr();
   db.collection('reports').where('date','==',today).get().then(function(snap){
     var revenue=0, litres=0, pending=0;
@@ -2316,6 +2325,88 @@ function loadDashboard() {
     html+='</tbody></table>';
     c.innerHTML=html;
   }).catch(function(e){ _dbErr('query', e); });
+}
+
+function loadStockCoverage() {
+  var c = el('dashStockCoverage'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading\u2026</div>';
+
+  var daysSpan = 7;
+  var since = new Date(); since.setDate(since.getDate() - daysSpan);
+  var sinceStr = since.toISOString().split('T')[0];
+
+  Promise.all([
+    db.collection('reports').where('date', '>=', sinceStr).get(),
+    db.collection('inventory').get()
+  ]).then(function(results) {
+    var repSnap = results[0], invSnap = results[1];
+    var labels = { petrol: 'Petrol (PMS)', p2t: '2T Motor Oil', p2tk: '2T-Kupima', puoil: 'Used Oil', pshell: 'Shell Advance' };
+
+    var consumption = {};
+    BRANCHES.forEach(function(b) { consumption[b] = { petrol: 0, p2t: 0, p2tk: 0, puoil: 0, pshell: 0 }; });
+
+    repSnap.forEach(function(d) {
+      var r = d.data();
+      if (r.approvalStatus !== 'approved') return;
+      var b = r.branch;
+      if (!consumption[b]) return;
+      var litres = (r.pump && r.pump.metre && r.pump.metre.sold) || 0;
+      consumption[b].petrol += litres;
+      var p = r.products || {};
+      ['p2t', 'p2tk', 'puoil', 'pshell'].forEach(function(k) {
+        consumption[b][k] += (p[k] && p[k].qty) || 0;
+      });
+    });
+
+    var stock = {};
+    invSnap.forEach(function(d) {
+      var v = d.data();
+      if (!v.branch || !v.product) return;
+      if (!stock[v.branch]) stock[v.branch] = {};
+      stock[v.branch][v.product] = v.qty || 0;
+    });
+
+    var items = [];
+    BRANCHES.forEach(function(b) {
+      Object.keys(labels).forEach(function(k) {
+        var totalQty = consumption[b][k];
+        var avgDaily = totalQty / daysSpan;
+        if (avgDaily <= 0) return; // no recent movement — nothing meaningful to project
+        var productName = labels[k];
+        var currentStock = (stock[b] && stock[b][productName]) || 0;
+        var daysCover = currentStock / avgDaily;
+        items.push({ branch: b, product: productName, stock: currentStock, avgDaily: avgDaily, daysCover: daysCover });
+      });
+    });
+
+    if (!items.length) {
+      c.innerHTML = '<div class="empty">No recent sales data to project coverage from.</div>';
+      return;
+    }
+
+    // Most urgent (lowest days of cover) first
+    items.sort(function(a, b) { return a.daysCover - b.daysCover; });
+
+    var rows = items.map(function(it) {
+      var col = it.daysCover < 2 ? 'var(--red)' : it.daysCover < 5 ? 'var(--gold)' : 'var(--green)';
+      var label = it.daysCover < 2 ? 'Critical' : it.daysCover < 5 ? 'Low' : 'Healthy';
+      var coverStr = it.daysCover < 0 ? '0.0d' : it.daysCover.toFixed(1) + 'd';
+      return '<tr>'
+        + '<td style="font-size:0.72rem;font-weight:500">' + it.branch + '</td>'
+        + '<td style="font-size:0.72rem">' + it.product + '</td>'
+        + '<td class="num" style="font-family:var(--mono)">' + it.stock.toFixed(0) + '</td>'
+        + '<td class="num" style="font-family:var(--mono)">' + it.avgDaily.toFixed(1) + '/day</td>'
+        + '<td class="num" style="font-weight:700;color:' + col + '">' + coverStr + '</td>'
+        + '<td><span style="color:' + col + ';font-size:0.68rem;font-weight:600">' + label + '</span></td>'
+        + '</tr>';
+    }).join('');
+
+    c.innerHTML = '<table class="tbl" style="margin:0"><thead><tr>'
+      + '<th>Branch</th><th>Product</th><th class="num">Stock</th><th class="num">Avg Usage</th><th class="num">Days Cover</th><th>Status</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }).catch(function(e) {
+    c.innerHTML = '<div class="empty" style="color:var(--red)">' + e.message + '</div>';
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
