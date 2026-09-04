@@ -580,10 +580,10 @@ a { color: var(--gold); text-decoration: none; }
       <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">&#8635; Refresh</button>
     </div>
     <div class="g4" id="dashKpis" style="margin-bottom:20px">
-      <div class="stat-tile"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">&#8212;</div><div class="st-sub">All branches</div></div>
-      <div class="stat-tile"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">&#8212;</div><div class="st-sub">Petrol today</div></div>
-      <div class="stat-tile"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">&#8212;</div><div class="st-sub">Awaiting approval</div></div>
-      <div class="stat-tile"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">&#8212;</div><div class="st-sub">Approved accounts</div></div>
+      <div class="stat-tile" style="cursor:pointer" onclick="dashGoRevenue()" title="View Branch Summary for today"><div class="st-label">Today Revenue</div><div class="st-val" id="dkRevenue">&#8212;</div><div class="st-sub">All branches &#8250;</div></div>
+      <div class="stat-tile" style="cursor:pointer" onclick="dashGoLitres()" title="View today's Sales Report"><div class="st-label">Litres Sold</div><div class="st-val" id="dkLitres">&#8212;</div><div class="st-sub">Petrol today &#8250;</div></div>
+      <div class="stat-tile" style="cursor:pointer" onclick="dashGoPending()" title="Review pending reports"><div class="st-label">Pending Reports</div><div class="st-val" id="dkPending">&#8212;</div><div class="st-sub">Awaiting approval &#8250;</div></div>
+      <div class="stat-tile" style="cursor:pointer" onclick="dashGoStaff()" title="View Staff"><div class="st-label">Staff Active</div><div class="st-val" id="dkStaff">&#8212;</div><div class="st-sub">Approved accounts &#8250;</div></div>
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">&#9729; Branch Weather</div>
@@ -2279,6 +2279,60 @@ function loadWeather() {
 // ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD INTERACTIVITY — click-through navigation helpers
+// ═══════════════════════════════════════════════════════════════
+function navigateTo(mainTabId, subNavPanelQuoted) {
+  var mainBtn = document.getElementById(mainTabId);
+  if (mainBtn) mainBtn.click();
+  if (subNavPanelQuoted) {
+    var subBtn = document.querySelector('[onclick*="' + subNavPanelQuoted + '"]');
+    if (subBtn) subBtn.click();
+  }
+}
+
+function goToInventory(branch) {
+  navigateTo('mainTab_ops', "'tabInventory'");
+  var bf = el('invBranchFilter');
+  if (bf && branch) bf.value = branch;
+  loadInventory();
+}
+
+function goToBranchSummary(branch, period) {
+  navigateTo('mainTab_summary');
+  var bb = el('bsBranch');
+  if (bb) bb.value = branch || '';
+  bsSetPeriod(period || 'month');
+}
+
+function goToReportsFiltered(branch, date) {
+  navigateTo('mainTab_reports', "'tabAppr'");
+  var ab = el('apprBranchFilter'); if (ab) ab.value = branch || '';
+  var as_ = el('apprStatusFilter'); if (as_) as_.value = '';
+  var af = el('apprFrom'); if (af) af.value = date || '';
+  var at = el('apprTo');   if (at) at.value = date || '';
+  loadApprovals();
+}
+
+function dashGoRevenue() {
+  goToBranchSummary('', 'today');
+}
+
+function dashGoLitres() {
+  navigateTo('mainTab_reports', "'tabSalesReport'");
+  if (typeof srSetPeriod === 'function') srSetPeriod('today');
+}
+
+function dashGoPending() {
+  navigateTo('mainTab_reports', "'tabAppr'");
+  var as_ = el('apprStatusFilter'); if (as_) as_.value = 'pending';
+  loadApprovals();
+}
+
+function dashGoStaff() {
+  navigateTo('mainTab_settings', "'tabStaff'");
+}
+
 function loadDashboard() {
   loadWeather();
   loadDashboardExtras();
@@ -2318,7 +2372,7 @@ function loadDashboard() {
     snap.forEach(function(d){
       var r=d.data();
       var statusColor=r.approvalStatus==='approved'?'badge-green':r.approvalStatus==='rejected'?'badge-red':'badge-gold';
-      html+='<tr><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.staffName+'</td>'
+      html+='<tr style="cursor:pointer" onclick="goToReportsFiltered(\''+r.branch+'\',\''+r.date+'\')" title="View this report in Approvals"><td>'+r.date+'</td><td>'+r.branch+'</td><td>'+r.staffName+'</td>'
         +'<td><span class="badge '+statusColor+'">'+r.approvalStatus+'</span></td>'
         +'<td class="num">'+fmt(r.grandTotal)+'</td></tr>';
     });
@@ -2391,7 +2445,7 @@ function loadStockCoverage() {
       var col = it.daysCover < 2 ? 'var(--red)' : it.daysCover < 5 ? 'var(--gold)' : 'var(--green)';
       var label = it.daysCover < 2 ? 'Critical' : it.daysCover < 5 ? 'Low' : 'Healthy';
       var coverStr = it.daysCover < 0 ? '0.0d' : it.daysCover.toFixed(1) + 'd';
-      return '<tr>'
+      return '<tr style="cursor:pointer" onclick="goToInventory(\'' + it.branch + '\')" title="View ' + it.branch + ' inventory">'
         + '<td style="font-size:0.72rem;font-weight:500">' + it.branch + '</td>'
         + '<td style="font-size:0.72rem">' + it.product + '</td>'
         + '<td class="num" style="font-family:var(--mono)">' + it.stock.toFixed(0) + '</td>'
@@ -4989,8 +5043,8 @@ function loadDashboardExtras() {
       var col=noData?'var(--text3)':qty>=LOW?'var(--green)':qty>0?'var(--red)':'var(--amber,#e09c00)';
       var icon=noData?'\u2014':qty>=LOW?'\u2713':'\u26a0';
       var label=noData?'No data':qty.toFixed(0)+'L'+(qty<0?' (deficit)':'');
-      rows+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
-        +'<span style="font-size:0.75rem;font-weight:500">'+r.branch+'</span>'
+      rows+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="goToInventory(\''+r.branch+'\')" title="View '+r.branch+' inventory">'
+        +'<span style="font-size:0.75rem;font-weight:500">'+r.branch+' &#8250;</span>'
         +'<span style="font-weight:700;font-family:var(--mono);color:'+col+'">'+icon+' '+label+'</span></div>';
     });
     ls.innerHTML = rows||'<div class="empty">No inventory data yet</div>';
@@ -5011,9 +5065,9 @@ function loadDashboardExtras() {
           var act=actual[b]||0;
           var pct=target>0?Math.min(100,(act/target*100)).toFixed(0):0;
           var col=pct>=100?'var(--green)':pct>=70?'var(--gold)':'var(--red)';
-          rows2+='<div style="margin-bottom:12px">'
+          rows2+='<div style="margin-bottom:12px;cursor:pointer" onclick="goToBranchSummary(\''+b+'\')" title="View '+b+' Branch Summary">'
             +'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px">'
-            +'<span style="font-weight:500">'+b+'</span>'
+            +'<span style="font-weight:500">'+b+' &#8250;</span>'
             +'<span style="font-family:var(--mono)">'+fmt(act)+' / '+(target?fmt(target):'No target')+'</span></div>'
             +'<div style="background:var(--s2);border-radius:4px;height:8px;overflow:hidden">'
             +'<div style="height:8px;border-radius:4px;background:'+col+';width:'+pct+'%;transition:width 0.6s"></div>'
