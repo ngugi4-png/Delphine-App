@@ -2843,6 +2843,56 @@ function loadBranchSummary() {
   }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 
+function exportBranchSummaryPDF() {
+  ensurePDFPlugin(function(){
+    try {
+      var container = document.querySelector('#bsSummary');
+      if (!container || !container.querySelector('table')) { toast('Load a branch summary first','err'); return; }
+
+      var doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      var W = doc.internal.pageSize.getWidth();
+      doc.setFillColor(13,13,13); doc.rect(0,0,W,22,'F');
+      doc.setTextColor(200,146,42); doc.setFontSize(14); doc.setFont('helvetica','bold');
+      doc.text('DELPHINE ENTERPRISE LIMITED',14,10);
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(160,152,128);
+      var from = gv('bsFrom'), to = gv('bsTo');
+      doc.text('Branch Summary \u2014 '+(from&&to?(from+' to '+to):new Date().toLocaleDateString()),14,17);
+
+      var y = 26;
+      var tables = container.querySelectorAll('table');
+      tables.forEach(function(tbl, idx){
+        var card = tbl.closest('.card');
+        var titleEl = card ? card.querySelector('.card-title') : null;
+        if (titleEl) {
+          doc.setTextColor(0,0,0); doc.setFontSize(11); doc.setFont('helvetica','bold');
+          doc.text(titleEl.textContent.trim(), 14, y);
+          y += 5;
+        }
+        var headers=[]; tbl.querySelectorAll('thead th').forEach(function(th){headers.push(th.textContent.trim());});
+        var rows=[]; tbl.querySelectorAll('tbody tr').forEach(function(tr){
+          var r=[]; tr.querySelectorAll('td').forEach(function(td){r.push(td.textContent.trim());});
+          if (r.length) rows.push(r);
+        });
+        doc.autoTable({
+          head: headers.length ? [headers] : undefined,
+          body: rows, startY: y, theme:'grid',
+          headStyles:{fillColor:[200,146,42],textColor:[0,0,0],fontStyle:'bold'},
+          alternateRowStyles:{fillColor:[245,245,245]},
+          margin:{left:14,right:14},
+          styles:{fontSize:8}
+        });
+        y = doc.lastAutoTable.finalY + 10;
+        if (y > doc.internal.pageSize.getHeight() - 20 && idx < tables.length-1) {
+          doc.addPage(); y = 20;
+        }
+      });
+
+      doc.save('branch-summary-'+(from||'period')+'-to-'+(to||'')+'.pdf');
+      toast('PDF downloaded','ok');
+    } catch(e){ toast('PDF error: '+e.message,'err'); }
+  });
+}
+
 function exportBranchSummaryCSV() {
   var from=gv('bsFrom'),to=gv('bsTo');
   if(!from||!to){toast('Select date range first','err');return;}
