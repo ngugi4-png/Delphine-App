@@ -648,6 +648,7 @@ a { color: var(--gold); text-decoration: none; }
         </div>
         <button class="btn btn-gold btn-sm" onclick="loadSalesReport()">&#8635; Load</button>
         <button class="btn btn-ghost btn-sm" onclick="exportTablePDF('Sales Report','srTable','sales-report.pdf')">&#8615; PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="openQBSalesExportFilters()">&#128190; Export to QuickBooks</button>
       </div>
     </div>
     <div class="g4" id="srKpis" style="margin-bottom:16px"></div>
@@ -3262,6 +3263,111 @@ function exportBillsIIF() {
     closeModal();
   }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
+
+/**
+ * QuickBooks Desktop Export (IIF format) — Sales Reports
+ * ----------------------------------------------------------
+ * Only APPROVED reports are exported, since those represent finalized,
+ * audited revenue. Each report becomes one GENERAL JOURNAL entry:
+ *   Debit  Undeposited Funds / Cash        (full day's revenue)
+ *   Credit Fuel Sales                      (petrol revenue)
+ *   Credit Shop / Lubricant Sales          (2T Oil, 2T-Kupima, Used Oil, Shell Advance)
+ * This books revenue only — it does not record till expenses, bank
+ * deposits, or cash/M-Pesa variance, since Delphine doesn't currently
+ * track a cash-vs-mobile-money split per report.
+ */
+function openQBSalesExportFilters() {
+  var now  = new Date();
+  var from = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  var to   = now.toISOString().split('T')[0];
+  var branchOpts = '<option value="">All Branches</option>'
+    + BRANCHES.map(function(b){ return '<option value="'+b+'">'+b+'</option>'; }).join('');
+
+  openModal('Export Sales Reports to QuickBooks',
+    '<div class="g2">'
+    + '<div class="field"><label>From</label><input type="date" id="qbsFrom" value="'+from+'"></div>'
+    + '<div class="field"><label>To</label><input type="date" id="qbsTo" value="'+to+'"></div>'
+    + '</div>'
+    + '<div class="field"><label>Branch</label><select id="qbsBranch">'+branchOpts+'</select></div>'
+    + '<div class="field"><label>Undeposited Funds / Cash account name</label><input type="text" id="qbsCashAccount" value="Undeposited Funds"></div>'
+    + '<div class="field"><label>Fuel Sales account name</label><input type="text" id="qbsFuelAccount" value="Fuel Sales"></div>'
+    + '<div class="field"><label>Shop / Lubricant Sales account name</label><input type="text" id="qbsShopAccount" value="Shop Sales"></div>'
+    + '<div style="font-size:0.62rem;color:var(--text3);margin-top:6px;line-height:1.5">'
+    + 'Only <b>approved</b> reports are exported. This books revenue only \u2014 not till expenses, '
+    + 'bank deposits, or cash/M-Pesa variance.</div>',
+    '<button class="btn btn-gold btn-sm" onclick="exportSalesIIF()">Export IIF File</button>'
+  );
+}
+
+function exportSalesIIF() {
+  var branch      = (el('qbsBranch')||{}).value || '';
+  var from        = (el('qbsFrom')||{}).value || '';
+  var to          = (el('qbsTo')||{}).value || '';
+  var cashAccount = ((el('qbsCashAccount')||{}).value || 'Undeposited Funds').trim();
+  var fuelAccount = ((el('qbsFuelAccount')||{}).value || 'Fuel Sales').trim();
+  var shopAccount = ((el('qbsShopAccount')||{}).value || 'Shop Sales').trim();
+
+  if (!from || !to) { toast('Select a date range', 'err'); return; }
+
+  db.collection('reports').where('date','>=',from).where('date','<=',to).get().then(function(snap) {
+    var reports = [];
+    snap.forEach(function(d) {
+      var r = d.data();
+      if (r.approvalStatus !== 'approved') return;
+      if (branch && r.branch !== branch) return;
+      reports.push(r);
+    });
+
+    if (!reports.length) { toast('No approved reports found for this range/branch', 'err'); return; }
+
+    var lines = [];
+    lines.push(['!TRNS','TRNSID','TRNSTYPE','DATE','ACCNT','NAME','CLASS','AMOUNT','DOCNUM','MEMO'].join('\t'));
+    lines.push(['!SPL','SPLID','TRNSTYPE','DATE','ACCNT','NAME','CLASS','AMOUNT','MEMO'].join('\t'));
+    lines.push('!ENDTRNS');
+
+    reports.forEach(function(r) {
+      var iifDate = _iifDate(r.date);
+      var petrolTotal = (r.pump && r.pump.display && r.pump.display.sold) || 0;
+      var p = r.products || {};
+      var otherTotal = ['p2t','p2tk','puoil','pshell'].reduce(function(s,k){ return s + ((p[k]&&p[k].total)||0); }, 0);
+      var grand = r.grandTotal != null ? r.grandTotal : (petrolTotal + otherTotal);
+      if (!grand) return;
+
+      var docNum = _iifEscape('DSR-'+r.branch+'-'+r.date);
+      var memo = _iifEscape('Daily Sales - '+r.branch+' - '+r.date+(r.shift?' ('+r.shift+')':''));
+
+      lines.push(['TRNS','','GENERAL JOURNAL',iifDate,cashAccount,'','',grand.toFixed(2),docNum,memo].join('\t'));
+
+      if (petrolTotal) {
+        lines.push(['SPL','','GENERAL JOURNAL',iifDate,fuelAccount,'','',(-petrolTotal).toFixed(2),_iifEscape('Petrol (PMS) - '+r.branch)].join('\t'));
+      }
+      var breakdown = [
+        { name: '2T Motor Oil', total: (p.p2t   && p.p2t.total)   || 0 },
+        { name: '2T-Kupima',    total: (p.p2tk  && p.p2tk.total)  || 0 },
+        { name: 'Used Oil',     total: (p.puoil && p.puoil.total) || 0 },
+        { name: 'Shell Advance',total: (p.pshell&& p.pshell.total)|| 0 }
+      ];
+      breakdown.forEach(function(b) {
+        if (!b.total) return;
+        lines.push(['SPL','','GENERAL JOURNAL',iifDate,shopAccount,'','',(-b.total).toFixed(2),_iifEscape(b.name+' - '+r.branch)].join('\t'));
+      });
+
+      lines.push('ENDTRNS');
+    });
+
+    var iifContent = lines.join('\r\n') + '\r\n';
+    var blob = new Blob([iifContent], {type:'application/octet-stream'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'delphine-sales-'+from+'-to-'+to+'.iif';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+
+    toast(reports.length+' report(s) exported \u2014 import via File > Utilities > Import > IIF Files in QuickBooks', 'ok');
+    closeModal();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
 
 function downloadCSV(rows, filename) {
   var csv=rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
