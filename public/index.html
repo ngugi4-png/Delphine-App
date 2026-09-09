@@ -787,8 +787,9 @@ a { color: var(--gold); text-decoration: none; }
   <div id="tabVend" class="adm-panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:1rem;font-weight:700">Vendors &amp; Bills</h2>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="openVendorReportFilters()">&#128196; Vendor Report</button>
+        <button class="btn btn-ghost btn-sm" onclick="openQBExportFilters()">&#128190; Export to QuickBooks</button>
         <button class="btn btn-gold btn-sm" onclick="openAddVendor()">+ Add Vendor</button>
       </div>
     </div>
@@ -3139,6 +3140,127 @@ function exportCSV() {
     });
     downloadCSV(rows,'reports-'+from+'-'+to+'.csv');
   }).catch(function(e){ _dbErr('query', e); });
+}
+
+/**
+ * QuickBooks Desktop Export (IIF format)
+ * -----------------------------------------
+ * Delphine's "Bills" collection holds vendor invoices — documents your
+ * vendors send you for fuel/product purchases (accounts payable). This
+ * exports them as a QuickBooks IIF file: File > Utilities > Import >
+ * IIF Files in QuickBooks Desktop. Each bill becomes one BILL transaction
+ * (credit to Accounts Payable) with one line per product purchased
+ * (debit to your expense/COGS account).
+ *
+ * Account names are configurable here since Delphine has no visibility
+ * into your actual QuickBooks chart of accounts — match them exactly to
+ * how they're named in your QuickBooks company file.
+ */
+function openQBExportFilters() {
+  var now  = new Date();
+  var from = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  var to   = now.toISOString().split('T')[0];
+
+  db.collection('vendors').get().then(function(vSnap){
+    var vendorOpts = '<option value="">All Vendors</option>';
+    vSnap.forEach(function(d){
+      var v = d.data();
+      vendorOpts += '<option value="'+d.id+'">'+(v.name||d.id)+'</option>';
+    });
+
+    openModal('Export Vendor Invoices to QuickBooks',
+      '<div class="g2">'
+      + '<div class="field"><label>From</label><input type="date" id="qbFrom" value="'+from+'"></div>'
+      + '<div class="field"><label>To</label><input type="date" id="qbTo" value="'+to+'"></div>'
+      + '</div>'
+      + '<div class="field"><label>Vendor</label><select id="qbVendor">'+vendorOpts+'</select></div>'
+      + '<div class="field"><label>Accounts Payable account name (in QuickBooks)</label>'
+      + '<input type="text" id="qbAPAccount" value="Accounts Payable"></div>'
+      + '<div class="field"><label>Expense / COGS account name (in QuickBooks)</label>'
+      + '<input type="text" id="qbExpAccount" value="Cost of Goods Sold"></div>'
+      + '<div style="font-size:0.62rem;color:var(--text3);margin-top:6px;line-height:1.5">'
+      + 'These must match account names that already exist in your QuickBooks company file exactly, '
+      + 'or QuickBooks will offer to create new accounts with these names on import.</div>',
+      '<button class="btn btn-gold btn-sm" onclick="exportBillsIIF()">Export IIF File</button>'
+    );
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function _iifDate(isoDate) {
+  // YYYY-MM-DD -> MM/DD/YYYY (IIF requires US date format)
+  var p = (isoDate||'').split('-');
+  if (p.length !== 3) return isoDate||'';
+  return p[1]+'/'+p[2]+'/'+p[0];
+}
+
+function _iifEscape(s) {
+  // Tabs and newlines break the IIF column structure — strip them.
+  return String(s||'').replace(/\t/g,' ').replace(/[\r\n]+/g,' ').trim();
+}
+
+function exportBillsIIF() {
+  var vendorId   = (el('qbVendor')||{}).value || '';
+  var from       = (el('qbFrom')||{}).value || '';
+  var to         = (el('qbTo')||{}).value || '';
+  var apAccount  = ((el('qbAPAccount')||{}).value || 'Accounts Payable').trim();
+  var expAccount = ((el('qbExpAccount')||{}).value || 'Cost of Goods Sold').trim();
+
+  if (!from || !to) { toast('Select a date range', 'err'); return; }
+
+  Promise.all([
+    db.collection('vendors').get(),
+    db.collection('bills').get()
+  ]).then(function(res) {
+    var vSnap = res[0], bSnap = res[1];
+    var vmap = {};
+    vSnap.forEach(function(d){ vmap[d.id] = d.data(); });
+
+    var bills = [];
+    bSnap.forEach(function(d) {
+      var b = d.data();
+      if (vendorId && b.vendorId !== vendorId) return;
+      if (from && (b.date||'') < from) return;
+      if (to   && (b.date||'') > to)   return;
+      if (!b.lineItems || !b.lineItems.length) return;
+      bills.push(b);
+    });
+
+    if (!bills.length) { toast('No bills found for this date range/vendor', 'err'); return; }
+
+    var lines = [];
+    lines.push(['!TRNS','TRNSID','TRNSTYPE','DATE','ACCNT','NAME','CLASS','AMOUNT','DOCNUM','MEMO'].join('\t'));
+    lines.push(['!SPL','SPLID','TRNSTYPE','DATE','ACCNT','NAME','CLASS','AMOUNT','MEMO','QNTY','PRICE'].join('\t'));
+    lines.push('!ENDTRNS');
+
+    bills.forEach(function(b) {
+      var vendorName = _iifEscape((vmap[b.vendorId] && vmap[b.vendorId].name) || b.vendorName || 'Unknown Vendor');
+      var iifDate = _iifDate(b.date);
+      var total = b.totalAmount || b.amount || 0;
+      var memo = _iifEscape((b.lineItems||[]).map(function(l){return l.description;}).join(', '));
+      var docNum = _iifEscape(b.reference || '');
+
+      lines.push(['TRNS','','BILL',iifDate,apAccount,vendorName,'',(-total).toFixed(2),docNum,memo].join('\t'));
+      b.lineItems.forEach(function(l) {
+        var qty   = parseFloat(l.qty) || 0;
+        var price = parseFloat(l.unitPrice) || 0;
+        var amt   = l.amount != null ? l.amount : qty * price;
+        var lineMemo = _iifEscape((l.description||'') + (l.branch ? ' - '+l.branch : ''));
+        lines.push(['SPL','','BILL',iifDate,expAccount,vendorName,'',amt.toFixed(2),lineMemo,qty||'',price?price.toFixed(2):''].join('\t'));
+      });
+      lines.push('ENDTRNS');
+    });
+
+    var iifContent = lines.join('\r\n') + '\r\n';
+    var blob = new Blob([iifContent], {type:'application/octet-stream'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'delphine-vendor-invoices-'+from+'-to-'+to+'.iif';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+
+    toast(bills.length+' bill(s) exported \u2014 import via File > Utilities > Import > IIF Files in QuickBooks', 'ok');
+    closeModal();
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
 function downloadCSV(rows, filename) {
