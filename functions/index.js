@@ -537,3 +537,10 @@ exports.weeklyCEODigest = onSchedule(
     logger.info(`Weekly digest sent: revenue KSh ${totalRev.toFixed(0)}, ${alertCount} alerts`);
   }
 );
+
+// M-Pesa Daraja C2B till integration (webhook + registration) — see
+// functions/lib/mpesa.js for full documentation and setup steps.
+const mpesa = require('./lib/mpesa');
+exports.registerMpesaC2BUrls = mpesa.registerMpesaC2BUrls;
+exports.mpesaValidation = mpesa.mpesaValidation;
+exports.mpesaConfirmation = mpesa.mpesaConfirmation;

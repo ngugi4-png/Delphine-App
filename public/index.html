@@ -17,6 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -557,6 +558,7 @@ a { color: var(--gold); text-decoration: none; }
     <button class="adm-sub-btn" onclick="openPanel(this,'tabProducts','mSettings')">Products</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabBankAccts','mSettings')">Bank Accounts</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabEmailSettings','mSettings')">Email</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabMpesa','mSettings')">M-Pesa Till</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabAlerts','mSettings')">Alerts &amp; Digest</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDangerZone','mSettings')">Danger Zone</button>
   </div>
@@ -861,8 +863,12 @@ a { color: var(--gold); text-decoration: none; }
         <div class="field"><label>Shell Adv (pcs)</label><input type="number" id="cr_pshell" value="0" step="1" oninput="crCalc()"></div>
       </div>
       <div class="rg-label">Cash</div>
-      <div class="g2">
+      <div class="g3">
         <div class="field"><label>Cash Deposited (KSh)</label><input type="number" id="cr_deposit" value="0" step="0.01" oninput="crCalc()"></div>
+        <div class="field"><label>M-Pesa Collection (KSh)</label><div style="display:flex;gap:4px">
+          <input type="number" id="cr_mpesa" value="0" step="0.01" oninput="crCalc()" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-xs" onclick="fetchMpesaCollection('cr_mpesa', gv('cr_branch'), 'cr_date')" title="Auto-fetch from M-Pesa till">&#8635;</button>
+        </div></div>
         <div class="field"><label>Expenses (KSh)</label><input type="number" id="cr_expenses" value="0" step="0.01" oninput="crCalc()"></div>
       </div>
       <div class="field"><label>Notes</label><textarea id="cr_notes" rows="2"></textarea></div>
@@ -1142,7 +1148,46 @@ a { color: var(--gold); text-decoration: none; }
     </div>
   </div>
 
-    <!-- ALERTS & DIGEST -->
+      <!-- M-PESA TILL INTEGRATION -->
+  <div id="tabMpesa" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">M-Pesa Till Integration</h2>
+
+    <div class="card" style="max-width:560px;margin-bottom:20px">
+      <div class="card-title">Branch Till Numbers</div>
+      <div class="field"><label>Kahuti Till Number</label><input type="text" id="tillKahuti" placeholder="e.g. 123456"></div>
+      <div class="field"><label>Karega Till Number</label><input type="text" id="tillKarega" placeholder="e.g. 234567"></div>
+      <div class="field"><label>Kanyenyaini Till Number</label><input type="text" id="tillKanyenyaini" placeholder="e.g. 345678"></div>
+      <button class="btn btn-gold btn-sm" onclick="saveTillNumbers()">Save Till Numbers</button>
+    </div>
+
+    <div class="card" style="max-width:560px;margin-bottom:20px">
+      <div class="card-title">Register Webhook with Safaricom</div>
+      <div style="font-size:0.68rem;color:var(--text3);line-height:1.6;margin-bottom:10px">
+        One-time step per till, after saving the till number above. This tells Safaricom
+        where to send a message the instant a payment lands in that till, which is how
+        the M-Pesa Collection field on shift reports gets auto-filled.
+        Requires <code>MPESA_CONSUMER_KEY</code>, <code>MPESA_CONSUMER_SECRET</code> and
+        <code>MPESA_ENV</code> to already be set via <code>firebase functions:secrets:set</code>
+        &mdash; see <code>functions/lib/mpesa.js</code> for full setup steps.
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook('Kahuti')">Register Kahuti</button>
+        <button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook('Karega')">Register Karega</button>
+        <button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook('Kanyenyaini')">Register Kanyenyaini</button>
+      </div>
+      <div id="mpesaRegisterStatus" style="font-size:0.7rem"></div>
+    </div>
+
+    <div class="card" style="max-width:560px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title" style="margin:0">Recent M-Pesa Payments</div>
+        <button class="btn btn-ghost btn-xs" onclick="loadRecentMpesaPayments()">&#8635;</button>
+      </div>
+      <div id="recentMpesaPayments"><div class="empty">Loading&#8230;</div></div>
+    </div>
+  </div>
+
+<!-- ALERTS & DIGEST -->
   <div id="tabAlerts" class="adm-panel">
     <h2 style="font-size:1rem;font-weight:700;margin-bottom:20px">Alerts &amp; Weekly Digest</h2>
 
@@ -1746,6 +1791,7 @@ firebase.initializeApp({
 });
 var db   = firebase.firestore();
 var auth = firebase.auth();
+var fns  = firebase.functions();
 
 // Enable long-polling for networks that block WebSockets
 try {
@@ -1976,6 +2022,7 @@ function panelInit(panelId) {
     case 'tabProducts':     loadProducts();      break;
     case 'tabBankAccts':    loadBankAccts();     break;
     case 'tabEmailSettings':loadEmailSettings(); break;
+    case 'tabMpesa':        loadTillSettings();  break;
     case 'tabAlerts':       loadAlertSettings(); break;
     case 'tabDangerZone':   break;
     case 'tabTrends':       loadTrends();        break;
@@ -3680,7 +3727,8 @@ function saveAdminReport() {
   var otherTotal=(p2t*(pr.p2tSell||0))+(p2tk*480)+(puoil*200)+(pshell*(pr.pshellSell||0));
   var grand=displaySales+otherTotal;
   var dep=parseFloat(gv('cr_deposit'))||0, exp=parseFloat(gv('cr_expenses'))||0;
-  var variance=grand-dep-exp;
+  var mpesa=parseFloat(gv('cr_mpesa'))||0;
+  var variance=grand-dep-mpesa-exp;
   var now=firebase.firestore.FieldValue.serverTimestamp();
   db.collection('reports').add({
     branch:branch, date:date, shift:shift, staffName:staff, staffUid:'admin',
@@ -3688,7 +3736,7 @@ function saveAdminReport() {
           display:{opening:dos,closing:dc,sold:displaySales}},
     products:{p2t:{qty:p2t,total:p2t*(pr.p2tSell||0)},p2tk:{qty:p2tk,total:p2tk*480},
               puoil:{qty:puoil,total:puoil*200},pshell:{qty:pshell,total:pshell*(pr.pshellSell||0)}},
-    grandTotal:grand, totalDeposit:dep,
+    grandTotal:grand, totalDeposit:dep, mpesaCollected:mpesa,
     reconciliation:{expenses:exp,variance:variance},
     delivery:{litres:0},
     notes:gv('cr_notes'),
@@ -4051,8 +4099,12 @@ function initReportForm() {
     +'<div class="field"><label>Shell Adv (pcs)</label><input type="number" id="rfPSHELL" value="0" step="1" oninput="rfCalc()"></div>'
     +'</div>'
     +'<div class="rg-label">Cash</div>'
-    +'<div class="g2">'
+    +'<div class="g3">'
     +'<div class="field"><label>Cash Deposit (KSh)</label><input type="number" id="rfDeposit" value="0" step="0.01" oninput="rfCalc()"></div>'
+    +'<div class="field"><label>M-Pesa Collection (KSh)</label><div style="display:flex;gap:4px">'
+    +'<input type="number" id="rfMpesa" value="0" step="0.01" oninput="rfCalc()" style="flex:1">'
+    +'<button type="button" class="btn btn-ghost btn-xs" onclick="fetchMpesaCollection(\'rfMpesa\',(currentProfile&&currentProfile.branch)||\'\',\'rfDate\')" title="Auto-fetch from M-Pesa till">&#8635;</button>'
+    +'</div></div>'
     +'<div class="field"><label>Expenses (KSh)</label><input type="number" id="rfExpenses" value="0" step="0.01" oninput="rfCalc()"></div>'
     +'</div>'
     +'<div class="field"><label>Petrol Delivery (L, if any)</label><input type="number" id="rfDelivery" value="0" step="0.01"></div>'
@@ -4178,6 +4230,7 @@ function submitReport() {
   var puoil=parseFloat(gv('rfPUOIL'))||0, pshell=parseFloat(gv('rfPSHELL'))||0;
   var grand=displaySales+(p2t*(pr.p2tSell||0))+(p2tk*480)+(puoil*200)+(pshell*(pr.pshellSell||0));
   var dep=parseFloat(gv('rfDeposit'))||0, exp=parseFloat(gv('rfExpenses'))||0;
+  var mpesa=parseFloat(gv('rfMpesa'))||0;
   var now=firebase.firestore.FieldValue.serverTimestamp();
   db.collection('reports').add({
     branch:branch, staffUid:currentProfile.uid, staffName:currentProfile.name,
@@ -4186,8 +4239,8 @@ function submitReport() {
           display:{opening:dos,closing:dc,sold:displaySales}},
     products:{p2t:{qty:p2t,total:p2t*(pr.p2tSell||0)},p2tk:{qty:p2tk,total:p2tk*480},
               puoil:{qty:puoil,total:puoil*200},pshell:{qty:pshell,total:pshell*(pr.pshellSell||0)}},
-    grandTotal:grand, totalDeposit:dep,
-    reconciliation:{expenses:exp,variance:grand-dep-exp},
+    grandTotal:grand, totalDeposit:dep, mpesaCollected:mpesa,
+    reconciliation:{expenses:exp,variance:grand-dep-mpesa-exp},
     delivery:{litres:parseFloat(gv('rfDelivery'))||0},
     notes:gv('rfNotes'),
     approvalStatus:'pending', source:'staff', createdAt:now, updatedAt:now
@@ -6831,6 +6884,90 @@ function loadSalesReport() {
   }).catch(function(e){c.innerHTML='<div class="empty" style="color:var(--red)">'+e.message+'</div>';});
 }
 
+
+// M-PESA TILL INTEGRATION (client-side settings + auto-populate)
+var _PROJECT_REGION = 'us-central1';
+var _PROJECT_ID = 'delphine-b4214';
+
+function _mpesaFnUrl(fnName) {
+  return 'https://'+_PROJECT_REGION+'-'+_PROJECT_ID+'.cloudfunctions.net/'+fnName;
+}
+
+function loadTillSettings() {
+  db.collection('settings').doc('tillNumbers').get().then(function(snap){
+    var cfg = snap.exists ? snap.data() : {};
+    var fk = el('tillKahuti');      if (fk) fk.value = cfg.Kahuti || '';
+    var fr = el('tillKarega');      if (fr) fr.value = cfg.Karega || '';
+    var fn = el('tillKanyenyaini'); if (fn) fn.value = cfg.Kanyenyaini || '';
+  }).catch(function(e){ toast('Error loading till numbers: '+e.message,'err'); });
+  loadRecentMpesaPayments();
+}
+
+function saveTillNumbers() {
+  var data = {
+    Kahuti:      (el('tillKahuti')||{}).value || '',
+    Karega:      (el('tillKarega')||{}).value || '',
+    Kanyenyaini: (el('tillKanyenyaini')||{}).value || '',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  db.collection('settings').doc('tillNumbers').set(data, {merge:true}).then(function(){
+    toast('Till numbers saved','ok');
+  }).catch(function(e){ toast('Error: '+e.message,'err'); });
+}
+
+function registerMpesaWebhook(branch) {
+  var fieldMap = { Kahuti:'tillKahuti', Karega:'tillKarega', Kanyenyaini:'tillKanyenyaini' };
+  var shortCode = (el(fieldMap[branch])||{}).value || '';
+  if (!shortCode) { toast('Enter and save a till number for '+branch+' first','err'); return; }
+
+  var statusEl = el('mpesaRegisterStatus');
+  if (statusEl) statusEl.innerHTML = '<div style="color:var(--text3)">Registering '+branch+'\u2026</div>';
+
+  var call = fns.httpsCallable('registerMpesaC2BUrls');
+  call({
+    shortCode: shortCode,
+    confirmationUrl: _mpesaFnUrl('mpesaConfirmation'),
+    validationUrl: _mpesaFnUrl('mpesaValidation')
+  }).then(function(result){
+    var ok = result.data && result.data.response && result.data.response.ResponseDescription;
+    if (statusEl) statusEl.innerHTML = '<div style="color:var(--green)">\u2713 '+branch+' registered ('+(result.data.env||'')+'): '+(ok||JSON.stringify(result.data.response))+'</div>';
+    toast(branch+' webhook registered','ok');
+  }).catch(function(e){
+    if (statusEl) statusEl.innerHTML = '<div style="color:var(--red)">Error registering '+branch+': '+e.message+'</div>';
+    toast('Registration error: '+e.message,'err');
+  });
+}
+
+function loadRecentMpesaPayments() {
+  var c = el('recentMpesaPayments'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading\u2026</div>';
+  db.collection('mpesaTransactions').orderBy('createdAt','desc').limit(20).get().then(function(snap){
+    if (snap.empty) { c.innerHTML = '<div class="empty">No M-Pesa payments received yet. Register the webhook above once your till number is saved.</div>'; return; }
+    var rows = snap.docs.map(function(d){
+      var p = d.data();
+      return '<tr><td style="font-size:0.7rem">'+(p.date||'')+'</td>'
+        + '<td style="font-size:0.7rem">'+(p.branch||'Unmatched till')+'</td>'
+        + '<td style="font-size:0.7rem">'+(p.name||p.phone||'')+'</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+fmt(p.amount||0)+'</td></tr>';
+    }).join('');
+    c.innerHTML = '<table class="tbl" style="margin:0"><thead><tr><th>Date</th><th>Branch</th><th>From</th><th class="num">Amount</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }).catch(function(e){ c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
+}
+
+function fetchMpesaCollection(targetFieldId, branch, dateFieldId) {
+  if (!branch) { toast('Branch not set \u2014 cannot fetch M-Pesa collection','err'); return; }
+  var date = (el(dateFieldId)||{}).value || todayStr();
+  db.collection('mpesaTransactions').where('branch','==',branch).where('date','==',date).get()
+    .then(function(snap){
+      var total = 0, count = 0;
+      snap.forEach(function(d){ total += (d.data().amount||0); count++; });
+      var f = el(targetFieldId);
+      if (f) f.value = total.toFixed(2);
+      if (typeof rfCalc === 'function') rfCalc();
+      if (typeof crCalc === 'function') crCalc();
+      toast(count ? ('Fetched KSh '+total.toLocaleString()+' from '+count+' M-Pesa payment(s)') : 'No M-Pesa payments found for '+branch+' on '+date,'ok');
+    }).catch(function(e){ toast('Error fetching M-Pesa collection: '+e.message,'err'); });
+}
 
 // ALERTS & WEEKLY DIGEST (client-side settings + viewers)
 function loadAlertSettings() {
