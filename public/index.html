@@ -533,6 +533,8 @@ a { color: var(--gold); text-decoration: none; }
   </div>
   <div id="subNav_mOps" class="adm-sub-nav">
     <button class="adm-sub-btn" onclick="openPanel(this,'tabInventory','mOps')">Inventory</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabLedger','mOps')">Item Ledger</button>
+    <button class="adm-sub-btn" onclick="openPanel(this,'tabReconcile','mOps')">Reconciliation</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDipStick','mOps')">Dip Stick</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabDelivery','mOps')">Fuel Delivery</button>
     <button class="adm-sub-btn" onclick="openPanel(this,'tabPumpCal','mOps')">Pump Calibration</button>
@@ -959,6 +961,56 @@ a { color: var(--gold); text-decoration: none; }
       </div>
     </div>
   </div>
+
+  <!-- ITEM LEDGER -->
+  <div id="tabLedger" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px">Item Ledger</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px">
+      <select id="ldgBranch" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <option value="">All Branches</option>
+      </select>
+      <select id="ldgProduct" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+        <option value="">All Products</option>
+      </select>
+      <input type="date" id="ldgFrom" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+      <span style="font-size:0.7rem;color:var(--text3)">to</span>
+      <input type="date" id="ldgTo" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.72rem">
+      <button class="btn btn-gold btn-sm" onclick="loadItemLedger()">Load</button>
+    </div>
+    <div id="ldgSummary" style="margin-bottom:16px"></div>
+    <div id="ldgTable"><div class="empty">Select filters and click Load.</div></div>
+  </div>
+
+  <!-- RECONCILIATION -->
+  <div id="tabReconcile" class="adm-panel">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px">Reconciliation</h2>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="card-title" style="margin:0">Inventory Ledger Check</div>
+        <button class="btn btn-gold btn-sm" onclick="runLedgerReconciliation()">&#9881; Run Check</button>
+      </div>
+      <div style="font-size:0.66rem;color:var(--text3);margin-bottom:10px">
+        Recomputes what each branch/product's stock should be from the full movement ledger, and
+        compares it against the stored inventory count. Any mismatch means something changed stock
+        outside the normal purchase/sale/adjustment flow and is worth investigating.
+      </div>
+      <div id="reconcileResults"><div class="empty">Not run yet.</div></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="card-title" style="margin:0">Fuel Loss Reconciliation (Dip vs Book)</div>
+        <button class="btn btn-ghost btn-xs" onclick="loadFuelLossLog()">&#8635;</button>
+      </div>
+      <div style="font-size:0.66rem;color:var(--text3);margin-bottom:10px">
+        Runs automatically every night, comparing each branch's physical dip-stick reading against
+        book stock for Petrol (PMS). Flagged rows exceed the configured threshold (Settings &gt; Alerts).
+      </div>
+      <div id="fuelLossLogTable"><div class="empty">Loading&#8230;</div></div>
+    </div>
+  </div>
+
 
   <!-- SITE SCOUT -->
   <div id="tabScout" class="adm-panel" style="padding:0;background:#161513;min-height:80vh">
@@ -2010,6 +2062,8 @@ function panelInit(panelId) {
     case 'tabCreateReport': initCreateReport();  break;
     case 'tabImport':       initImport();        break;
     case 'tabInventory':   loadInventory();     break;
+    case 'tabLedger':      initItemLedger();    break;
+    case 'tabReconcile':   loadFuelLossLog();   break;
     case 'tabBranchSummary':
       var _bb=el('bsBranch');
       if(_bb&&_bb.options.length<=1){BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;_bb.appendChild(o);});}
@@ -6700,6 +6754,187 @@ function syncInventoryFromHistory() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ITEM LEDGER & RECONCILIATION
+// ═══════════════════════════════════════════════════════════════
+function initItemLedger() {
+  var bf = el('ldgBranch');
+  if (bf && bf.options.length<=1) {
+    BRANCHES.forEach(function(b){var o=document.createElement('option');o.value=b;o.textContent=b;bf.appendChild(o);});
+  }
+  var pf = el('ldgProduct');
+  if (pf && pf.options.length<=1) {
+    PRODUCTS.forEach(function(p){var o=document.createElement('option');o.value=p.name;o.textContent=p.name;pf.appendChild(o);});
+  }
+  var now = new Date();
+  var from = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  var lf = el('ldgFrom'); if (lf && !lf.value) lf.value = from;
+  var lt = el('ldgTo');   if (lt && !lt.value) lt.value = todayStr();
+  loadItemLedger();
+}
+
+function loadItemLedger() {
+  var branch  = (el('ldgBranch')||{}).value  || '';
+  var product = (el('ldgProduct')||{}).value || '';
+  var from    = (el('ldgFrom')||{}).value    || '';
+  var to      = (el('ldgTo')||{}).value      || '';
+  var summaryEl = el('ldgSummary'), tableEl = el('ldgTable');
+  if (!tableEl) return;
+  tableEl.innerHTML = '<div class="empty">Loading\u2026</div>';
+  if (summaryEl) summaryEl.innerHTML = '';
+
+  var q = db.collection('inventoryAuditLog').orderBy('timestamp','desc').limit(500);
+  if (from) q = q.where('timestamp','>=', firebase.firestore.Timestamp.fromDate(new Date(from+'T00:00:00')));
+  if (to)   q = q.where('timestamp','<=', firebase.firestore.Timestamp.fromDate(new Date(to+'T23:59:59')));
+
+  q.get().then(function(snap){
+    var rows = [];
+    snap.forEach(function(d){
+      var e = d.data();
+      if (branch && e.branch !== branch) return;
+      if (product && e.product !== product) return;
+      rows.push(e);
+    });
+
+    // Oldest first for a readable running-balance narrative
+    rows.sort(function(a,b){
+      var ta = a.timestamp && a.timestamp.toMillis ? a.timestamp.toMillis() : 0;
+      var tb = b.timestamp && b.timestamp.toMillis ? b.timestamp.toMillis() : 0;
+      return ta - tb;
+    });
+
+    if (!rows.length) {
+      tableEl.innerHTML = '<div class="empty">No movements found for this filter.</div>';
+      return;
+    }
+
+    var totalIn = 0, totalOut = 0;
+    rows.forEach(function(e){
+      var d = e.delta || 0;
+      if (d > 0) totalIn += d; else totalOut += Math.abs(d);
+    });
+    var opening = rows[0].qtyBefore != null ? rows[0].qtyBefore : 0;
+    var closing = rows[rows.length-1].qtyAfter != null ? rows[rows.length-1].qtyAfter : 0;
+
+    if (summaryEl) {
+      summaryEl.innerHTML = '<div class="g4">'
+        + '<div class="stat-tile"><div class="st-label">Opening Balance</div><div class="st-val">'+opening.toFixed(0)+'</div></div>'
+        + '<div class="stat-tile"><div class="st-label">Total In</div><div class="st-val" style="color:var(--green)">+'+totalIn.toFixed(0)+'</div></div>'
+        + '<div class="stat-tile"><div class="st-label">Total Out</div><div class="st-val" style="color:var(--red)">-'+totalOut.toFixed(0)+'</div></div>'
+        + '<div class="stat-tile"><div class="st-label">Closing Balance</div><div class="st-val">'+closing.toFixed(0)+'</div></div>'
+        + '</div>';
+    }
+
+    var typeLabels = {
+      sale:'Sale', purchase:'Purchase', adjustment:'Manual Adjustment',
+      opening_stock:'Opening Stock'
+    };
+
+    var body = rows.map(function(e){
+      var when = (e.timestamp && e.timestamp.toDate) ? e.timestamp.toDate().toLocaleString() : '';
+      var delta = e.delta || 0;
+      var col = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--text3)';
+      var deltaStr = (delta>0?'+':'') + delta.toFixed(delta%1===0?0:2);
+      var deficitBadge = e.deficit ? ' <span style="color:var(--red);font-size:0.6rem">&#9888; deficit</span>' : '';
+      return '<tr>'
+        + '<td style="font-size:0.68rem">'+when+'</td>'
+        + '<td style="font-size:0.72rem">'+(e.branch||'')+'</td>'
+        + '<td style="font-size:0.72rem">'+(e.product||'')+'</td>'
+        + '<td style="font-size:0.7rem">'+(typeLabels[e.type]||e.type||'')+'</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+(e.qtyBefore!=null?e.qtyBefore.toFixed(0):'')+'</td>'
+        + '<td class="num" style="font-family:var(--mono);color:'+col+';font-weight:700">'+deltaStr+'</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+(e.qtyAfter!=null?e.qtyAfter.toFixed(0):'')+deficitBadge+'</td>'
+        + '<td style="font-size:0.65rem;color:var(--text3)">'+(e.actor||'')+'</td>'
+        + '</tr>';
+    }).join('');
+
+    tableEl.innerHTML = '<table class="tbl"><thead><tr>'
+      + '<th>When</th><th>Branch</th><th>Product</th><th>Type</th>'
+      + '<th class="num">Before</th><th class="num">Change</th><th class="num">After</th><th>By</th>'
+      + '</tr></thead><tbody>'+body+'</tbody></table>';
+  }).catch(function(e){
+    tableEl.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>';
+  });
+}
+
+function runLedgerReconciliation() {
+  var c = el('reconcileResults'); if (!c) return;
+  c.innerHTML = '<div class="empty">Running\u2026</div>';
+
+  Promise.all([
+    db.collection('inventory').get(),
+    db.collection('inventoryAuditLog').orderBy('timestamp','desc').limit(2000).get()
+  ]).then(function(results){
+    var invSnap = results[0], logSnap = results[1];
+
+    // Most recent audit entry per branch/product tells us what the
+    // ledger thinks the current balance should be.
+    var latestByKey = {};
+    logSnap.forEach(function(d){
+      var e = d.data();
+      var key = (e.branch||'')+'|'+(e.product||'');
+      var ts = e.timestamp && e.timestamp.toMillis ? e.timestamp.toMillis() : 0;
+      if (!latestByKey[key] || ts > latestByKey[key]._ts) {
+        latestByKey[key] = { qtyAfter: e.qtyAfter, _ts: ts };
+      }
+    });
+
+    var mismatches = [];
+    var checked = 0;
+    invSnap.forEach(function(d){
+      var v = d.data();
+      if (!v.branch || !v.product) return;
+      checked++;
+      var key = v.branch+'|'+v.product;
+      var ledgerQty = latestByKey[key] ? latestByKey[key].qtyAfter : null;
+      var storedQty = v.qty || 0;
+      if (ledgerQty != null && Math.abs(ledgerQty - storedQty) > 0.01) {
+        mismatches.push({ branch:v.branch, product:v.product, stored:storedQty, ledger:ledgerQty });
+      }
+    });
+
+    if (!mismatches.length) {
+      c.innerHTML = '<div style="color:var(--green);font-size:0.78rem;font-weight:600">&#10003; All '+checked+' item(s) match the ledger. No discrepancies found.</div>';
+      return;
+    }
+
+    var rows = mismatches.map(function(m){
+      return '<tr><td style="font-size:0.72rem">'+m.branch+'</td><td style="font-size:0.72rem">'+m.product+'</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+m.stored.toFixed(1)+'</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+m.ledger.toFixed(1)+'</td>'
+        + '<td class="num" style="font-family:var(--mono);color:var(--red);font-weight:700">'+(m.stored-m.ledger).toFixed(1)+'</td></tr>';
+    }).join('');
+
+    c.innerHTML = '<div style="color:var(--red);font-size:0.75rem;font-weight:600;margin-bottom:8px">'
+      + '&#9888; '+mismatches.length+' of '+checked+' item(s) don\'t match the ledger</div>'
+      + '<table class="tbl"><thead><tr><th>Branch</th><th>Product</th><th class="num">Stored</th><th class="num">Ledger Says</th><th class="num">Diff</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table>';
+  }).catch(function(e){
+    c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>';
+  });
+}
+
+function loadFuelLossLog() {
+  var c = el('fuelLossLogTable'); if (!c) return;
+  c.innerHTML = '<div class="empty">Loading\u2026</div>';
+  db.collection('fuelLossLog').orderBy('createdAt','desc').limit(30).get().then(function(snap){
+    if (snap.empty) { c.innerHTML = '<div class="empty">No fuel reconciliation data yet \u2014 runs automatically each night once dip readings are logged.</div>'; return; }
+    var rows = snap.docs.map(function(d){
+      var v = d.data();
+      var col = v.flagged ? 'var(--red)' : 'var(--green)';
+      return '<tr>'
+        + '<td style="font-size:0.7rem">'+(v.date||'')+'</td>'
+        + '<td style="font-size:0.72rem">'+(v.branch||'')+'</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+(v.bookLitres||0).toFixed(0)+'L</td>'
+        + '<td class="num" style="font-family:var(--mono)">'+(v.physicalLitres||0).toFixed(0)+'L</td>'
+        + '<td class="num" style="font-family:var(--mono);color:'+col+';font-weight:700">'+(v.variancePct||0).toFixed(1)+'%</td>'
+        + '<td>'+(v.flagged?'<span style="color:var(--red);font-size:0.68rem;font-weight:600">&#9888; Flagged</span>':'<span style="color:var(--green);font-size:0.68rem">OK</span>')+'</td>'
+        + '</tr>';
+    }).join('');
+    c.innerHTML = '<table class="tbl"><thead><tr><th>Date</th><th>Branch</th><th class="num">Book</th><th class="num">Physical</th><th class="num">Variance</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }).catch(function(e){ c.innerHTML = '<div class="empty" style="color:var(--red)">'+e.message+'</div>'; });
+}
+
 function loadInventory() {
   var c = el('invList'); if (!c) return;
   c.innerHTML = '<div class="empty">Loading\u2026</div>';
@@ -6780,10 +7015,21 @@ function saveOpeningStock() {
   var qty=parseFloat(gv('ossQty'))||0,notes=gv('ossNotes');
   if(!branch||!product){toast('Select branch and product','err');return;}
   var docId=(branch+'_'+product).replace(/[^a-z0-9]/gi,'_');
-  db.collection('inventory').doc(docId).set({
-    branch:branch,product:product,qty:qty,notes:notes,
-    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-  },{merge:true}).then(function(){
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  db.collection('inventory').doc(docId).get().then(function(snap){
+    var before = snap.exists ? (snap.data().qty||0) : 0;
+    return db.collection('inventory').doc(docId).set({
+      branch:branch,product:product,qty:qty,notes:notes,updatedAt:now
+    },{merge:true}).then(function(){
+      return db.collection('inventoryAuditLog').add({
+        txnId:null, branch:branch, product:product, type:'opening_stock',
+        qtyRequested:qty, qtyBefore:before, qtyAfter:qty, delta:qty-before,
+        status:'applied', deficit:qty<0,
+        actor:(typeof currentUser!=='undefined'&&currentUser)?currentUser.email:'admin',
+        notes:notes, timestamp:now
+      });
+    });
+  }).then(function(){
     toast('Stock set: '+branch+' '+product+' = '+qty,'ok');
     closeModal();loadInventory();
   }).catch(function(e){toast('Error: '+e.message,'err');});
@@ -6791,9 +7037,22 @@ function saveOpeningStock() {
 
 function saveStockAdjust(docId) {
   var newQty=parseFloat(gv('adjNew'))||0,reason=gv('adjReason')||'Manual adjustment';
-  db.collection('inventory').doc(docId).update({
-    qty:newQty,notes:reason,
-    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  var now=firebase.firestore.FieldValue.serverTimestamp();
+  db.collection('inventory').doc(docId).get().then(function(snap){
+    var data = snap.exists ? snap.data() : {};
+    var before = data.qty || 0;
+    var branch = data.branch, product = data.product;
+    return db.collection('inventory').doc(docId).update({
+      qty:newQty, notes:reason, updatedAt:now
+    }).then(function(){
+      return db.collection('inventoryAuditLog').add({
+        txnId:null, branch:branch, product:product, type:'adjustment',
+        qtyRequested:newQty, qtyBefore:before, qtyAfter:newQty, delta:newQty-before,
+        status:'applied', deficit:newQty<0,
+        actor:(typeof currentUser!=='undefined'&&currentUser)?currentUser.email:'admin',
+        notes:reason, timestamp:now
+      });
+    });
   }).then(function(){
     toast('Stock updated to '+newQty,'ok');
     closeModal();loadInventory();
