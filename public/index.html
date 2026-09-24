@@ -2258,13 +2258,15 @@ function initSiteScout(){
     r.innerHTML='<div style="color:#E8B4B4;padding:20px">React CDN not loaded — check internet connection.</div>';
     return;
   }
-  window._scoutMounted=true;
   window.storage=scoutStorage;
   try{
     if(typeof SiteScout!=='function')throw new Error('SiteScout not defined');
+    window._scoutMounted=true;
     ReactDOM.createRoot(r).render(React.createElement(SiteScout));
   }catch(e){
-    r.innerHTML='<div style="color:#E8B4B4;padding:20px;font-family:monospace">Error: '+e.message+'</div>';
+    window._scoutMounted=false;
+    r.innerHTML='<div style="color:#E8B4B4;padding:20px;font-family:monospace">Error: '+e.message
+      +'<br><br><button onclick="initSiteScout()" style="padding:6px 14px;background:#D4911A;color:#000;border:none;border-radius:4px;cursor:pointer;font-family:inherit">Retry</button></div>';
     console.error(e);
   }
 }
@@ -7321,6 +7323,8 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 <script>
+var useState=React.useState, useEffect=React.useEffect, useMemo=React.useMemo;
+
 var _si=function(sz,col,sw,p){return React.createElement('svg',{width:sz||16,height:sz||16,viewBox:'0 0 24 24',fill:'none',stroke:col||'currentColor',strokeWidth:sw||2,strokeLinecap:'round',strokeLinejoin:'round',style:{display:'inline-block',verticalAlign:'middle',flexShrink:0}},React.createElement('g',{dangerouslySetInnerHTML:{__html:p}}));};
 var MapPin=function(p){return _si(p.size,p.color,p.strokeWidth,'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>');};
 var TrendingUp=function(p){return _si(p.size,p.color,p.strokeWidth,'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');};
