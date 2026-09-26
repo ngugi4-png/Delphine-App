@@ -944,7 +944,6 @@ a { color: var(--gold); text-decoration: none; }
               <option value="expenses">Expenses</option>
             </select>
           </div>
-          <div class="field"><label>Branch</label><select id="importBranch"></select></div>
           <div class="field"><label>CSV File</label>
             <input type="file" id="importFile" accept=".csv"
               style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:8px;color:var(--text);font-size:0.72rem;width:100%">
@@ -3804,71 +3803,9 @@ function saveAdminReport() {
 // ═══════════════════════════════════════════════════════════════
 // IMPORT
 // ═══════════════════════════════════════════════════════════════
-function initImport() {
-  var b=el('importBranch');
-  if(b&&b.options.length<1){ BRANCHES.forEach(function(br){var o=document.createElement('option');o.value=br;o.textContent=br;b.appendChild(o);}); }
-}
-function previewImport() {
-  var f=el('importFile'); if(!f||!f.files[0]){toast('Select a CSV file','err');return;}
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var lines=e.target.result.split('\n').filter(function(l){return l.trim();});
-    var headers=lines[0].split(',').map(function(h){return h.trim().replace(/"/g,'');});
-    _importRows=[];
-    for(var i=1;i<lines.length;i++){
-      var vals=lines[i].split(',').map(function(v){return v.trim().replace(/"/g,'');});
-      var row={};
-      headers.forEach(function(h,j){row[h]=vals[j]||'';});
-      _importRows.push(row);
-    }
-    var c=el('importPreview');
-    var html='<p style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">'+_importRows.length+' rows found.</p>';
-    html+='<table class="tbl"><thead><tr>'+headers.slice(0,6).map(function(h){return '<th>'+h+'</th>';}).join('')+'<th>…</th></tr></thead><tbody>';
-    _importRows.slice(0,5).forEach(function(r){
-      html+='<tr>'+headers.slice(0,6).map(function(h){return '<td>'+r[h]+'</td>';}).join('')+'<td>…</td></tr>';
-    });
-    c.innerHTML=html+'</tbody></table>';
-    var btn=el('btnImportAll'); if(btn) btn.style.display='inline-flex';
-  };
-  reader.readAsText(f.files[0]);
-}
-function runImport() {
-  var branch=gv('importBranch');
-  if(!branch||!_importRows.length){toast('Select branch and preview first','err');return;}
-  var now=firebase.firestore.FieldValue.serverTimestamp();
-  var batch=db.batch();
-  var count=0;
-  _importRows.forEach(function(r){
-    var dateStr=(r['Date']||'').trim();
-    if(!dateStr) return;
-    // Try to parse date
-    var d=new Date(dateStr);
-    if(isNaN(d)) return;
-    var date=d.toISOString().split('T')[0];
-    var ref=db.collection('reports').doc();
-    var mo=parseFloat(r['Liters Reading']||r['Metre Open']||0);
-    var mc=parseFloat(r['Closing Liter Reading']||r['Metre Close']||0);
-    var dos=parseFloat(r['Price Reading']||r['Display Open']||0);
-    var dc=parseFloat(r['Closing Price Reading']||r['Display Close']||0);
-    var displaySales=Math.max(0,dc-dos);
-    var litres=parseFloat(r['Liters Sold']||r['Litres Sold']||mc-mo);
-    var grand=parseFloat(r['Total Sales Amount']||r['Grand Total']||displaySales);
-    batch.set(ref,{
-      branch:branch,date:date,shift:'Day',staffName:'Import',staffUid:'import',
-      pump:{metre:{opening:mo,closing:mc,sold:litres,pricePerLitre:parseFloat(r['Sales Rate']||0),value:displaySales},
-            display:{opening:dos,closing:dc,sold:displaySales}},
-      grandTotal:grand,totalDeposit:0,
-      reconciliation:{variance:0,expenses:0},
-      delivery:{litres:parseFloat(r['Petrol Delivery']||0)},
-      products:{p2t:{qty:parseFloat(r['2T QTY']||0)},p2tk:{qty:parseFloat(r['2T Kupima']||0)},
-                puoil:{qty:parseFloat(r['Used Oil QTY']||0)},pshell:{qty:parseFloat(r['Shell Advance QTY']||0)}},
-      approvalStatus:'approved',source:'import',createdAt:now,updatedAt:now
-    });
-    count++;
-    if(count%450===0){ batch.commit(); batch=db.batch(); }
-  });
-  batch.commit().then(function(){ toast('Imported '+count+' reports','ok'); _importRows=[]; el('importPreview').innerHTML=''; var b=el('btnImportAll');if(b)b.style.display='none'; });
-}
+
+
+
 
 // ═══════════════════════════════════════════════════════════════
 // EXPENSES
@@ -6231,12 +6168,6 @@ function importTypeChanged() {
 }
 
 function initImport() {
-  var bs = document.getElementById('importBranch');
-  if (bs && bs.options.length < 1) {
-    BRANCHES.forEach(function(b){
-      var o=document.createElement('option'); o.value=b; o.textContent=b; bs.appendChild(o);
-    });
-  }
   importTypeChanged();
 }
 
@@ -6278,7 +6209,6 @@ function previewImport() {
 
 function runImport() {
   var type    = (document.getElementById('importType')||{}).value||'sales';
-  var branch  = (document.getElementById('importBranch')||{}).value||'';
   var prev    = document.getElementById('importPreview');
   if (!prev||!prev.dataset.rows) { toast('Preview first','err'); return; }
   var rows    = JSON.parse(prev.dataset.rows);
@@ -6311,7 +6241,7 @@ function runImport() {
       var salesRate   =parseFloat(obj['Sales Rate'])||0;
       var openPrice   =parseFloat(obj['Opening Price Reading'])||0;
       var closePrice  =parseFloat(obj['Closing Price Reading'])||0;
-      var rowBranch   =obj['Branch']||obj['branch']||branch;
+      var rowBranch   =obj['Branch']||obj['branch']||'';
       importedReportData.push({branch:rowBranch,pump:{metre:{sold:totalLiters||litersSold}},products:{p2t:{qty:p2tQty},p2tk:{qty:p2tkQty},puoil:{qty:usedOilQty},pshell:{qty:shellQty}}});
       var ref=db.collection('reports').doc();
       batch.set(ref,{
@@ -6343,7 +6273,7 @@ function runImport() {
         status:       'received',
         lineItems: [{
           description: obj.product||'',
-          branch:      obj.branch||branch,
+          branch:      obj['Branch']||obj.branch||'',
           unit:        obj.unit||'L',
           qty:         parseFloat(obj.quantity)||0,
           unitPrice:   parseFloat(obj.unit_price)||0,
@@ -6357,7 +6287,7 @@ function runImport() {
       var ref3 = db.collection('expenses').doc();
       batch.set(ref3, {
         date:     obj.date||'',
-        branch:   obj.branch||branch,
+        branch:   obj['Branch']||obj.branch||'',
         category: obj.category||'Other',
         amount:   parseFloat(obj.amount)||0,
         notes:    obj.notes||'',
