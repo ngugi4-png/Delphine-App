@@ -8,6 +8,10 @@ on:
       - main
   workflow_dispatch: # also allows a manual "Run workflow" button in GitHub
 
+permissions:
+  checks: write
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -33,4 +37,39 @@ jobs:
         run: npm install -g firebase-tools
 
       - name: Deploy to Firebase (hosting + functions)
-        run: firebase deploy --project delphine-b4214 --non-interactive
+        id: deploy
+        continue-on-error: true
+        run: firebase deploy --project delphine-b4214 --non-interactive 2>&1 | tee deploy-output.log
+
+      # Publishes the real deploy output as a Check Run every time, pass or
+      # fail. Check Run output is returned directly in the GitHub API JSON
+      # response (unlike step logs, which live behind a separate blob
+      # storage redirect) — this makes the actual error readable without
+      # needing to open the Actions UI at all.
+      - name: Publish deploy output
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let log = '';
+            try { log = fs.readFileSync('deploy-output.log', 'utf8'); }
+            catch (e) { log = 'No log captured: ' + e.message; }
+            if (log.length > 60000) log = '...(truncated)...\n' + log.slice(-60000);
+            const outcome = '${{ steps.deploy.outcome }}';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'firebase-deploy-output',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: outcome === 'success' ? 'success' : 'failure',
+              output: {
+                title: outcome === 'success' ? 'Deploy succeeded' : 'Deploy failed — full output below',
+                summary: '```\n' + log + '\n```'
+              }
+            });
+
+      - name: Fail the job if deploy actually failed
+        if: steps.deploy.outcome == 'failure'
+        run: exit 1
