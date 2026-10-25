@@ -1205,9 +1205,7 @@ a { color: var(--gold); text-decoration: none; }
 
     <div class="card" style="max-width:560px;margin-bottom:20px">
       <div class="card-title">Branch Till Numbers</div>
-      <div class="field"><label>Kahuti Till Number</label><input type="text" id="tillKahuti" placeholder="e.g. 123456"></div>
-      <div class="field"><label>Karega Till Number</label><input type="text" id="tillKarega" placeholder="e.g. 234567"></div>
-      <div class="field"><label>Kanyenyaini Till Number</label><input type="text" id="tillKanyenyaini" placeholder="e.g. 345678"></div>
+      <div id="tillFieldsContainer"></div>
       <button class="btn btn-gold btn-sm" onclick="saveTillNumbers()">Save Till Numbers</button>
     </div>
 
@@ -1221,11 +1219,7 @@ a { color: var(--gold); text-decoration: none; }
         <code>MPESA_ENV</code> to already be set via <code>firebase functions:secrets:set</code>
         &mdash; see <code>functions/lib/mpesa.js</code> for full setup steps.
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook('Kahuti')">Register Kahuti</button>
-        <button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook('Karega')">Register Karega</button>
-        <button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook('Kanyenyaini')">Register Kanyenyaini</button>
-      </div>
+      <div id="mpesaRegisterButtons" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px"></div>
       <div id="mpesaRegisterStatus" style="font-size:0.7rem"></div>
     </div>
 
@@ -1871,7 +1865,7 @@ function safeGet(ref, onSuccess, label) {
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 var ADMIN_EMAIL = "ngugi4@gmail.com";
-var BRANCHES    = ["Kahuti","Karega","Kanyenyaini"];
+var BRANCHES    = ["Kahuti","Karega","Kanyenyaini","Murang'a"];
 var PRODUCTS    = [
   {key:"petrol", name:"Petrol (PMS)",  unit:"L"},
   {key:"p2t",    name:"2T Motor Oil",  unit:"pcs"},
@@ -7085,31 +7079,48 @@ function _mpesaFnUrl(fnName) {
   return 'https://'+_PROJECT_REGION+'-'+_PROJECT_ID+'.cloudfunctions.net/'+fnName;
 }
 
+function _tillFieldId(branch) {
+  return 'till_' + branch.replace(/[^a-z0-9]/gi, '_');
+}
+
 function loadTillSettings() {
+  var container = el('tillFieldsContainer');
+  var btnContainer = el('mpesaRegisterButtons');
+  if (container) {
+    container.innerHTML = BRANCHES.map(function(b){
+      var fid = _tillFieldId(b);
+      return '<div class="field"><label>'+b+' Till Number</label>'
+        + '<input type="text" id="'+fid+'" placeholder="e.g. 123456"></div>';
+    }).join('');
+  }
+  if (btnContainer) {
+    btnContainer.innerHTML = BRANCHES.map(function(b){
+      return '<button class="btn btn-ghost btn-sm" onclick="registerMpesaWebhook(\''+b+'\')">Register '+b+'</button>';
+    }).join('');
+  }
+
   db.collection('settings').doc('tillNumbers').get().then(function(snap){
     var cfg = snap.exists ? snap.data() : {};
-    var fk = el('tillKahuti');      if (fk) fk.value = cfg.Kahuti || '';
-    var fr = el('tillKarega');      if (fr) fr.value = cfg.Karega || '';
-    var fn = el('tillKanyenyaini'); if (fn) fn.value = cfg.Kanyenyaini || '';
+    BRANCHES.forEach(function(b){
+      var f = el(_tillFieldId(b));
+      if (f) f.value = cfg[b] || '';
+    });
   }).catch(function(e){ toast('Error loading till numbers: '+e.message,'err'); });
   loadRecentMpesaPayments();
 }
 
 function saveTillNumbers() {
-  var data = {
-    Kahuti:      (el('tillKahuti')||{}).value || '',
-    Karega:      (el('tillKarega')||{}).value || '',
-    Kanyenyaini: (el('tillKanyenyaini')||{}).value || '',
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
+  var data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+  BRANCHES.forEach(function(b){
+    data[b] = (el(_tillFieldId(b))||{}).value || '';
+  });
   db.collection('settings').doc('tillNumbers').set(data, {merge:true}).then(function(){
     toast('Till numbers saved','ok');
   }).catch(function(e){ toast('Error: '+e.message,'err'); });
 }
 
 function registerMpesaWebhook(branch) {
-  var fieldMap = { Kahuti:'tillKahuti', Karega:'tillKarega', Kanyenyaini:'tillKanyenyaini' };
-  var shortCode = (el(fieldMap[branch])||{}).value || '';
+  var shortCode = (el(_tillFieldId(branch))||{}).value || '';
   if (!shortCode) { toast('Enter and save a till number for '+branch+' first','err'); return; }
 
   var statusEl = el('mpesaRegisterStatus');
@@ -7129,6 +7140,10 @@ function registerMpesaWebhook(branch) {
     toast('Registration error: '+e.message,'err');
   });
 }
+
+
+
+
 
 function loadRecentMpesaPayments() {
   var c = el('recentMpesaPayments'); if (!c) return;
