@@ -425,6 +425,41 @@ a { color: var(--gold); text-decoration: none; }
   .bill-line > :nth-child(5) { grid-column:2; justify-self:end; }
 }
 #tabScout input[type=range]{-webkit-appearance:none;height:6px;border-radius:3px;background:#3A3630;outline:none;width:100%}#tabScout input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#D4911A;cursor:pointer;border:2px solid #161513}
+
+/* ═══════════════════════════════════════════════════
+   LIGHT THEME (body.light) — overrides tokens only
+═══════════════════════════════════════════════════ */
+:root { color-scheme: dark; }
+body.light {
+  color-scheme: light;
+  --gold:    #B07A12;
+  --gold2:   #9a6a0e;
+  --gold3:   rgba(176,122,18,0.12);
+  --gold4:   rgba(176,122,18,0.06);
+  --bg:      #f4f1ea;
+  --s1:      #ffffff;
+  --s2:      #faf8f3;
+  --s3:      #ece8de;
+  --border:  #ddd7c9;
+  --border2: #c9c2b0;
+  --text:    #1d1b16;
+  --text2:   #55503f;
+  --text3:   #857d68;
+  --green:   #2f7d4f;
+  --green2:  rgba(47,125,79,0.12);
+  --red:     #b3261e;
+  --red2:    rgba(179,38,30,0.10);
+  --blue:    #1f5a9a;
+  --amber:   #b76e00;
+}
+body.light #modal { background: rgba(30,26,18,0.55); }
+body.light .btn-gold { color: #fff; }
+body.light .badge-blue { background: rgba(31,90,154,0.12); }
+body.light .adm-header, body.light .app-header { background: rgba(255,255,255,0.96); }
+body.light input, body.light select, body.light textarea { color-scheme: light; }
+body.light .weather-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+/* Site Scout is its own React app with a fixed dark palette: keep it as a deliberate dark panel */
+body.light #tabScout { border-radius: 10px; overflow: hidden; color-scheme: dark; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -1936,10 +1971,34 @@ function showOnly(id) {
   window.scrollTo(0,0);
 }
 
-function toggleTheme() {
-  document.body.classList.toggle('light');
-  el('themeBtn').textContent = document.body.classList.contains('light') ? '☽ Dark' : '☾ Light';
+function applyTheme(mode) {
+  var light = mode === 'light';
+  document.body.classList.toggle('light', light);
+  var b = document.getElementById('themeBtn');
+  if (b) b.textContent = light ? '☽ Dark' : '☾ Light';
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', light ? '#f4f1ea' : '#0d0d0d');
+  try { if (window.Chart) {
+    Chart.defaults.color = light ? '#55503f' : '#888';
+    Chart.defaults.borderColor = light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+  } } catch (e) {}
 }
+function toggleTheme() {
+  var next = document.body.classList.contains('light') ? 'dark' : 'light';
+  applyTheme(next);
+  try { localStorage.setItem('delphineTheme', next); } catch (e) {}
+  // Charts already drawn keep their old colours until reloaded
+  try { if (typeof refreshAll === 'function') refreshAll(); } catch (e) {}
+}
+(function initTheme() {
+  var saved = null;
+  try { saved = localStorage.getItem('delphineTheme'); } catch (e) {}
+  if (!saved) {
+    try { saved = (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; } catch (e) { saved = 'dark'; }
+  }
+  if (document.body) applyTheme(saved);
+  else document.addEventListener('DOMContentLoaded', function () { applyTheme(saved); });
+})();
 
 // ═══════════════════════════════════════════════════════════════
 // ── MENU ROUTING ───────────────────────────────────────────────
@@ -2840,8 +2899,8 @@ function dsrTrend(days) {
             backgroundColor:'#1a1a1a',borderColor:'#2a2a2a',borderWidth:1,
             callbacks:{label:function(c){return ' '+fmt(c.parsed.y);}}}},
           scales:{
-            x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10},maxTicksLimit:days<=30?15:8,maxRotation:45}},
-            y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10},callback:function(v){return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v);}}}
+            x:{grid:{color:'rgba(128,128,128,0.18)'},ticks:{color:'#555',font:{size:10},maxTicksLimit:days<=30?15:8,maxRotation:45}},
+            y:{grid:{color:'rgba(128,128,128,0.18)'},ticks:{color:'#555',font:{size:10},callback:function(v){return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v);}}}
           }
         }
       });
@@ -4015,8 +4074,8 @@ function loadTrends() {
     }
     var opts={responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1a1a',borderColor:'#2a2a2a',borderWidth:1}},
-      scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10},maxTicksLimit:12,maxRotation:45}},
-              y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',font:{size:10}}}}};
+      scales:{x:{grid:{color:'rgba(128,128,128,0.18)'},ticks:{color:'#555',font:{size:10},maxTicksLimit:12,maxRotation:45}},
+              y:{grid:{color:'rgba(128,128,128,0.18)'},ticks:{color:'#555',font:{size:10}}}}};
     // Revenue chart
     var tc=el('trendChart');
     if(tc){if(_trendChart){_trendChart.destroy();} _trendChart=new Chart(tc.getContext('2d'),{type:'bar',
@@ -5286,7 +5345,7 @@ function loadComparison() {
       ]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{labels:{color:'#888',font:{size:11}}},tooltip:{backgroundColor:'#1a1a1a',borderColor:'#2a2a2a',borderWidth:1}},
-        scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555'}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555',callback:function(v){return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v);}}}}}
+        scales:{x:{grid:{color:'rgba(128,128,128,0.18)'},ticks:{color:'#555'}},y:{grid:{color:'rgba(128,128,128,0.18)'},ticks:{color:'#555',callback:function(v){return 'KSh '+(v>=1000?(v/1000).toFixed(0)+'K':v);}}}}}
     });
   }).catch(function(e){document.getElementById('cmpResult').innerHTML='<div class="empty" style="color:var(--red)">Error: '+e.message+'</div>';});
 }
@@ -7312,13 +7371,41 @@ const CONSTITUENCIES = {
   "Kabete": ["Gitaru", "Muguga", "Nyadhuna", "Kabete", "Uthiru"],
   "Kikuyu": ["Karai", "Nachu", "Sigona", "Kikuyu", "Kinoo"],
   "Limuru": ["Bibirioni", "Limuru Central", "Ndeiya", "Limuru East", "Ngecha Tigoni"],
-  "Lari": ["Kinale", "Kijabe", "Nyanduma", "Kamburu", "Lari/Kirenga"]
+  "Lari": ["Kinale", "Kijabe", "Nyanduma", "Kamburu", "Lari/Kirenga"],
+  // Kajiado County (5 constituencies, 25 wards)
+  "Kajiado North": ["Olkeri", "Ongata Rongai", "Nkaimurunya", "Oloolua", "Ngong"],
+  "Kajiado Central": ["Purko", "Ildamat", "Dalalekutuk", "Matapato North", "Matapato South"],
+  "Kajiado East": ["Kaputiei North", "Kitengela", "Oloosirkon/Sholinke", "Kenyawa-Poka", "Imaroro"],
+  "Kajiado West": ["Keekonyokie", "Iloodokilani", "Magadi", "Ewuaso Oonkidong", "Mosiro"],
+  "Kajiado South": ["Entonet/Lenkisim", "Mbirikani/Eselenkei", "Kuku", "Rombo", "Kimana"],
+  // Narok County (6 constituencies, 30 wards)
+  "Narok North": ["Olpusimoru", "Olokurto", "Narok Town", "Nkareta", "Olorropil", "Melili"],
+  "Narok South": ["Majimoto/Naroosura", "Ololulung'a", "Melelo", "Loita", "Sogoo", "Sagamian"],
+  "Narok East": ["Mosiro", "Ildamat", "Keekonyokie", "Suswa"],
+  "Narok West": ["Ilmotiok", "Mara", "Siana", "Naikarra"],
+  "Kilgoris": ["Kilgoris Central", "Keyian", "Angata Barikoi", "Shankoe", "Kimintet", "Lolgorian"],
+  "Emurua Dikirr": ["Ilkerin", "Ololmasani", "Mogondo", "Kapsasian"],
+  // Machakos County (8 constituencies, 40 wards)
+  "Machakos Town": ["Kalama", "Mua", "Mutituni", "Machakos Central", "Mumbuni North", "Muvuti/Kiima-Kimwe", "Kola"],
+  "Mavoko": ["Athi River", "Kinanie", "Muthwani", "Syokimau/Mulolongo"],
+  "Masinga": ["Kivaa", "Masinga Central", "Ekalakala", "Muthesya", "Ndithini"],
+  "Yatta": ["Ndalani", "Matuu", "Katangi", "Ikombe", "Kithimani"],
+  "Kangundo": ["Kangundo North", "Kangundo Central", "Kangundo East", "Kangundo West"],
+  "Matungulu": ["Tala", "Matungulu North", "Matungulu East", "Matungulu West", "Kyeleni"],
+  "Kathiani": ["Mitaboni", "Kathiani Central", "Upper Kaewa/Iveti", "Lower Kaewa/Kaani"],
+  "Mwala": ["Mbiuni", "Makutano/Mwala", "Masii", "Muthetheni", "Wamunyu", "Kibauni"]
 };
 const MURANGA_CONSTITUENCIES = ["Kangema", "Mathioya", "Kiharu", "Kigumo", "Maragwa", "Kandara", "Gatanga"];
 const KIAMBU_CONSTITUENCIES = ["Gatundu South", "Gatundu North", "Juja", "Thika Town", "Ruiru", "Githunguri", "Kiambu", "Kiambaa", "Kabete", "Kikuyu", "Limuru", "Lari"];
+const KAJIADO_CONSTITUENCIES = ["Kajiado North", "Kajiado Central", "Kajiado East", "Kajiado West", "Kajiado South"];
+const NAROK_CONSTITUENCIES = ["Narok North", "Narok South", "Narok East", "Narok West", "Kilgoris", "Emurua Dikirr"];
+const MACHAKOS_CONSTITUENCIES = ["Machakos Town", "Mavoko", "Masinga", "Yatta", "Kangundo", "Matungulu", "Kathiani", "Mwala"];
 const COUNTIES = {
   "Murang'a": MURANGA_CONSTITUENCIES,
-  "Kiambu": KIAMBU_CONSTITUENCIES
+  "Kiambu": KIAMBU_CONSTITUENCIES,
+  "Kajiado": KAJIADO_CONSTITUENCIES,
+  "Narok": NAROK_CONSTITUENCIES,
+  "Machakos": MACHAKOS_CONSTITUENCIES
 };
 
 // Reverse lookup: constituency -> county
@@ -7944,6 +8031,167 @@ const SEED_SITES = [{
   constituency: "Lari",
   ward: "Lari/Kirenga",
   note: "Ward center — not yet field-verified; confirm exact trading center and rename."
+}, {
+  name: "Ongata Rongai",
+  constituency: "Kajiado North",
+  ward: "Ongata Rongai",
+  note: "Major commuter town on Magadi Rd. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.3953,
+  lng: 36.764
+}, {
+  name: "Ngong Town",
+  constituency: "Kajiado North",
+  ward: "Ngong",
+  note: "Constituency-area town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.367,
+  lng: 36.633
+}, {
+  name: "Kajiado Town",
+  constituency: "Kajiado Central",
+  ward: "Purko",
+  note: "County HQ. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.85,
+  lng: 36.783
+}, {
+  name: "Kitengela",
+  constituency: "Kajiado East",
+  ward: "Kitengela",
+  note: "Fast-growing Namanga Rd town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.517,
+  lng: 36.85
+}, {
+  name: "Isinya",
+  constituency: "Kajiado East",
+  ward: "Kenyawa-Poka",
+  note: "Ward assignment to be confirmed. Namanga Rd town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.667,
+  lng: 36.85
+}, {
+  name: "Magadi",
+  constituency: "Kajiado West",
+  ward: "Magadi",
+  note: "Soda-ash mining town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.90122,
+  lng: 36.287
+}, {
+  name: "Namanga",
+  constituency: "Kajiado South",
+  ward: "Entonet/Lenkisim",
+  note: "Ward assignment to be confirmed. Kenya–Tanzania border town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -2.5433,
+  lng: 36.7905
+}, {
+  name: "Kimana",
+  constituency: "Kajiado South",
+  ward: "Kimana",
+  note: "Amboseli gateway. Coordinates from public gazetteer data — confirm on site.",
+  lat: -2.8,
+  lng: 37.5333
+}, {
+  name: "Loitokitok",
+  constituency: "Kajiado South",
+  ward: "Rombo",
+  note: "Ward assignment to be confirmed. Sub-county HQ near Tanzania border. Coordinates from public gazetteer data — confirm on site.",
+  lat: -2.925,
+  lng: 37.51
+}, {
+  name: "Narok Town",
+  constituency: "Narok North",
+  ward: "Narok Town",
+  note: "County HQ, Maasai Mara gateway. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.08083,
+  lng: 35.8711
+}, {
+  name: "Olokurto",
+  constituency: "Narok North",
+  ward: "Olokurto",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
+}, {
+  name: "Ololulung'a",
+  constituency: "Narok South",
+  ward: "Ololulung'a",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
+}, {
+  name: "Suswa",
+  constituency: "Narok East",
+  ward: "Suswa",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
+}, {
+  name: "Kilgoris",
+  constituency: "Kilgoris",
+  ward: "Kilgoris Central",
+  note: "Constituency HQ. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.0084,
+  lng: 34.88
+}, {
+  name: "Lolgorian",
+  constituency: "Kilgoris",
+  ward: "Lolgorian",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
+}, {
+  name: "Machakos Town",
+  constituency: "Machakos Town",
+  ward: "Machakos Central",
+  note: "County HQ. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.517,
+  lng: 37.267
+}, {
+  name: "Athi River",
+  constituency: "Mavoko",
+  ward: "Athi River",
+  note: "Industrial town on Mombasa Rd. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.4563,
+  lng: 36.97826
+}, {
+  name: "Mlolongo",
+  constituency: "Mavoko",
+  ward: "Syokimau/Mulolongo",
+  note: "Mombasa Rd trading centre. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.383,
+  lng: 36.917
+}, {
+  name: "Tala",
+  constituency: "Matungulu",
+  ward: "Tala",
+  note: "Trading town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.35,
+  lng: 37.37
+}, {
+  name: "Kangundo",
+  constituency: "Kangundo",
+  ward: "Kangundo Central",
+  note: "Constituency HQ. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.2979,
+  lng: 37.3471
+}, {
+  name: "Matuu",
+  constituency: "Yatta",
+  ward: "Matuu",
+  note: "Major Thika–Garissa Rd town. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.16216,
+  lng: 37.47878
+}, {
+  name: "Mwala",
+  constituency: "Mwala",
+  ward: "Makutano/Mwala",
+  note: "Constituency HQ. Coordinates from public gazetteer data — confirm on site.",
+  lat: -1.35255,
+  lng: 37.45482
+}, {
+  name: "Kathiani",
+  constituency: "Kathiani",
+  ward: "Kathiani Central",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
+}, {
+  name: "Masinga",
+  constituency: "Masinga",
+  ward: "Masinga Central",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
+}, {
+  name: "Wamunyu",
+  constituency: "Mwala",
+  ward: "Wamunyu",
+  note: "Trading centre — coordinates not yet verified; add via the coordinate editor, then run Nearby stations."
 }];
 
 // ---------- Scoring criteria, grouped exactly per the brief ----------
@@ -8520,17 +8768,13 @@ function SiteScout() {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: "All"
-  }, "All constituencies"), filterCounty === "All" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("optgroup", {
-    label: "Murang'a County"
-  }, MURANGA_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
+  }, "All constituencies"), filterCounty === "All" ? /*#__PURE__*/React.createElement(React.Fragment, null, Object.entries(COUNTIES).map(([county, list]) => /*#__PURE__*/React.createElement("optgroup", {
+    key: county,
+    label: county + " County"
+  }, list.map(c => /*#__PURE__*/React.createElement("option", {
     key: c,
     value: c
-  }, c))), /*#__PURE__*/React.createElement("optgroup", {
-    label: "Kiambu County"
-  }, KIAMBU_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
-    key: c,
-    value: c
-  }, c)))) : COUNTIES[filterCounty].map(c => /*#__PURE__*/React.createElement("option", {
+  }, c))))) : COUNTIES[filterCounty].map(c => /*#__PURE__*/React.createElement("option", {
     key: c,
     value: c
   }, c))), /*#__PURE__*/React.createElement("select", {
@@ -8562,17 +8806,13 @@ function SiteScout() {
   }, w)))) :
   /*#__PURE__*/
   // Nothing selected: group by county then constituency
-  React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("optgroup", {
-    label: "Murang'a County"
-  }, MURANGA_CONSTITUENCIES.flatMap(c => CONSTITUENCIES[c].map(w => /*#__PURE__*/React.createElement("option", {
+  React.createElement(React.Fragment, null, Object.entries(COUNTIES).map(([county, list]) => /*#__PURE__*/React.createElement("optgroup", {
+    key: county,
+    label: county + " County"
+  }, list.flatMap(c => CONSTITUENCIES[c].map(w => /*#__PURE__*/React.createElement("option", {
     key: `${c}-${w}`,
     value: w
-  }, c, ": ", w)))), /*#__PURE__*/React.createElement("optgroup", {
-    label: "Kiambu County"
-  }, KIAMBU_CONSTITUENCIES.flatMap(c => CONSTITUENCIES[c].map(w => /*#__PURE__*/React.createElement("option", {
-    key: `${c}-${w}`,
-    value: w
-  }, c, ": ", w)))))));
+  }, c, ": ", w))))))));
   if (loading) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -8677,13 +8917,13 @@ function SiteScout() {
       fontWeight: 700,
       letterSpacing: 0.2
     }
-  }, "Site Scout — Murang'a")), /*#__PURE__*/React.createElement("p", {
+  }, "Site Scout")), /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "6px 0 0 44px",
       color: "#A69C8C",
       fontSize: 13.5
     }
-  }, "Weighted location scoring · Murang'a (7 constituencies, 35 wards) + Kiambu (12 constituencies, 60 wards)")), /*#__PURE__*/React.createElement("div", {
+  }, "Weighted location scoring · Murang'a, Kiambu, Kajiado, Narok & Machakos (38 constituencies, 190 wards)")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -9085,17 +9325,13 @@ function SiteScout() {
       padding: "8px 10px",
       fontSize: 13.5
     }
-  }, /*#__PURE__*/React.createElement("optgroup", {
-    label: "Murang'a County"
-  }, MURANGA_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
+  }, Object.entries(COUNTIES).map(([county, list]) => /*#__PURE__*/React.createElement("optgroup", {
+    key: county,
+    label: county + " County"
+  }, list.map(c => /*#__PURE__*/React.createElement("option", {
     key: c,
     value: c
-  }, c))), /*#__PURE__*/React.createElement("optgroup", {
-    label: "Kiambu County"
-  }, KIAMBU_CONSTITUENCIES.map(c => /*#__PURE__*/React.createElement("option", {
-    key: c,
-    value: c
-  }, c))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, c)))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 12,
       color: "#A69C8C",
